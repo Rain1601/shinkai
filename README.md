@@ -48,6 +48,7 @@ The repository now contains a runnable V1.0 vertical slice:
 - DeepSeek frontier-planning integration with deterministic fallback
 - frontier queue selection with explicit planner, reviewer, and optimizer trace events
 - web search/extract tool events plus structured source, evidence, claim, candidate, and task records
+- Mode A company dossiers with checks, risks, catalysts, and invest/watch/reject decisions
 - source tiering, primary-source flags, citation locators, and refuting-evidence search for claim review
 - Postgres-ready persistence with JSON fallback for local runs, events, research state, and graphs
 - eval reports for process, evidence, reasoning, and discovery quality

@@ -142,6 +142,7 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         assert event_types.count("candidate_scored") >= 12
         assert event_types.count("claim_validated") >= 4
         assert event_types.count("company_deep_analysis_completed") >= 12
+        assert event_types.count("company_dossier_created") >= 12
         assert "review_completed" in event_types
         assert "optimization_decision" in event_types
         assert "memory_patch_proposed" in event_types
@@ -234,6 +235,7 @@ def test_autonomous_harness_can_use_source_backed_evidence() -> None:
         assert research_state.evidence
         assert research_state.claims
         assert research_state.candidates
+        assert research_state.dossiers
         assert research_state.tasks
         assert any(
             event.type == "tool_result" and event.data["name"] == "web_extract"

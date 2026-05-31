@@ -5,6 +5,7 @@ from shinkai_api.persistence import default_state_store
 from shinkai_api.research.models import (
     CandidateCompany,
     Claim,
+    CompanyDossier,
     Evidence,
     ResearchTask,
     RunResearchState,
@@ -18,6 +19,7 @@ class InMemoryResearchStore:
         self._evidence: dict[str, Evidence] = {}
         self._claims: dict[str, Claim] = {}
         self._candidates: dict[str, CandidateCompany] = {}
+        self._dossiers: dict[str, CompanyDossier] = {}
         self._tasks: dict[str, ResearchTask] = {}
         self._lock = LoopBoundLock()
         self._loaded = False
@@ -49,6 +51,13 @@ class InMemoryResearchStore:
             self._candidates[candidate.candidate_id] = candidate
             await self._persist("research_candidates", self._candidates)
             return candidate
+
+    async def upsert_dossier(self, dossier: CompanyDossier) -> CompanyDossier:
+        async with self._lock.get():
+            await self._ensure_loaded()
+            self._dossiers[dossier.dossier_id] = dossier
+            await self._persist("research_dossiers", self._dossiers)
+            return dossier
 
     async def upsert_task(self, task: ResearchTask) -> ResearchTask:
         async with self._lock.get():
@@ -82,6 +91,14 @@ class InMemoryResearchStore:
                     ],
                     key=lambda candidate: candidate.candidate_id,
                 ),
+                dossiers=sorted(
+                    [
+                        dossier
+                        for dossier in self._dossiers.values()
+                        if dossier.run_id == run_id
+                    ],
+                    key=lambda dossier: dossier.dossier_id,
+                ),
                 tasks=sorted(
                     [task for task in self._tasks.values() if task.run_id == run_id],
                     key=lambda task: task.created_at,
@@ -99,6 +116,7 @@ class InMemoryResearchStore:
             state.get("research_candidates", {}),
             CandidateCompany,
         )
+        self._dossiers = _load_models(state.get("research_dossiers", {}), CompanyDossier)
         self._tasks = _load_models(state.get("research_tasks", {}), ResearchTask)
         self._loaded = True
 

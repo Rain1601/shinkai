@@ -101,6 +101,7 @@ assert len(graph["nodes"]) >= 53
 assert len(graph["edges"]) >= 56
 assert len(research["claims"]) >= 16
 assert len(research["candidates"]) >= 12
+assert len(research["dossiers"]) >= 12
 assert len(research["tasks"]) >= 16
 assert report["process_score"] is not None
 assert report["discovery_score"] is not None

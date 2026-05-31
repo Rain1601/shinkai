@@ -48,6 +48,7 @@ def _empty_state() -> dict[str, Any]:
         "research_evidence": {},
         "research_claims": {},
         "research_candidates": {},
+        "research_dossiers": {},
         "research_tasks": {},
     }
 

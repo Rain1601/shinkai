@@ -116,6 +116,8 @@ export type CandidateStatus = "new" | "researching" | "qualified" | "rejected" |
 
 export type TaskStatus = "queued" | "running" | "blocked" | "completed" | "failed";
 
+export type InvestmentDecision = "invest" | "watch" | "reject";
+
 export type SourceRef = {
   source_id: string;
   type: SourceType;
@@ -184,6 +186,29 @@ export type CandidateCompany = {
   metadata: Record<string, unknown>;
 };
 
+export type CompanyDossier = {
+  dossier_id: string;
+  run_id: string;
+  candidate_id: string;
+  ticker: string;
+  company_name: string;
+  supply_chain_layer: string;
+  business_summary: string;
+  ai_exposure: string;
+  supply_chain_position: string;
+  financial_metrics: Record<string, number | string | null>;
+  valuation_view: string;
+  risk_factors: string[];
+  catalysts: string[];
+  mode_a_checks: Record<string, boolean>;
+  decision: InvestmentDecision;
+  decision_rationale: string;
+  claim_ids: string[];
+  evidence_ids: string[];
+  created_at: number;
+  metadata: Record<string, unknown>;
+};
+
 export type ResearchTask = {
   task_id: string;
   run_id: string;
@@ -206,6 +231,7 @@ export type RunResearchState = {
   evidence: Evidence[];
   claims: Claim[];
   candidates: CandidateCompany[];
+  dossiers: CompanyDossier[];
   tasks: ResearchTask[];
 };
 

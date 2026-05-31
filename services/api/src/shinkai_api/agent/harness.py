@@ -12,6 +12,8 @@ from shinkai_api.llm import DeepSeekClient, DeepSeekError
 from shinkai_api.research import (
     CandidateCompany,
     Claim,
+    ClaimAssessment,
+    CompanyDossier,
     Evidence,
     ResearchTask,
     SourceRef,
@@ -468,6 +470,7 @@ class ShinkaiHarness:
             candidate_detail_edges: list[Edge] = []
             claim_records = [bottleneck_claim]
             candidate_records: list[CandidateCompany] = []
+            dossier_records: list[CompanyDossier] = []
             task_records: list[ResearchTask] = []
             for company in layer.companies:
                 quality = float(company["quality"])
@@ -585,6 +588,16 @@ class ShinkaiHarness:
                     },
                 )
                 candidate_records.append(candidate_record)
+                dossier_record = _build_company_dossier(
+                    run_id=run.id,
+                    layer=layer,
+                    candidate=candidate_record,
+                    score=score,
+                    q1_pass=q1_pass,
+                    q2_pass=q2_pass,
+                    assessment=assessment,
+                )
+                dossier_records.append(dossier_record)
                 task_records.append(
                     ResearchTask(
                         task_id=_stable_id("task", run.id, str(company["ticker"]), layer.name),
@@ -712,6 +725,7 @@ class ShinkaiHarness:
                 evidence=evidence,
                 claims=claim_records,
                 candidates=candidate_records,
+                dossiers=dossier_records,
                 tasks=task_records,
             )
             candidate_records_by_ticker = {
@@ -721,6 +735,9 @@ class ShinkaiHarness:
                 str(task.metadata.get("ticker")): task
                 for task in task_records
                 if task.metadata.get("ticker")
+            }
+            candidate_dossiers_by_ticker = {
+                dossier.ticker: dossier for dossier in dossier_records
             }
 
             delta = GraphDelta(
@@ -858,6 +875,7 @@ class ShinkaiHarness:
                 )
                 candidate_record = candidate_records_by_ticker.get(str(company["ticker"]))
                 task_record = candidate_tasks_by_ticker.get(str(company["ticker"]))
+                dossier_record = candidate_dossiers_by_ticker.get(str(company["ticker"]))
                 if candidate_record and task_record:
                     yield AgentEvent(
                         type="company_deep_analysis_completed",
@@ -876,6 +894,24 @@ class ShinkaiHarness:
                             "risk_flags": candidate_record.risk_flags,
                             "next_questions": candidate_record.next_questions,
                             "decision": candidate_record.metadata.get("decision"),
+                        },
+                    )
+                if dossier_record:
+                    yield AgentEvent(
+                        type="company_dossier_created",
+                        run_id=run.id,
+                        data={
+                            "loop_index": loop_index,
+                            "ticker": dossier_record.ticker,
+                            "name": dossier_record.company_name,
+                            "dossier_id": dossier_record.dossier_id,
+                            "candidate_id": dossier_record.candidate_id,
+                            "layer": dossier_record.supply_chain_layer,
+                            "decision": dossier_record.decision,
+                            "decision_rationale": dossier_record.decision_rationale,
+                            "mode_a_checks": dossier_record.mode_a_checks,
+                            "risk_factors": dossier_record.risk_factors,
+                            "catalysts": dossier_record.catalysts,
                         },
                     )
                 if decision == "queue_mode_a":
@@ -1174,6 +1210,7 @@ class ShinkaiHarness:
         evidence: LayerEvidence,
         claims: list[Claim],
         candidates: list[CandidateCompany],
+        dossiers: list[CompanyDossier],
         tasks: list[ResearchTask],
     ) -> None:
         for source in evidence.sources:
@@ -1188,6 +1225,8 @@ class ShinkaiHarness:
             await default_research_store.upsert_claim(claim)
         for candidate in candidates:
             await default_research_store.upsert_candidate(candidate)
+        for dossier in dossiers:
+            await default_research_store.upsert_dossier(dossier)
         for task in tasks:
             await default_research_store.upsert_task(task)
 
@@ -1549,6 +1588,102 @@ def _candidate_questions(company_name: str, layer_name: str) -> list[str]:
         "Is the AI-linked demand durable across a full cycle?",
         "Does the exposure improve margins rather than only revenue growth?",
     ]
+
+
+def _build_company_dossier(
+    *,
+    run_id: str,
+    layer: SupplyChainLayer,
+    candidate: CandidateCompany,
+    score: float,
+    q1_pass: bool,
+    q2_pass: bool,
+    assessment: ClaimAssessment,
+) -> CompanyDossier:
+    directness = assessment.verification == "support"
+    margin_check = candidate.quality_score >= 0.68
+    valuation_check = candidate.under_coverage_score >= 0.55
+    risk_check = assessment.verification != "refute" and "needs_primary_source_validation" not in (
+        candidate.risk_flags
+    )
+    decision, rationale = _mode_a_decision(
+        score=score,
+        quality=q1_pass,
+        undercovered=q2_pass,
+        directness=directness,
+        margin=margin_check,
+        valuation=valuation_check,
+        risk=assessment.verification != "refute",
+    )
+    return CompanyDossier(
+        dossier_id=_stable_id("dossier", run_id, candidate.ticker, layer.name),
+        run_id=run_id,
+        candidate_id=candidate.candidate_id,
+        ticker=candidate.ticker,
+        company_name=candidate.name,
+        supply_chain_layer=layer.name,
+        business_summary=(
+            f"{candidate.name} is being evaluated as a second-order supplier tied to "
+            f"{layer.name}."
+        ),
+        ai_exposure=candidate.thesis,
+        supply_chain_position=layer.bottleneck,
+        financial_metrics={
+            "quality_score": candidate.quality_score,
+            "under_coverage_score": candidate.under_coverage_score,
+            "relevance_score": candidate.relevance_score,
+            "primary_source_count": assessment.primary_source_count,
+            "claim_confidence": assessment.confidence,
+        },
+        valuation_view=(
+            "Potentially under-covered relative to bottleneck relevance."
+            if q2_pass
+            else "Coverage may already reflect part of the AI exposure."
+        ),
+        risk_factors=[
+            *candidate.risk_flags,
+            *([] if assessment.verification != "refute" else ["refuting_evidence_present"]),
+            *([] if assessment.primary_source_count else ["primary_source_gap"]),
+        ],
+        catalysts=[
+            f"Primary-source confirmation of {layer.name} demand",
+            "AI-linked order commentary or backlog disclosure",
+            "Margin evidence from mix shift rather than only revenue growth",
+        ],
+        mode_a_checks={
+            "quality": q1_pass,
+            "undercovered": q2_pass,
+            "direct_ai_exposure": directness,
+            "margin_accretive": margin_check,
+            "valuation_reasonable": valuation_check,
+            "risk_not_refuted": risk_check,
+        },
+        decision=decision,
+        decision_rationale=rationale,
+        claim_ids=candidate.claim_ids,
+        evidence_ids=candidate.evidence_ids,
+        metadata={
+            "assessment": assessment.model_dump(mode="json"),
+            "source": "mode_a_dossier_builder",
+        },
+    )
+
+
+def _mode_a_decision(
+    *,
+    score: float,
+    quality: bool,
+    undercovered: bool,
+    directness: bool,
+    margin: bool,
+    valuation: bool,
+    risk: bool,
+) -> tuple[str, str]:
+    if not risk or not quality:
+        return "reject", "Rejected until risk is resolved and the quality filter passes."
+    if all([quality, undercovered, directness, margin, valuation]) and score >= 0.67:
+        return "invest", "All Mode A checks pass with source-backed exposure."
+    return "watch", "Watchlist until directness, valuation, or margin evidence is stronger."
 
 
 def _stale_evidence_ids(evidence: LayerEvidence, stale_source_ids: list[str]) -> list[str]:

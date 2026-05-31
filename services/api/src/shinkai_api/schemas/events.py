@@ -40,6 +40,7 @@ EventType = Literal[
     "claim_validated",
     "claim_updated",
     "company_deep_analysis_completed",
+    "company_dossier_created",
     "question_opened",
     "critic_warning",
     "checkpoint_raised",

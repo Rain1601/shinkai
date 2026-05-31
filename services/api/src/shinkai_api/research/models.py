@@ -30,6 +30,7 @@ ClaimStatus = Literal["unsupported", "weak", "supported", "contradicted"]
 ClaimVerification = Literal["support", "refute", "insufficient", "stale"]
 CandidateStatus = Literal["new", "researching", "qualified", "rejected", "watchlist"]
 TaskStatus = Literal["queued", "running", "blocked", "completed", "failed"]
+InvestmentDecision = Literal["invest", "watch", "reject"]
 
 
 def _unique_ids(values: Iterable[str]) -> set[str]:
@@ -253,6 +254,29 @@ class CandidateCompany(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class CompanyDossier(BaseModel):
+    dossier_id: str
+    run_id: str
+    candidate_id: str
+    ticker: str
+    company_name: str
+    supply_chain_layer: str = ""
+    business_summary: str = ""
+    ai_exposure: str = ""
+    supply_chain_position: str = ""
+    financial_metrics: dict[str, float | str | None] = Field(default_factory=dict)
+    valuation_view: str = ""
+    risk_factors: list[str] = Field(default_factory=list)
+    catalysts: list[str] = Field(default_factory=list)
+    mode_a_checks: dict[str, bool] = Field(default_factory=dict)
+    decision: InvestmentDecision = "watch"
+    decision_rationale: str = ""
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    created_at: float = Field(default_factory=time)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResearchTask(BaseModel):
     task_id: str
     run_id: str
@@ -275,4 +299,5 @@ class RunResearchState(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     claims: list[Claim] = Field(default_factory=list)
     candidates: list[CandidateCompany] = Field(default_factory=list)
+    dossiers: list[CompanyDossier] = Field(default_factory=list)
     tasks: list[ResearchTask] = Field(default_factory=list)

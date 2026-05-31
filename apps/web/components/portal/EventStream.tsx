@@ -116,6 +116,9 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
   if (type === "company_deep_analysis_completed") {
     return `公司深度分析完成：${String(data.ticker ?? "候选")} · ${String(data.status ?? "")}`;
   }
+  if (type === "company_dossier_created") {
+    return `公司档案：${String(data.ticker ?? "候选")} · ${localizeDecision(data.decision, "zh")}`;
+  }
   if (type === "review_completed") {
     return `复盘完成：${layer} · 分数 ${formatNumber(data.review_score)}`;
   }

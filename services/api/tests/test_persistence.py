@@ -5,7 +5,14 @@ import asyncio
 from shinkai_api.core.config import settings
 from shinkai_api.graph import GraphDelta, Node
 from shinkai_api.graph.store import InMemoryGraphStore
-from shinkai_api.research import CandidateCompany, Claim, Evidence, ResearchTask, SourceRef
+from shinkai_api.research import (
+    CandidateCompany,
+    Claim,
+    CompanyDossier,
+    Evidence,
+    ResearchTask,
+    SourceRef,
+)
 from shinkai_api.research.store import InMemoryResearchStore
 from shinkai_api.runs import RunCreate
 from shinkai_api.runs.store import InMemoryRunStore
@@ -110,6 +117,19 @@ def test_json_state_recovers_research_domain_models(tmp_path) -> None:
                     evidence_ids=["ev_power"],
                 )
             )
+            await research_store.upsert_dossier(
+                CompanyDossier(
+                    dossier_id="dossier_vrt",
+                    run_id="run_1",
+                    candidate_id="cand_vrt",
+                    ticker="VRT",
+                    company_name="Vertiv",
+                    supply_chain_layer="Power",
+                    decision="watch",
+                    claim_ids=["claim_power"],
+                    evidence_ids=["ev_power"],
+                )
+            )
             await research_store.upsert_task(
                 ResearchTask(
                     task_id="task_vrt",
@@ -127,6 +147,7 @@ def test_json_state_recovers_research_domain_models(tmp_path) -> None:
             assert [evidence.evidence_id for evidence in state.evidence] == ["ev_power"]
             assert [claim.status for claim in state.claims] == ["weak"]
             assert [candidate.ticker for candidate in state.candidates] == ["VRT"]
+            assert [dossier.decision for dossier in state.dossiers] == ["watch"]
             assert [task.task_id for task in state.tasks] == ["task_vrt"]
         finally:
             settings.persistence_enabled = previous_enabled

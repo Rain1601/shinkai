@@ -65,7 +65,10 @@ export function localizeDecision(decision: unknown, locale: Locale): string {
       expand_next_frontier: "扩展下一前沿",
       block_and_research_contradiction: "先处理反证",
       refresh_sources: "刷新来源",
-      raise_primary_source_priority: "提高一手来源优先级"
+      raise_primary_source_priority: "提高一手来源优先级",
+      invest: "可进入投资研究",
+      watch: "观察名单",
+      reject: "暂不进入"
     }[value] ?? value
   );
 }
@@ -99,6 +102,7 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       claim_created: "论点创建",
       claim_validated: "论点校验",
       company_deep_analysis_completed: "公司深度分析",
+      company_dossier_created: "公司档案创建",
       eval_completed: "评测完成",
       child_run_created: "子运行创建",
       usage: "用量记录",
