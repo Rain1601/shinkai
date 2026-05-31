@@ -5,6 +5,10 @@ import asyncio
 from shinkai_api.core.config import settings
 from shinkai_api.graph import GraphDelta, Node
 from shinkai_api.graph.store import InMemoryGraphStore
+from shinkai_api.persistence.postgres_state import (
+    _schema_statements,
+    normalized_records_for_section,
+)
 from shinkai_api.research import (
     CandidateCompany,
     Claim,
@@ -68,6 +72,42 @@ def test_json_state_recovers_runs_events_and_graph(tmp_path) -> None:
             settings.state_path = previous_path
 
     asyncio.run(scenario())
+
+
+def test_postgres_state_exposes_normalized_projection_records() -> None:
+    records = normalized_records_for_section(
+        "runs",
+        {
+            "run_1": {
+                "id": "run_1",
+                "status": "completed",
+                "mode": "mode_b_narrative",
+                "anchor": "Autonomous Discovery",
+                "events": [
+                    {
+                        "event_id": "evt_1",
+                        "type": "done",
+                        "run_id": "run_1",
+                        "ts": 1.0,
+                        "data": {"status": "complete"},
+                    }
+                ],
+            }
+        },
+    )
+
+    assert [record.table for record in records] == ["shinkai_runs", "shinkai_events"]
+    assert records[0].key == ("run_1",)
+    assert records[1].key == ("evt_1",)
+
+
+def test_postgres_state_schema_contains_queryable_tables() -> None:
+    schema = "\n".join(_schema_statements())
+
+    assert "shinkai_runs" in schema
+    assert "shinkai_events" in schema
+    assert "shinkai_graph_nodes" in schema
+    assert "shinkai_research_records" in schema
 
 
 def test_json_state_recovers_research_domain_models(tmp_path) -> None:
