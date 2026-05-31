@@ -71,6 +71,7 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
   if (type === "run_start") {
     return `运行已创建：${localizeMode(data.mode, "zh")} · ${localizeText(data.anchor, "zh")}`;
   }
+  if (type === "run_recovered") return "运行已从持久化状态恢复。";
   if (type === "plan") {
     return "计划已生成：按“规划、扩展、证据、评分、复盘、优化”循环执行。";
   }
@@ -134,6 +135,9 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
   }
   if (type === "eval_completed") {
     return `评测完成：过程 ${formatNumber(data.process_score)}，证据 ${formatNumber(data.evidence_score)}，发现 ${formatNumber(data.discovery_score)}。`;
+  }
+  if (type === "budget_exhausted") {
+    return `预算耗尽：${String(data.budget ?? "budget")} · 上限 ${String(data.max_tool_calls ?? "")}`;
   }
   if (type === "child_run_created") {
     return `创建下一轮自主迭代：${localizeText(data.child_anchor, "zh")}`;

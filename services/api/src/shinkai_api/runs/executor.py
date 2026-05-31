@@ -28,6 +28,28 @@ class RunExecutor:
         self._tasks[run_id] = asyncio.create_task(self._execute(run_id))
         return run
 
+    async def recover_active_runs(self) -> list[Run]:
+        recovered: list[Run] = []
+        for run in await default_run_store.list():
+            if run.status != "running":
+                continue
+            task = self._tasks.get(run.id)
+            if task and not task.done():
+                continue
+            await default_run_store.append_event(
+                run.id,
+                AgentEvent(
+                    type="run_recovered",
+                    run_id=run.id,
+                    data={
+                        "source": "run_executor_startup",
+                        "previous_lifecycle_stage": run.lifecycle_stage,
+                    },
+                ),
+            )
+            recovered.append(await self.start(run.id))
+        return recovered
+
     async def abort(self, run_id: str) -> Run:
         run = await default_run_store.set_status(run_id, "aborted", "aborted")
         task = self._tasks.get(run_id)
@@ -43,6 +65,25 @@ class RunExecutor:
             run = await default_run_store.get(run_id)
             async for event in harness.run(run):
                 if not await self._wait_until_runnable(run_id):
+                    return
+                if await self._would_exceed_budget(run_id, event):
+                    await default_run_store.append_event(
+                        run_id,
+                        AgentEvent(
+                            type="budget_exhausted",
+                            run_id=run_id,
+                            data={
+                                "budget": "max_tool_calls",
+                                "max_tool_calls": run.budget.max_tool_calls,
+                                "attempted_event": event.type,
+                            },
+                        ),
+                    )
+                    await default_run_store.set_status(
+                        run_id,
+                        "completed",
+                        "budget_exhausted",
+                    )
                     return
                 await default_run_store.append_event(run_id, event)
                 await self._apply_event_side_effects(run_id, event)
@@ -73,6 +114,13 @@ class RunExecutor:
             if run.status != "paused":
                 return True
             await asyncio.sleep(0.5)
+
+    async def _would_exceed_budget(self, run_id: str, event: AgentEvent) -> bool:
+        if event.type != "tool_call":
+            return False
+        run = await default_run_store.get(run_id)
+        tool_calls = sum(1 for existing in run.events if existing.type == "tool_call")
+        return tool_calls >= run.budget.max_tool_calls
 
     async def _apply_event_side_effects(self, run_id: str, event: AgentEvent) -> None:
         stage = _stage_from_event(event)
@@ -166,6 +214,8 @@ def _stage_from_event(event: AgentEvent) -> str | None:
         return "evaluating"
     if event.type == "done":
         return "completed"
+    if event.type == "budget_exhausted":
+        return "budget_exhausted"
     if event.type == "error":
         return "failed"
     return None

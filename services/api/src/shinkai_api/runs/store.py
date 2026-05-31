@@ -49,7 +49,10 @@ class InMemoryRunStore:
     async def append_event(self, run_id: str, event: AgentEvent) -> None:
         async with self._lock.get():
             await self._ensure_loaded()
-            self._runs[run_id].events.append(event)
+            run = self._runs[run_id]
+            if event.event_id in {existing.event_id for existing in run.events}:
+                return
+            run.events.append(event)
             await self._persist()
 
     async def set_status(self, run_id: str, status: str, lifecycle_stage: str | None = None) -> Run:

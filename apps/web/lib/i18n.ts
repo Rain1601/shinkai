@@ -79,6 +79,7 @@ export function localizeEventType(type: unknown, locale: Locale): string {
   return (
     {
       run_start: "运行创建",
+      run_recovered: "运行恢复",
       plan: "计划生成",
       tool_call: "工具调用",
       tool_result: "工具返回",
@@ -103,6 +104,7 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       claim_validated: "论点校验",
       company_deep_analysis_completed: "公司深度分析",
       company_dossier_created: "公司档案创建",
+      budget_exhausted: "预算耗尽",
       eval_completed: "评测完成",
       child_run_created: "子运行创建",
       usage: "用量记录",

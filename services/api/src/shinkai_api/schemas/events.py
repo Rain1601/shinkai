@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 EventType = Literal[
     "run_start",
+    "run_recovered",
     "plan",
     "section_started",
     "section_completed",
@@ -45,6 +46,7 @@ EventType = Literal[
     "critic_warning",
     "checkpoint_raised",
     "checkpoint_released",
+    "budget_exhausted",
     "eval_completed",
     "child_run_created",
     "a2a_message_sent",

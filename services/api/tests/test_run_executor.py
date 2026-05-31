@@ -4,7 +4,28 @@ import asyncio
 
 from shinkai_api.graph import default_graph_store
 from shinkai_api.runs import RunCreate, default_run_store
-from shinkai_api.runs.executor import default_run_executor
+from shinkai_api.runs.executor import RunExecutor, default_run_executor
+from shinkai_api.schemas.events import AgentEvent
+
+
+def test_run_store_deduplicates_events_by_id() -> None:
+    async def scenario() -> None:
+        run = await default_run_store.create(
+            RunCreate(
+                mode="mode_b_narrative",
+                anchor="Idempotency",
+                scope={"allow_live_sources": False},
+            )
+        )
+        event = AgentEvent(event_id="fixed_event", type="plan", run_id=run.id)
+
+        await default_run_store.append_event(run.id, event)
+        await default_run_store.append_event(run.id, event)
+
+        current = await default_run_store.get(run.id)
+        assert [item.event_id for item in current.events].count("fixed_event") == 1
+
+    asyncio.run(scenario())
 
 
 def test_run_executor_runs_harness_in_background() -> None:
@@ -89,5 +110,73 @@ def test_run_executor_spawns_bounded_child_spiral() -> None:
         assert child.triggered_by == "eval"
         assert child.scope["spiral_index"] == 2
         assert child.child_run_ids == []
+
+    asyncio.run(scenario())
+
+
+def test_run_executor_recovers_running_run() -> None:
+    async def scenario() -> None:
+        run = await default_run_store.create(
+            RunCreate(
+                mode="mode_b_narrative",
+                anchor="Recoverable Run",
+                scope={
+                    "objective": "recover after restart",
+                    "allow_live_sources": False,
+                },
+                budget={"max_wall_time_minutes": 120, "max_tool_calls": 20},
+            )
+        )
+        graph = await default_graph_store.create_for_run(run)
+        await default_run_store.set_graph_id(run.id, graph.graph_id)
+        await default_run_store.set_status(run.id, "running", "planning")
+
+        executor = RunExecutor()
+        recovered = await executor.recover_active_runs()
+
+        assert [item.id for item in recovered] == [run.id]
+        for _ in range(600):
+            current = await default_run_store.get(run.id)
+            if current.status == "completed":
+                break
+            await asyncio.sleep(0.05)
+
+        current = await default_run_store.get(run.id)
+        event_types = [event.type for event in current.events]
+        assert "run_recovered" in event_types
+        assert current.status == "completed"
+
+    asyncio.run(scenario())
+
+
+def test_run_executor_stops_when_tool_call_budget_is_exhausted() -> None:
+    async def scenario() -> None:
+        run = await default_run_store.create(
+            RunCreate(
+                mode="mode_b_narrative",
+                anchor="Budget Guard",
+                scope={
+                    "objective": "stop before tool calls",
+                    "allow_live_sources": True,
+                },
+                budget={"max_wall_time_minutes": 120, "max_tool_calls": 0},
+            )
+        )
+        graph = await default_graph_store.create_for_run(run)
+        await default_run_store.set_graph_id(run.id, graph.graph_id)
+
+        await default_run_executor.start(run.id)
+
+        for _ in range(600):
+            current = await default_run_store.get(run.id)
+            if current.status == "completed":
+                break
+            await asyncio.sleep(0.05)
+
+        current = await default_run_store.get(run.id)
+        event_types = [event.type for event in current.events]
+        assert "budget_exhausted" in event_types
+        assert "tool_result" not in event_types
+        assert current.lifecycle_stage == "budget_exhausted"
 
     asyncio.run(scenario())
