@@ -1,0 +1,103 @@
+# shinkai
+
+Long-running investment research agent for discovering themes and performing deep company analysis on under-covered high-quality candidates.
+
+## Structure
+
+```text
+shinkai/
+├── apps/
+│   └── web/                 # Next.js frontend skeleton
+├── services/
+│   └── api/                 # FastAPI backend and shinkai harness skeleton
+├── packages/
+│   ├── shared-types/        # TypeScript API/domain types
+│   └── ui/                  # Shared UI package placeholder
+├── docs/                    # Product, architecture, graph, and checklist specs
+├── scripts/                 # Dev and type-generation scripts
+└── Makefile                 # Unified command entrypoint
+```
+
+## Development
+
+Prerequisites: Node 22+, pnpm 9+, Python 3.13+, and uv.
+
+```bash
+make setup
+make dev
+```
+
+Useful commands:
+
+```bash
+make api      # FastAPI on :8100
+make web      # Next.js on :3100
+make types    # placeholder for OpenAPI -> TS generation
+make lint
+make test
+make smoke    # starts isolated API/Web ports and runs an end-to-end check
+```
+
+## Current Scope
+
+The repository now contains a runnable V1.0 vertical slice:
+
+- asynchronous run execution with live server-sent events
+- review/optimize-oriented shinkai harness for AI supply-chain discovery
+- bounded autonomous child-run spirals for self-iteration
+- DeepSeek frontier-planning integration with deterministic fallback
+- web search/extract tool events, evidence, claims, candidates, questions, and thesis graph nodes
+- JSON-backed local persistence for runs, events, and research graphs
+- eval reports for process, evidence, reasoning, and discovery quality
+- web dashboards for runs, graph, eval, review, and A2A views
+
+The next slices are richer source grading, stronger scheduling policy, and deeper Mode A company-analysis loops.
+
+## DeepSeek Runtime
+
+The autonomous discovery harness can use DeepSeek directly for frontier planning.
+Keep the API key out of repo files:
+
+```bash
+export SHINKAI_DEEPSEEK_API_KEY="..."
+export SHINKAI_LLM_MODEL="deepseek-chat"
+make api
+```
+
+Without the key, the harness falls back to deterministic supply-chain layers.
+
+## Local State
+
+`make dev` writes run/event/graph state to `.shinkai/state.json`. Override it with:
+
+```bash
+export SHINKAI_STATE_PATH="/tmp/shinkai-state.json"
+```
+
+Do not commit `.shinkai/` or any environment file containing secrets.
+
+## Verification
+
+Run the full local verification set:
+
+```bash
+pnpm --filter @shinkai/web lint
+cd services/api && uv run ruff check src tests && uv run pytest
+bash scripts/smoke.sh
+```
+
+The smoke test verifies:
+
+- API health
+- local CORS preflight
+- Web `/runs` page availability
+- asynchronous autonomous Mode B run creation and execution
+- graph output with candidate/evidence/claim nodes and edges
+- eval output
+
+## Deployment
+
+CI runs on GitHub Actions through `.github/workflows/ci.yml`. Production deployment is defined in
+`.github/workflows/deploy-cloud-run.yml` and targets Google Cloud Run using Workload Identity
+Federation. See `docs/deployment-google-cloud.md` for required Google Cloud variables, Secret
+Manager secrets, and the read-only/user vs admin access model.
