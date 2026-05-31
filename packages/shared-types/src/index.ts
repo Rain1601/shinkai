@@ -87,6 +87,107 @@ export type ResearchGraph = {
   edges: GraphEdge[];
 };
 
+export type SourceType =
+  | "web"
+  | "sec"
+  | "ir"
+  | "news"
+  | "filing"
+  | "transcript"
+  | "research_report"
+  | "dataset"
+  | "manual";
+
+export type EvidenceKind =
+  | "quote"
+  | "summary"
+  | "metric"
+  | "filing_fact"
+  | "transcript_excerpt"
+  | "web_extract";
+
+export type ClaimStatus = "unsupported" | "weak" | "supported" | "contradicted";
+
+export type CandidateStatus = "new" | "researching" | "qualified" | "rejected" | "watchlist";
+
+export type TaskStatus = "queued" | "running" | "blocked" | "completed" | "failed";
+
+export type SourceRef = {
+  source_id: string;
+  type: SourceType;
+  url: string;
+  title: string;
+  publisher: string;
+  published_at?: number | null;
+  accessed_at: number;
+  reliability: number;
+  metadata: Record<string, unknown>;
+};
+
+export type Evidence = {
+  evidence_id: string;
+  source_id: string;
+  run_id: string;
+  kind: EvidenceKind;
+  text: string;
+  url: string;
+  quote: string;
+  summary: string;
+  published_at?: number | null;
+  extracted_at: number;
+  confidence: number;
+  supports_claim_ids: string[];
+  metadata: Record<string, unknown>;
+};
+
+export type Claim = {
+  claim_id: string;
+  run_id: string;
+  text: string;
+  topic: string;
+  status: ClaimStatus;
+  confidence: number;
+  evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  required_independent_sources: number;
+  metadata: Record<string, unknown>;
+};
+
+export type CandidateCompany = {
+  candidate_id: string;
+  run_id: string;
+  name: string;
+  ticker: string;
+  sector: string;
+  supply_chain_layer: string;
+  thesis: string;
+  status: CandidateStatus;
+  quality_score: number;
+  under_coverage_score: number;
+  relevance_score: number;
+  claim_ids: string[];
+  evidence_ids: string[];
+  risk_flags: string[];
+  next_questions: string[];
+  metadata: Record<string, unknown>;
+};
+
+export type ResearchTask = {
+  task_id: string;
+  run_id: string;
+  title: string;
+  objective: string;
+  parent_task_id?: string | null;
+  status: TaskStatus;
+  assigned_agent: string;
+  claim_ids: string[];
+  candidate_ids: string[];
+  evidence_ids: string[];
+  created_at: number;
+  updated_at: number;
+  metadata: Record<string, unknown>;
+};
+
 export type AgentMessageType =
   | "candidate_handoff"
   | "thesis_update"
