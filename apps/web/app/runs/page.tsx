@@ -28,12 +28,20 @@ type Run = {
 
 type AuthSession = {
   auth_required: boolean;
-  role: "admin" | "viewer";
+  role: "admin" | "subscriber" | "viewer";
+  read_scope: "admin" | "subscriber" | "public";
+  capabilities: string[];
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 const DEFAULT_ANCHOR_ZH = "自主发现";
 const DEFAULT_ANCHOR_EN = "Autonomous Discovery";
+const DEFAULT_AUTH_SESSION: AuthSession = {
+  auth_required: true,
+  role: "viewer",
+  read_scope: "public",
+  capabilities: ["read_results", "read_run_process"]
+};
 
 async function apiFetch(
   path: string,
@@ -159,6 +167,10 @@ function formatActivityTime(ts: number, locale: Locale): string {
   });
 }
 
+function hasCapability(session: AuthSession, capability: string): boolean {
+  return session.capabilities.includes(capability);
+}
+
 function themeKey(title: string): string {
   return title.trim().toLowerCase().replace(/\s+/g, " ") || "autonomous-discovery";
 }
@@ -201,12 +213,12 @@ export default function RunsPage() {
   const [nowSeconds, setNowSeconds] = useState(() => Date.now() / 1000);
   const [adminToken, setAdminToken] = useState("");
   const [adminTokenInput, setAdminTokenInput] = useState("");
-  const [authSession, setAuthSession] = useState<AuthSession>({
-    auth_required: true,
-    role: "viewer"
-  });
+  const [authSession, setAuthSession] = useState<AuthSession>(DEFAULT_AUTH_SESSION);
   const isZh = locale === "zh";
   const isAdmin = authSession.role === "admin";
+  const canCreateRuns = hasCapability(authSession, "create_runs");
+  const canControlRuns = hasCapability(authSession, "control_runs");
+  const canViewProcess = hasCapability(authSession, "read_run_process");
 
   function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -276,7 +288,7 @@ export default function RunsPage() {
 
   async function createRun() {
     setError(null);
-    if (!isAdmin) {
+    if (!canCreateRuns) {
       setError(isZh ? "只读模式：需要管理员权限才能创建任务。" : "Read-only mode: admin access is required.");
       return;
     }
@@ -300,7 +312,7 @@ export default function RunsPage() {
 
   async function createAndStartAutonomousRun() {
     setError(null);
-    if (!isAdmin) {
+    if (!canCreateRuns) {
       setError(isZh ? "只读模式：需要管理员权限才能启动扫描。" : "Read-only mode: admin access is required.");
       return;
     }
@@ -359,7 +371,7 @@ export default function RunsPage() {
 
   async function mutateRun(runId: string, action: "start" | "pause" | "abort") {
     setError(null);
-    if (!isAdmin) {
+    if (!canControlRuns) {
       setError(isZh ? "只读模式：需要管理员权限才能控制任务。" : "Read-only mode: admin access is required.");
       return;
     }
@@ -492,6 +504,30 @@ export default function RunsPage() {
       state: reviewCount > 0 || subagentCount > 0 ? "active" : "idle"
     }
   ];
+  const accessLabel =
+    authSession.role === "admin"
+      ? isZh
+        ? "管理员"
+        : "Admin"
+      : authSession.role === "subscriber"
+        ? isZh
+          ? "订阅用户"
+          : "Subscriber"
+        : isZh
+          ? "普通用户"
+          : "Viewer";
+  const accessDetail =
+    authSession.role === "admin"
+      ? isZh
+        ? "全部权限"
+        : "all permissions"
+      : authSession.role === "subscriber"
+        ? isZh
+          ? "扩展查看范围"
+          : "expanded read scope"
+        : isZh
+          ? "可看结果与运行过程"
+          : "results and run process";
 
   return (
     <PortalShell
@@ -552,9 +588,13 @@ export default function RunsPage() {
               </>
             )}
           </div>
+          <span className={`access-badge ${authSession.role}`}>
+            <strong>{accessLabel}</strong>
+            <span>{accessDetail}</span>
+          </span>
           <button
             className="button"
-            disabled={!isAdmin}
+            disabled={!canCreateRuns}
             onClick={createAndStartAutonomousRun}
             type="button"
           >
@@ -651,18 +691,22 @@ export default function RunsPage() {
               </label>
               <button
                 className="button secondary"
-                disabled={!isAdmin}
+                disabled={!canCreateRuns}
                 onClick={createRun}
                 type="button"
               >
                 {isZh ? "创建分析任务" : "Create Analysis"}
               </button>
               {error ? <p className="muted error-copy">{error}</p> : null}
-              {!isAdmin ? (
+              {!canCreateRuns ? (
                 <p className="muted readonly-copy">
                   {isZh
-                    ? "当前为只读访问：可以查看结果，不能创建或控制任务。"
-                    : "Read-only access: results are visible, task controls are disabled."}
+                    ? authSession.role === "subscriber"
+                      ? "当前为订阅访问：可以查看更大范围的结果和运行过程，控制任务仍需管理员权限。"
+                      : "当前为普通用户访问：可以查看结果和 Agent 运行过程，不能创建或控制任务。订阅后可扩大查看范围。"
+                    : authSession.role === "subscriber"
+                      ? "Subscriber access: expanded results and run process are visible; task controls still require admin access."
+                      : "Viewer access: results and the agent run process are visible; subscription can expand the read scope."}
                 </p>
               ) : null}
             </div>
@@ -754,13 +798,22 @@ export default function RunsPage() {
 
           <aside className="trace-panel">
             <ActionPanel
-              disabled={!selectedRun || !isAdmin}
+              disabled={!selectedRun || !canControlRuns}
               locale={locale}
               onAbort={() => selectedRun && mutateRun(selectedRun.id, "abort")}
               onPause={() => selectedRun && mutateRun(selectedRun.id, "pause")}
               onStart={() => selectedRun && mutateRun(selectedRun.id, "start")}
             />
-            <EventStream events={selectedRun?.events ?? []} locale={locale} />
+            {canViewProcess ? (
+              <EventStream events={selectedRun?.events ?? []} locale={locale} />
+            ) : (
+              <section className="surface">
+                <h2>{isZh ? "运行过程" : "Run Process"}</h2>
+                <p className="muted">
+                  {isZh ? "当前权限不可查看运行过程。" : "Current access cannot view the run process."}
+                </p>
+              </section>
+            )}
             <JudgmentPanel events={selectedRun?.events ?? []} locale={locale} />
           </aside>
         </section>

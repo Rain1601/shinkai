@@ -359,6 +359,37 @@ code {
   width: 148px;
 }
 
+.access-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 0 11px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.access-badge strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.access-badge span {
+  color: var(--ink-faint);
+}
+
+.access-badge.admin {
+  border-color: var(--accent-line);
+}
+
+.access-badge.subscriber {
+  border-color: var(--info);
+}
+
 .segmented-control {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(42px, 1fr));

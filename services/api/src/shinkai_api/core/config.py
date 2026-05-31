@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     env: str = "development"
     auth_required: bool = False
     admin_token: str | None = None
+    subscriber_tokens: list[str] = []
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",

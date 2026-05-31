@@ -76,6 +76,12 @@ export SHINKAI_STATE_PATH="/tmp/shinkai-state.json"
 
 Do not commit `.shinkai/` or any environment file containing secrets.
 
+## Access Model
+
+Ordinary users can view published results and the agent running process. Admin users can create,
+start, pause, abort, release, and send A2A messages. The API session endpoint returns explicit
+capabilities so a future subscription role can expand read scope without granting admin controls.
+
 ## Verification
 
 Run the full local verification set:

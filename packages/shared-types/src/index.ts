@@ -1,5 +1,26 @@
 export type RunMode = "mode_a_company" | "mode_b_narrative";
 
+export type AuthRole = "viewer" | "subscriber" | "admin";
+
+export type ReadScope = "public" | "subscriber" | "admin";
+
+export type AuthCapability =
+  | "read_results"
+  | "read_run_process"
+  | "read_extended_results"
+  | "read_extended_history"
+  | "create_runs"
+  | "control_runs"
+  | "release_checkpoints"
+  | "create_a2a_messages";
+
+export type AuthSession = {
+  auth_required: boolean;
+  role: AuthRole;
+  read_scope: ReadScope;
+  capabilities: AuthCapability[];
+};
+
 export type RunStatus =
   | "created"
   | "running"

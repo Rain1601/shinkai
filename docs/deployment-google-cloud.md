@@ -48,14 +48,17 @@ Cloud Run receives them as:
 
 ## Access Model
 
-Cloud Run can be publicly invokable so ordinary users can view published results. Application-level
-authorization protects all write operations:
+Cloud Run can be publicly invokable so ordinary users can view published results and the agent
+running process. Application-level authorization protects all write operations:
 
 - Public: `GET /health`, runs, graphs, eval reports, checkpoints, A2A message list, event streams.
+- Subscriber-ready: future subscription tokens can expand read scope to extended results and
+  history without granting write access.
 - Admin only: creating runs, starting/pausing/aborting runs, releasing checkpoints, and creating A2A messages.
 
 The web app stores the admin token in browser `localStorage` only after manual admin login. Users
-without the token remain in read-only mode.
+without the token remain in read-only mode. Admin sessions expose all capabilities; ordinary viewer
+sessions expose `read_results` and `read_run_process`.
 
 ## Local Production Check
 
