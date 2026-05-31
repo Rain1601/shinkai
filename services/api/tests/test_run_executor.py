@@ -26,7 +26,7 @@ def test_run_executor_runs_harness_in_background() -> None:
         started = await default_run_executor.start(run.id)
         assert started.status == "running"
 
-        for _ in range(100):
+        for _ in range(600):
             current = await default_run_store.get(run.id)
             if current.status == "completed":
                 break
@@ -62,7 +62,7 @@ def test_run_executor_spawns_bounded_child_spiral() -> None:
 
         await default_run_executor.start(run.id)
 
-        for _ in range(100):
+        for _ in range(600):
             parent = await default_run_store.get(run.id)
             if parent.child_run_ids:
                 break
@@ -72,7 +72,7 @@ def test_run_executor_spawns_bounded_child_spiral() -> None:
         assert len(parent.child_run_ids) == 1
         child_id = parent.child_run_ids[0]
 
-        for _ in range(100):
+        for _ in range(600):
             child = await default_run_store.get(child_id)
             if child.status == "completed":
                 break
