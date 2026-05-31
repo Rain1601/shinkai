@@ -80,6 +80,8 @@ done
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/graph" >/tmp/shinkai-smoke-graph.json
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/research" >/tmp/shinkai-smoke-research.json
 curl -fsS "${API_URL}/api/v1/eval/runs/${run_id}" >/tmp/shinkai-smoke-eval.json
+curl -fsS "${API_URL}/api/v1/results" >/tmp/shinkai-smoke-results.json
+curl -fsS "${API_URL}/api/v1/runs/${run_id}/result" >/tmp/shinkai-smoke-result.json
 
 python3 - <<'PY'
 import json
@@ -92,6 +94,10 @@ with open("/tmp/shinkai-smoke-research.json") as f:
     research = json.load(f)
 with open("/tmp/shinkai-smoke-eval.json") as f:
     report = json.load(f)
+with open("/tmp/shinkai-smoke-results.json") as f:
+    results = json.load(f)
+with open("/tmp/shinkai-smoke-result.json") as f:
+    result = json.load(f)
 
 events = run["events"]
 assert run["status"] == "completed", run["status"]
@@ -108,6 +114,9 @@ assert report["discovery_score"] is not None
 assert report["claim_score"] is not None
 assert report["source_quality_score"] is not None
 assert report["candidate_dossier_score"] is not None
+assert results and results[0]["run_id"] == run["id"]
+assert result["metrics"]["claims"] >= 16
+assert result["companies"]
 print(
     "smoke ok:",
     f"run={run['id']}",

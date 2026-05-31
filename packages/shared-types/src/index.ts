@@ -253,6 +253,32 @@ export type EvalReport = {
   findings: EvalFinding[];
 };
 
+export type PublishedCompany = {
+  ticker: string;
+  name: string;
+  layer: string;
+  decision: InvestmentDecision | string;
+  decision_rationale: string;
+  thesis: string;
+  risk_factors: string[];
+  catalysts: string[];
+  trace_refs: Record<string, unknown>;
+};
+
+export type PublishedResult = {
+  run_id: string;
+  graph_id?: string | null;
+  title: string;
+  status: string;
+  generated_at: number;
+  summary: string;
+  themes: string[];
+  key_findings: string[];
+  companies: PublishedCompany[];
+  metrics: Record<string, number | string | null>;
+  trace_refs: Record<string, unknown>;
+};
+
 export type AgentMessageType =
   | "candidate_handoff"
   | "thesis_update"
