@@ -54,6 +54,7 @@ jobs:
           cd services/api
           uv run ruff check src tests
           uv run pytest
+          uv run python -m shinkai_api.eval.cases
 
   preflight:
     runs-on: ubuntu-latest
