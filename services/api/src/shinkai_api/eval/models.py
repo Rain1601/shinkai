@@ -15,4 +15,7 @@ class EvalReport(BaseModel):
     evidence_score: float | None = None
     reasoning_score: float | None = None
     discovery_score: float | None = None
+    claim_score: float | None = None
+    source_quality_score: float | None = None
+    candidate_dossier_score: float | None = None
     findings: list[EvalFinding] = Field(default_factory=list)

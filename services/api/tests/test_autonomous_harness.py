@@ -158,6 +158,11 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         assert report.process_score is not None
         assert report.discovery_score is not None
         assert report.evidence_score == 0.0
+        assert report.claim_score is not None
+        assert report.claim_score < 0.5
+        assert report.source_quality_score is not None
+        assert report.source_quality_score <= 0.05
+        assert report.candidate_dossier_score == 1.0
 
     asyncio.run(scenario())
 
@@ -251,6 +256,10 @@ def test_autonomous_harness_can_use_source_backed_evidence() -> None:
         )
         report = build_eval_report(run, graph)
         assert report.evidence_score == 1.0
+        assert report.claim_score == 1.0
+        assert report.source_quality_score is not None
+        assert report.source_quality_score > 0.9
+        assert report.candidate_dossier_score == 1.0
         assert report.process_score is not None
         assert report.reasoning_score is not None
 

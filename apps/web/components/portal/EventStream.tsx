@@ -134,7 +134,7 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
     return `研究图更新：新增 ${String(data.nodes_added ?? 0)} 个节点、${String(data.edges_added ?? 0)} 条边。`;
   }
   if (type === "eval_completed") {
-    return `评测完成：过程 ${formatNumber(data.process_score)}，证据 ${formatNumber(data.evidence_score)}，发现 ${formatNumber(data.discovery_score)}。`;
+    return `评测完成：过程 ${formatNumber(data.process_score)}，证据 ${formatNumber(data.evidence_score)}，论点 ${formatNumber(data.claim_score)}，公司档案 ${formatNumber(data.candidate_dossier_score)}。`;
   }
   if (type === "budget_exhausted") {
     return `预算耗尽：${String(data.budget ?? "budget")} · 上限 ${String(data.max_tool_calls ?? "")}`;

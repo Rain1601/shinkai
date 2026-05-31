@@ -105,6 +105,9 @@ assert len(research["dossiers"]) >= 12
 assert len(research["tasks"]) >= 16
 assert report["process_score"] is not None
 assert report["discovery_score"] is not None
+assert report["claim_score"] is not None
+assert report["source_quality_score"] is not None
+assert report["candidate_dossier_score"] is not None
 print(
     "smoke ok:",
     f"run={run['id']}",
@@ -112,5 +115,6 @@ print(
     f"nodes={len(graph['nodes'])}",
     f"edges={len(graph['edges'])}",
     f"process={report['process_score']}",
+    f"claim={report['claim_score']}",
 )
 PY

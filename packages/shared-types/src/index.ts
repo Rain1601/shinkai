@@ -235,6 +235,24 @@ export type RunResearchState = {
   tasks: ResearchTask[];
 };
 
+export type EvalFinding = {
+  severity: string;
+  target_ref: string;
+  message: string;
+};
+
+export type EvalReport = {
+  run_id: string;
+  process_score?: number | null;
+  evidence_score?: number | null;
+  reasoning_score?: number | null;
+  discovery_score?: number | null;
+  claim_score?: number | null;
+  source_quality_score?: number | null;
+  candidate_dossier_score?: number | null;
+  findings: EvalFinding[];
+};
+
 export type AgentMessageType =
   | "candidate_handoff"
   | "thesis_update"
