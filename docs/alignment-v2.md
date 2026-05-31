@@ -1,9 +1,37 @@
 # Shinkai V0 · Alignment v2 — Implementation-Ready Spec
 
-> **时间**:2026-05-27
+> **时间**:2026-05-27 · **最近实现盘点**:2026-05-31
 > **状态**:概念设计 **COMPLETE**。本文档是 V0 实施的权威 spec。
 > **前一版**:`docs/alignment-v1.md`(对话式记录,保留作历史参考,**不再权威**)
 > **关系**:v1 = "我们怎么走到这一步的对话记录";v2 = "我们决定怎么做的实施规范"
+
+## ⚠ Implementation Status Map(诚信声明)
+
+下表对照 spec 与当前 code(2026-05-31)的差距,避免"看文档以为 X 已建好"的误解。
+
+| Spec 章节/能力 | 状态 | 备注 |
+| --- | --- | --- |
+| Run 生命周期 + AgentEvent 总线 + SSE | ✅ Built | `runs/`、`schemas/events.py`、`api/runs.py` |
+| Mode B 叙事发现(确定性 fallback) | ✅ Built | `agent/harness.py` 走 `AI_SUPPLY_CHAIN_LAYERS` 硬编码清单 |
+| Mode B 叙事发现(LLM 真驱动 frontier) | ❌ Not built | DeepSeek 当前只装饰固定 trajectory,**不是真正的发现** |
+| Mode A 公司深研 dossier | ⚠ Partial | dossier 字段生成,但 checklist 43 项未完整对照 |
+| Research Graph(5 节点 / 4 边) | ✅ Built | `graph/`、`research/`、node id 已改为确定性 hash |
+| Mode A 价值投资 checklist v1 | ⚠ Partial | doc 完整但 harness 只实现少数 check |
+| 3 级 Agent Loop(Run/Item/Step ReAct) | ❌ Not built | 当前是单层 frontier loop,LLM 不做 ReAct 决策 |
+| 中间层:观察(SSE/events) | ✅ Built | 事件可订阅 |
+| 中间层:暂停/恢复 | ⚠ Partial | pause 状态存在,但 inject channel 未建 |
+| 中间层:checkpoint approval | ❌ Not built | UI affordance 缺失 |
+| 中间层:cross-device handoff | ❌ Not built | iOS 客户端未建 |
+| 4 层 eval(L1 形态 / L2 critic / L3 预测 / L4 真实回报) | ⚠ L1 only | `eval/runner.py` 是形态/统计检查,L2-L4 未建 |
+| 4 层 memory(Working / Episodic / Semantic / Procedural) | ❌ Not built | 仅 per-run state |
+| Critic 三 persona(Buffett/short-seller/auditor) | ❌ Not built | spec 描述但无 prompt 与代码 |
+| LLMRouter(DeepSeek + Claude via AIHubMix) | ❌ Not built | 当前只 DeepSeek 一条 |
+| Postgres-first persistence + JSON fallback | ✅ Built | 投影表写已加事务,fallback 改为 sticky |
+| 自我迭代 spiral(child runs) | ✅ Built | `_maybe_spawn_next_spiral` |
+| Web 仪表盘(/runs /graph /eval /review /a2a) | ✅ Built | 但偏 status viewer,非 cockpit |
+| iOS 原生 SwiftUI | ❌ Not built | 完全没动 |
+
+**主要 leap 还未跨过**:LLM 真正驱动 frontier(把 `AI_SUPPLY_CHAIN_LAYERS` 从权威路径降级为 fallback)。在这之前,"discover underwater companies" 的承诺与 V0 跑出来的实际轨迹之间有显著差距。
 
 ---
 
