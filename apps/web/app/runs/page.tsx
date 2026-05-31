@@ -564,8 +564,8 @@ export default function RunsPage() {
               <button className="button secondary" onClick={clearAdminToken} type="button">
                 {authSession.auth_required
                   ? isZh
-                    ? "管理员已登录"
-                    : "Admin active"
+                    ? "退出管理员"
+                    : "Sign out admin"
                   : isZh
                     ? "本地管理员"
                     : "Local admin"}
