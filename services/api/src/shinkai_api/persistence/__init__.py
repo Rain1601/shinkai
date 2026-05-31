@@ -1,3 +1,5 @@
-from shinkai_api.persistence.json_state import default_json_state
+from shinkai_api.persistence.state_store import StateStore, default_state_store
 
-__all__ = ["default_json_state"]
+default_json_state = default_state_store
+
+__all__ = ["StateStore", "default_json_state", "default_state_store"]

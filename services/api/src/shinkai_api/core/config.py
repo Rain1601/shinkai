@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-chat"
     persistence_enabled: bool = True
+    database_url: str | None = None
+    persistence_json_fallback: bool = True
     state_path: str = ".shinkai/state.json"
 
 

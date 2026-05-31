@@ -41,7 +41,15 @@ class JsonStateFile:
 
 
 def _empty_state() -> dict[str, Any]:
-    return {"runs": {}, "graphs_by_run": {}}
+    return {
+        "runs": {},
+        "graphs_by_run": {},
+        "research_sources": {},
+        "research_evidence": {},
+        "research_claims": {},
+        "research_candidates": {},
+        "research_tasks": {},
+    }
 
 
 def _read_json(path: Path) -> dict[str, Any]:

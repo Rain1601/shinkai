@@ -134,3 +134,12 @@ class ResearchTask(BaseModel):
     created_at: float = Field(default_factory=time)
     updated_at: float = Field(default_factory=time)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RunResearchState(BaseModel):
+    run_id: str
+    sources: list[SourceRef] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)
+    claims: list[Claim] = Field(default_factory=list)
+    candidates: list[CandidateCompany] = Field(default_factory=list)
+    tasks: list[ResearchTask] = Field(default_factory=list)

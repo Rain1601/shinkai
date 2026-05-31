@@ -5,6 +5,8 @@ import asyncio
 from shinkai_api.core.config import settings
 from shinkai_api.graph import GraphDelta, Node
 from shinkai_api.graph.store import InMemoryGraphStore
+from shinkai_api.research import CandidateCompany, Claim, Evidence, ResearchTask, SourceRef
+from shinkai_api.research.store import InMemoryResearchStore
 from shinkai_api.runs import RunCreate
 from shinkai_api.runs.store import InMemoryRunStore
 from shinkai_api.schemas.events import AgentEvent
@@ -57,5 +59,78 @@ def test_json_state_recovers_runs_events_and_graph(tmp_path) -> None:
         finally:
             settings.persistence_enabled = previous_enabled
             settings.state_path = previous_path
+
+    asyncio.run(scenario())
+
+
+def test_json_state_recovers_research_domain_models(tmp_path) -> None:
+    async def scenario() -> None:
+        previous_enabled = settings.persistence_enabled
+        previous_path = settings.state_path
+        previous_database_url = settings.database_url
+        settings.persistence_enabled = True
+        settings.state_path = str(tmp_path / "research-state.json")
+        settings.database_url = None
+        try:
+            research_store = InMemoryResearchStore()
+            await research_store.upsert_source(
+                SourceRef(
+                    source_id="src_power",
+                    type="web",
+                    url="https://example.com/power",
+                    title="Power source",
+                    metadata={"run_id": "run_1"},
+                )
+            )
+            await research_store.upsert_evidence(
+                Evidence(
+                    evidence_id="ev_power",
+                    source_id="src_power",
+                    run_id="run_1",
+                    text="Power equipment is a bottleneck.",
+                    supports_claim_ids=["claim_power"],
+                )
+            )
+            await research_store.upsert_claim(
+                Claim(
+                    claim_id="claim_power",
+                    run_id="run_1",
+                    text="Power equipment is a bottleneck.",
+                    evidence_ids=["ev_power"],
+                    status="weak",
+                )
+            )
+            await research_store.upsert_candidate(
+                CandidateCompany(
+                    candidate_id="cand_vrt",
+                    run_id="run_1",
+                    ticker="VRT",
+                    name="Vertiv",
+                    claim_ids=["claim_power"],
+                    evidence_ids=["ev_power"],
+                )
+            )
+            await research_store.upsert_task(
+                ResearchTask(
+                    task_id="task_vrt",
+                    run_id="run_1",
+                    title="Deepen Vertiv",
+                    objective="Validate power bottleneck exposure.",
+                    candidate_ids=["cand_vrt"],
+                )
+            )
+
+            reloaded = InMemoryResearchStore()
+            state = await reloaded.get_run_state("run_1")
+
+            assert [source.source_id for source in state.sources] == ["src_power"]
+            assert [evidence.evidence_id for evidence in state.evidence] == ["ev_power"]
+            assert [claim.status for claim in state.claims] == ["weak"]
+            assert [candidate.ticker for candidate in state.candidates] == ["VRT"]
+            assert [task.task_id for task in state.tasks] == ["task_vrt"]
+        finally:
+            settings.persistence_enabled = previous_enabled
+            settings.state_path = previous_path
+            settings.database_url = previous_database_url
 
     asyncio.run(scenario())

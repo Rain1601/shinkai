@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from shinkai_api.api import a2a, auth, checkpoints, evals, graph, health, runs
+from shinkai_api.api import a2a, auth, checkpoints, evals, graph, health, research, runs
 from shinkai_api.core.config import settings
 
 
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
     app.include_router(runs.router, prefix="/api/v1")
     app.include_router(checkpoints.router, prefix="/api/v1")
     app.include_router(graph.router, prefix="/api/v1")
+    app.include_router(research.router, prefix="/api/v1")
     app.include_router(evals.router, prefix="/api/v1")
     app.include_router(a2a.router, prefix="/api/v1")
     return app

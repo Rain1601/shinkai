@@ -46,8 +46,8 @@ The repository now contains a runnable V1.0 vertical slice:
 - review/optimize-oriented shinkai harness for AI supply-chain discovery
 - bounded autonomous child-run spirals for self-iteration
 - DeepSeek frontier-planning integration with deterministic fallback
-- web search/extract tool events, evidence, claims, candidates, questions, and thesis graph nodes
-- JSON-backed local persistence for runs, events, and research graphs
+- web search/extract tool events plus structured source, evidence, claim, candidate, and task records
+- Postgres-ready persistence with JSON fallback for local runs, events, research state, and graphs
 - eval reports for process, evidence, reasoning, and discovery quality
 - web dashboards for runs, graph, eval, review, and A2A views
 
@@ -72,6 +72,13 @@ Without the key, the harness falls back to deterministic supply-chain layers.
 
 ```bash
 export SHINKAI_STATE_PATH="/tmp/shinkai-state.json"
+```
+
+For Postgres-backed state, set:
+
+```bash
+export SHINKAI_DATABASE_URL="postgresql://user:pass@host:5432/shinkai"
+export SHINKAI_PERSISTENCE_JSON_FALLBACK=true
 ```
 
 Do not commit `.shinkai/` or any environment file containing secrets.

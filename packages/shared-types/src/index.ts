@@ -188,6 +188,15 @@ export type ResearchTask = {
   metadata: Record<string, unknown>;
 };
 
+export type RunResearchState = {
+  run_id: string;
+  sources: SourceRef[];
+  evidence: Evidence[];
+  claims: Claim[];
+  candidates: CandidateCompany[];
+  tasks: ResearchTask[];
+};
+
 export type AgentMessageType =
   | "candidate_handoff"
   | "thesis_update"

@@ -46,6 +46,11 @@ Cloud Run receives them as:
 - `SHINKAI_ADMIN_TOKEN`
 - `SHINKAI_DEEPSEEK_API_KEY`
 
+For durable backend state, provision a Postgres-compatible database such as Cloud SQL for
+PostgreSQL and set `SHINKAI_DATABASE_URL` on the API service. When
+`SHINKAI_PERSISTENCE_JSON_FALLBACK=true`, the API falls back to `SHINKAI_STATE_PATH` if Postgres is
+not configured or temporarily unavailable.
+
 ## Access Model
 
 Cloud Run can be publicly invokable so ordinary users can view published results and the agent
@@ -69,5 +74,5 @@ docker build -f apps/web/Dockerfile \
   -t shinkai-web .
 ```
 
-For production durability beyond the 1.0 vertical slice, replace the current JSON state path with a
-managed store such as Cloud SQL, Firestore, or Cloud Storage-backed persistence.
+For production durability, prefer Cloud SQL/PostgreSQL through `SHINKAI_DATABASE_URL` rather than a
+container-local JSON state path.
