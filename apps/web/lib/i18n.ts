@@ -90,6 +90,8 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       graph_delta: "图谱更新",
       evidence_found: "证据发现",
       claim_created: "论点创建",
+      claim_validated: "论点校验",
+      company_deep_analysis_completed: "公司深度分析",
       eval_completed: "评测完成",
       child_run_created: "子运行创建",
       usage: "用量记录",

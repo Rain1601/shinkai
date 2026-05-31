@@ -92,6 +92,9 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
     return `记录证据缺口：${layer}`;
   }
   if (type === "claim_created") return `创建论点：${localizeText(data.claim, "zh")}`;
+  if (type === "claim_validated") {
+    return `校验论点：${String(data.status ?? "unknown")} · 独立来源 ${String(data.independent_source_count ?? 0)}`;
+  }
   if (type === "judgment_created") {
     return `形成判断：${layer || "该层级"} 可能存在被低估的 AI 供应链二阶机会。`;
   }
@@ -100,6 +103,9 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
   }
   if (type === "candidate_scored") {
     return `候选评分：${String(data.ticker ?? "候选")} · 综合 ${formatNumber(data.combined_score)} · ${localizeDecision(data.decision, "zh")}`;
+  }
+  if (type === "company_deep_analysis_completed") {
+    return `公司深度分析完成：${String(data.ticker ?? "候选")} · ${String(data.status ?? "")}`;
   }
   if (type === "review_completed") {
     return `复盘完成：${layer} · 分数 ${formatNumber(data.review_score)}`;

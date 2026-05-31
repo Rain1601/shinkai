@@ -13,8 +13,9 @@ type AutonomyPanelProps = {
 export function AutonomyPanel({ events, locale = "zh" }: AutonomyPanelProps) {
   const isZh = locale === "zh";
   const themes = events.filter((event) => event.type === "theme_discovered");
-  const judgments = events.filter((event) => event.type === "judgment_created");
+  const claims = events.filter((event) => event.type === "claim_validated");
   const candidates = events.filter((event) => event.type === "candidate_created");
+  const companyAnalyses = events.filter((event) => event.type === "company_deep_analysis_completed");
   const scores = events.filter((event) => event.type === "candidate_scored");
   const reviews = events.filter((event) => event.type === "review_completed");
   const evidence = events.filter((event) => event.type === "evidence_found");
@@ -24,13 +25,13 @@ export function AutonomyPanel({ events, locale = "zh" }: AutonomyPanelProps) {
   return (
     <section className="autonomy-grid">
       <AutonomyCard label={isZh ? "主题" : "Themes"} value={themes.length} tone="accent" />
-      <AutonomyCard label={isZh ? "判断" : "Judgments"} value={judgments.length} tone="warn" />
+      <AutonomyCard label={isZh ? "论点" : "Claims"} value={claims.length} tone="warn" />
       <AutonomyCard label={isZh ? "候选" : "Candidates"} value={candidates.length} tone="info" />
-      <AutonomyCard label={isZh ? "评分" : "Scores"} value={scores.length} tone="gain" />
+      <AutonomyCard label={isZh ? "公司分析" : "Company Analyses"} value={companyAnalyses.length} tone="gain" />
       <AutonomyCard label={isZh ? "证据" : "Evidence"} value={evidence.length} tone="accent" />
       <AutonomyCard label={isZh ? "复盘" : "Reviews"} value={reviews.length} tone="warn" />
       <AutonomyCard label={isZh ? "补丁" : "Patches"} value={patches.length} tone="info" />
-      <AutonomyCard label={isZh ? "任务" : "Tasks"} value={tasks.length} tone="gain" />
+      <AutonomyCard label={isZh ? "任务/评分" : "Tasks/Scores"} value={tasks.length + scores.length} tone="gain" />
     </section>
   );
 }

@@ -2,10 +2,21 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from hashlib import sha1
+from urllib.parse import urlparse
 
 from shinkai_api.core.config import settings
 from shinkai_api.graph import Edge, GraphDelta, Node, default_graph_store, edge_id, node_id
 from shinkai_api.llm import DeepSeekClient, DeepSeekError
+from shinkai_api.research import (
+    CandidateCompany,
+    Claim,
+    Evidence,
+    ResearchTask,
+    SourceRef,
+    classify_claim_status,
+    default_research_store,
+)
 from shinkai_api.runs.models import Run
 from shinkai_api.schemas.events import AgentEvent
 from shinkai_api.tools import default_tool_registry
@@ -26,6 +37,8 @@ class SupplyChainLayer:
 class LayerEvidence:
     node: Node
     source_backed: bool
+    sources: list[SourceRef]
+    evidence_records: list[Evidence]
     tool_result: ToolResult | None
     extract_result: ToolResult | None = None
 
@@ -279,12 +292,26 @@ class ShinkaiHarness:
                     )
                 evidence = self._evidence_from_tool_results(
                     layer,
+                    run.id,
                     search_query,
                     search_result,
                     extract_result,
                 )
             else:
-                evidence = self._stub_evidence(layer)
+                evidence = self._stub_evidence(layer, run.id)
+
+            evidence_ids = [record.evidence_id for record in evidence.evidence_records]
+            supporting_source_ids = (
+                [source.source_id for source in evidence.sources]
+                if evidence.source_backed
+                else []
+            )
+            contradicting_source_ids = self._conflicting_source_ids(layer, evidence)
+            claim_status = classify_claim_status(
+                supporting_source_ids,
+                contradicting_source_ids,
+            )
+            independent_source_count = len(set(supporting_source_ids))
 
             frontier_node = Node(
                 id=node_id("frontier", layer.name),
@@ -299,8 +326,31 @@ class ShinkaiHarness:
                 type="Claim",
                 label=f"Bottleneck: {layer.name}",
                 confidence=0.68,
-                data={"statement": layer.bottleneck, "claim_kind": "Qualitative"},
-                tags=["bottleneck", "ai-infrastructure"],
+                source_refs=evidence_ids,
+                data={
+                    "statement": layer.bottleneck,
+                    "claim_kind": "Qualitative",
+                    "status": claim_status,
+                    "independent_source_count": independent_source_count,
+                    "contradicting_source_ids": contradicting_source_ids,
+                    "evidence_ids": evidence_ids,
+                },
+                tags=["bottleneck", "ai-infrastructure", f"claim-{claim_status}"],
+            )
+            bottleneck_claim = Claim(
+                claim_id=bottleneck_node.id,
+                run_id=run.id,
+                text=layer.bottleneck,
+                topic=layer.name,
+                status=claim_status,
+                confidence=bottleneck_node.confidence,
+                evidence_ids=evidence_ids,
+                metadata={
+                    "kind": "bottleneck",
+                    "independent_source_count": independent_source_count,
+                    "contradicting_source_ids": contradicting_source_ids,
+                    "source_backed": evidence.source_backed,
+                },
             )
             evidence_node = evidence.node
             base_edges = [
@@ -319,7 +369,7 @@ class ShinkaiHarness:
                     from_node=evidence_node.id,
                     to_node=bottleneck_node.id,
                     confidence=0.72 if evidence.source_backed else 0.5,
-                    source_refs=[evidence_node.id],
+                    source_refs=evidence_ids,
                 ),
             ]
 
@@ -327,6 +377,9 @@ class ShinkaiHarness:
             candidate_edges: list[Edge] = []
             candidate_detail_nodes: list[Node] = []
             candidate_detail_edges: list[Edge] = []
+            claim_records = [bottleneck_claim]
+            candidate_records: list[CandidateCompany] = []
+            task_records: list[ResearchTask] = []
             for company in layer.companies:
                 quality = float(company["quality"])
                 underwater = float(company["underwater"])
@@ -334,6 +387,9 @@ class ShinkaiHarness:
                 q1_pass = quality >= 0.65
                 q2_pass = underwater >= 0.55
                 decision = "queue_mode_a" if q1_pass and q2_pass and score >= 0.62 else "watch_only"
+                candidate_status = "qualified" if decision == "queue_mode_a" else "watchlist"
+                risk_flags = _candidate_risk_flags(q1_pass, q2_pass, evidence.source_backed)
+                next_questions = _candidate_questions(str(company["name"]), layer.name)
                 company_node = Node(
                     id=node_id("company", str(company["ticker"])),
                     type="Entity",
@@ -346,6 +402,8 @@ class ShinkaiHarness:
                         "quality_score": quality,
                         "underwater_score": underwater,
                         "combined_score": score,
+                        "candidate_status": candidate_status,
+                        "risk_flags": risk_flags,
                     },
                     tags=["candidate", "mode-b"],
                 )
@@ -354,7 +412,7 @@ class ShinkaiHarness:
                     type="Claim",
                     label=f"{company['ticker']} bottleneck exposure",
                     confidence=score,
-                    source_refs=[evidence_node.id],
+                    source_refs=evidence_ids,
                     data={
                         "statement": (
                             f"{company['name']} may be a second-order beneficiary of "
@@ -362,8 +420,28 @@ class ShinkaiHarness:
                         ),
                         "claim_kind": "Forward",
                         "ticker": company["ticker"],
+                        "status": claim_status,
+                        "evidence_ids": evidence_ids,
+                        "independent_source_count": independent_source_count,
                     },
-                    tags=["candidate-claim", "underwriting-input"],
+                    tags=["candidate-claim", "underwriting-input", f"claim-{claim_status}"],
+                )
+                claim_records.append(
+                    Claim(
+                        claim_id=claim_node.id,
+                        run_id=run.id,
+                        topic=layer.name,
+                        text=str(claim_node.data["statement"]),
+                        status=claim_status,
+                        confidence=score,
+                        evidence_ids=evidence_ids,
+                        metadata={
+                            "kind": "candidate_exposure",
+                            "ticker": company["ticker"],
+                            "independent_source_count": independent_source_count,
+                            "source_backed": evidence.source_backed,
+                        },
+                    )
                 )
                 question_node = Node(
                     id=node_id("question", f"{company['ticker']} underwriting question"),
@@ -378,8 +456,54 @@ class ShinkaiHarness:
                         "priority": "high" if decision == "queue_mode_a" else "medium",
                         "status": "open",
                         "ticker": company["ticker"],
+                        "next_questions": next_questions,
                     },
                     tags=["open-question", "mode-a-input"],
+                )
+                candidate_record = CandidateCompany(
+                    candidate_id=company_node.id,
+                    run_id=run.id,
+                    ticker=str(company["ticker"]),
+                    name=str(company["name"]),
+                    supply_chain_layer=layer.name,
+                    thesis=str(claim_node.data["statement"]),
+                    status=candidate_status,
+                    quality_score=quality,
+                    under_coverage_score=underwater,
+                    relevance_score=score,
+                    claim_ids=[bottleneck_node.id, claim_node.id],
+                    evidence_ids=evidence_ids,
+                    risk_flags=risk_flags,
+                    next_questions=next_questions,
+                    metadata={
+                        "decision": decision,
+                        "q1_quality_pass": q1_pass,
+                        "q2_underwater_pass": q2_pass,
+                        "source_backed": evidence.source_backed,
+                    },
+                )
+                candidate_records.append(candidate_record)
+                task_records.append(
+                    ResearchTask(
+                        task_id=_stable_id("task", run.id, str(company["ticker"]), layer.name),
+                        run_id=run.id,
+                        title=f"Deep research: {company['ticker']} in {layer.name}",
+                        objective=(
+                            f"Validate {company['name']}'s direct, durable, and "
+                            f"margin-accretive exposure to {layer.name}."
+                        ),
+                        status="completed",
+                        assigned_agent="shinkai:company-subagent",
+                        claim_ids=[claim_node.id],
+                        candidate_ids=[company_node.id],
+                        evidence_ids=evidence_ids,
+                        metadata={
+                            "ticker": company["ticker"],
+                            "decision": decision,
+                            "risk_flags": risk_flags,
+                            "next_questions": next_questions,
+                        },
+                    )
                 )
                 candidate_nodes.append(company_node)
                 candidate_detail_nodes.extend([claim_node, question_node])
@@ -402,7 +526,7 @@ class ShinkaiHarness:
                             from_node=company_node.id,
                             to_node=claim_node.id,
                             confidence=score,
-                            source_refs=[evidence_node.id],
+                            source_refs=evidence_ids,
                         ),
                         Edge(
                             id=edge_id(evidence_node.id, "supports", claim_node.id),
@@ -411,7 +535,7 @@ class ShinkaiHarness:
                             from_node=evidence_node.id,
                             to_node=claim_node.id,
                             confidence=0.68 if evidence.source_backed else 0.48,
-                            source_refs=[evidence_node.id],
+                            source_refs=evidence_ids,
                         ),
                         Edge(
                             id=edge_id(question_node.id, "depends_on", company_node.id),
@@ -429,7 +553,7 @@ class ShinkaiHarness:
                         type="Thesis",
                         label=f"{company['ticker']} initial underwriting thesis",
                         confidence=score,
-                        source_refs=[evidence_node.id],
+                        source_refs=evidence_ids,
                         data={
                             "statement": (
                                 f"{company['name']} should enter Mode A underwriting "
@@ -455,9 +579,47 @@ class ShinkaiHarness:
                             from_node=thesis_node.id,
                             to_node=claim_node.id,
                             confidence=score,
-                            source_refs=[evidence_node.id],
+                            source_refs=evidence_ids,
                         )
                     )
+
+            task_records.append(
+                ResearchTask(
+                    task_id=_stable_id("task", run.id, "theme", layer.name),
+                    run_id=run.id,
+                    title=f"Theme deep research: {layer.name}",
+                    objective=(
+                        f"Trace {layer.name} from AI mega-cap demand into bottlenecks, "
+                        "evidence, and candidate companies."
+                    ),
+                    status="completed",
+                    assigned_agent="shinkai:theme-agent",
+                    claim_ids=[claim.claim_id for claim in claim_records],
+                    candidate_ids=[candidate.candidate_id for candidate in candidate_records],
+                    evidence_ids=evidence_ids,
+                    metadata={
+                        "loop_index": loop_index,
+                        "seed_giants": layer.seed_giants,
+                        "next_frontier": layer.next_frontier,
+                    },
+                )
+            )
+            for record in evidence.evidence_records:
+                record.supports_claim_ids = [claim.claim_id for claim in claim_records]
+            await self._persist_research_records(
+                evidence=evidence,
+                claims=claim_records,
+                candidates=candidate_records,
+                tasks=task_records,
+            )
+            candidate_records_by_ticker = {
+                candidate.ticker: candidate for candidate in candidate_records
+            }
+            candidate_tasks_by_ticker = {
+                str(task.metadata.get("ticker")): task
+                for task in task_records
+                if task.metadata.get("ticker")
+            }
 
             delta = GraphDelta(
                 nodes=[
@@ -519,6 +681,20 @@ class ShinkaiHarness:
                 },
             )
             yield AgentEvent(
+                type="claim_validated",
+                run_id=run.id,
+                data={
+                    "loop_index": loop_index,
+                    "claim_id": bottleneck_node.id,
+                    "status": claim_status,
+                    "independent_source_count": independent_source_count,
+                    "required_independent_sources": bottleneck_claim.required_independent_sources,
+                    "evidence_ids": evidence_ids,
+                    "contradicting_source_ids": contradicting_source_ids,
+                    "source_backed": evidence.source_backed,
+                },
+            )
+            yield AgentEvent(
                 type="judgment_created",
                 run_id=run.id,
                 data={
@@ -569,6 +745,28 @@ class ShinkaiHarness:
                         "mode_a_ready": decision == "queue_mode_a",
                     },
                 )
+                candidate_record = candidate_records_by_ticker.get(str(company["ticker"]))
+                task_record = candidate_tasks_by_ticker.get(str(company["ticker"]))
+                if candidate_record and task_record:
+                    yield AgentEvent(
+                        type="company_deep_analysis_completed",
+                        run_id=run.id,
+                        data={
+                            "loop_index": loop_index,
+                            "ticker": candidate_record.ticker,
+                            "name": candidate_record.name,
+                            "layer": candidate_record.supply_chain_layer,
+                            "candidate_id": candidate_record.candidate_id,
+                            "task_id": task_record.task_id,
+                            "assigned_agent": task_record.assigned_agent,
+                            "claim_ids": candidate_record.claim_ids,
+                            "evidence_ids": candidate_record.evidence_ids,
+                            "status": candidate_record.status,
+                            "risk_flags": candidate_record.risk_flags,
+                            "next_questions": candidate_record.next_questions,
+                            "decision": candidate_record.metadata.get("decision"),
+                        },
+                    )
                 if decision == "queue_mode_a":
                     yield AgentEvent(
                         type="research_task_created",
@@ -576,6 +774,7 @@ class ShinkaiHarness:
                         data={
                             "loop_index": loop_index,
                             "ticker": company["ticker"],
+                            "task_id": task_record.task_id if task_record else None,
                             "task": (
                                 f"Start Mode A underwriting for {company['name']} "
                                 f"from {layer.name} frontier."
@@ -820,21 +1019,60 @@ class ShinkaiHarness:
         tool = default_tool_registry.get("web_extract")
         return await tool.run(url=url)
 
+    async def _persist_research_records(
+        self,
+        *,
+        evidence: LayerEvidence,
+        claims: list[Claim],
+        candidates: list[CandidateCompany],
+        tasks: list[ResearchTask],
+    ) -> None:
+        for source in evidence.sources:
+            await default_research_store.upsert_source(source)
+        for record in evidence.evidence_records:
+            await default_research_store.upsert_evidence(record)
+        for claim in claims:
+            await default_research_store.upsert_claim(claim)
+        for candidate in candidates:
+            await default_research_store.upsert_candidate(candidate)
+        for task in tasks:
+            await default_research_store.upsert_task(task)
+
+    def _conflicting_source_ids(
+        self,
+        layer: SupplyChainLayer,
+        evidence: LayerEvidence,
+    ) -> list[str]:
+        conflict_markers = [
+            f"{layer.name.lower()} is not a bottleneck",
+            "not a bottleneck",
+            "no supply constraint",
+            "no material constraint",
+            "demand is declining",
+        ]
+        source_ids: list[str] = []
+        for record in evidence.evidence_records:
+            text = f"{record.text} {record.summary}".lower()
+            if any(marker in text for marker in conflict_markers):
+                source_ids.append(record.source_id)
+        return source_ids
+
     def _evidence_from_tool_results(
         self,
         layer: SupplyChainLayer,
+        run_id: str,
         query: str,
         search_result: ToolResult,
         extract_result: ToolResult | None,
     ) -> LayerEvidence:
         if not search_result.ok:
-            return self._stub_evidence(layer, tool_result=search_result)
+            return self._stub_evidence(layer, run_id, tool_result=search_result)
         results = search_result.data.get("results", [])
         if not isinstance(results, list) or not results:
-            return self._stub_evidence(layer, tool_result=search_result)
+            return self._stub_evidence(layer, run_id, tool_result=search_result)
         first = results[0]
         if not isinstance(first, dict):
-            return self._stub_evidence(layer, tool_result=search_result)
+            return self._stub_evidence(layer, run_id, tool_result=search_result)
         title = str(first.get("title") or "Web evidence")
         url = str(first.get("url") or "")
         snippet = str(first.get("snippet") or layer.evidence_stub)
@@ -853,7 +1091,7 @@ class ShinkaiHarness:
             type="Evidence",
             label=f"Source evidence: {layer.name}",
             confidence=0.78 if extracted_excerpt else 0.72,
-            source_refs=[url] if url else [],
+            source_refs=[],
             data={
                 "excerpt": excerpt,
                 "source_uri": url,
@@ -871,9 +1109,55 @@ class ShinkaiHarness:
                 "extracted" if extracted_excerpt else "search-result",
             ],
         )
+        sources: list[SourceRef] = []
+        evidence_records: list[Evidence] = []
+        for index, result in enumerate(results[:3], start=1):
+            if not isinstance(result, dict):
+                continue
+            result_url = str(result.get("url") or "").strip()
+            result_title = str(result.get("title") or "Web evidence").strip()
+            result_snippet = str(result.get("snippet") or "").strip()
+            result_excerpt = excerpt if index == 1 else result_snippet or result_title
+            source = SourceRef(
+                source_id=_stable_id("source", result_url or result_title, layer.name),
+                type="web",
+                url=result_url,
+                title=result_title,
+                publisher=_publisher_from_url(result_url),
+                reliability=0.72 if index == 1 and extracted_excerpt else 0.62,
+                metadata={
+                    "run_id": run_id,
+                    "layer": layer.name,
+                    "query": query,
+                    "rank": index,
+                    "source_backed": True,
+                },
+            )
+            record = Evidence(
+                evidence_id=_stable_id("evidence", run_id, layer.name, result_url or result_title),
+                source_id=source.source_id,
+                run_id=run_id,
+                kind="web_extract" if index == 1 and extracted_excerpt else "summary",
+                text=result_excerpt,
+                url=result_url,
+                summary=result_snippet or result_excerpt[:240],
+                confidence=0.78 if index == 1 and extracted_excerpt else 0.66,
+                metadata={
+                    "layer": layer.name,
+                    "query": query,
+                    "rank": index,
+                    "source_title": result_title,
+                    "extraction_error": extraction_error if index == 1 else "",
+                },
+            )
+            sources.append(source)
+            evidence_records.append(record)
+        node.source_refs = [record.evidence_id for record in evidence_records]
         return LayerEvidence(
             node=node,
             source_backed=True,
+            sources=sources,
+            evidence_records=evidence_records,
             tool_result=search_result,
             extract_result=extract_result,
         )
@@ -881,13 +1165,44 @@ class ShinkaiHarness:
     def _stub_evidence(
         self,
         layer: SupplyChainLayer,
+        run_id: str,
         tool_result: ToolResult | None = None,
     ) -> LayerEvidence:
+        source = SourceRef(
+            source_id=_stable_id("source", run_id, layer.name, "agent-inference"),
+            type="manual",
+            url="",
+            title=f"Agent inference stub: {layer.name}",
+            publisher="shinkai",
+            reliability=0.2,
+            metadata={
+                "run_id": run_id,
+                "layer": layer.name,
+                "source_backed": False,
+                "needs_real_source": True,
+            },
+        )
+        record = Evidence(
+            evidence_id=_stable_id("evidence", run_id, layer.name, "agent-inference"),
+            source_id=source.source_id,
+            run_id=run_id,
+            kind="summary",
+            text=layer.evidence_stub,
+            summary=layer.evidence_stub,
+            confidence=0.35,
+            metadata={
+                "layer": layer.name,
+                "source_backed": False,
+                "needs_real_source": True,
+                "tool_error": tool_result.error if tool_result else "",
+            },
+        )
         node = Node(
             id=node_id("evidence", layer.evidence_stub),
             type="Evidence",
             label=f"Evidence stub: {layer.name}",
             confidence=0.5,
+            source_refs=[record.evidence_id],
             data={
                 "excerpt": layer.evidence_stub,
                 "source_kind": "AgentInference",
@@ -896,7 +1211,13 @@ class ShinkaiHarness:
             },
             tags=["needs-source", "spiral-1"],
         )
-        return LayerEvidence(node=node, source_backed=False, tool_result=tool_result)
+        return LayerEvidence(
+            node=node,
+            source_backed=False,
+            sources=[source],
+            evidence_records=[record],
+            tool_result=tool_result,
+        )
 
     def _evidence_query(self, layer: SupplyChainLayer) -> str:
         seeds = " ".join(layer.seed_giants[:3])
@@ -909,6 +1230,42 @@ def _bounded_float(value: object, *, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return min(1.0, max(0.0, parsed))
+
+
+def _stable_id(prefix: str, *values: object) -> str:
+    raw = "||".join(str(value) for value in values)
+    digest = sha1(raw.encode("utf-8")).hexdigest()[:12]
+    safe = "".join(ch.lower() if ch.isalnum() else "_" for ch in raw[:40]).strip("_")
+    return f"{prefix}_{safe[:32]}_{digest}"
+
+
+def _publisher_from_url(url: str) -> str:
+    if not url:
+        return ""
+    return urlparse(url).netloc.removeprefix("www.")
+
+
+def _candidate_risk_flags(
+    quality_pass: bool,
+    under_coverage_pass: bool,
+    source_backed: bool,
+) -> list[str]:
+    flags: list[str] = []
+    if not quality_pass:
+        flags.append("quality_filter_not_confirmed")
+    if not under_coverage_pass:
+        flags.append("market_attention_may_be_consensus")
+    if not source_backed:
+        flags.append("needs_primary_source_validation")
+    return flags
+
+
+def _candidate_questions(company_name: str, layer_name: str) -> list[str]:
+    return [
+        f"What share of {company_name}'s revenue is directly exposed to {layer_name}?",
+        "Is the AI-linked demand durable across a full cycle?",
+        "Does the exposure improve margins rather than only revenue growth?",
+    ]
 
 
 def _first_result_url(result: ToolResult) -> str:

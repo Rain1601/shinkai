@@ -5,6 +5,7 @@ import asyncio
 from shinkai_api.agent import ShinkaiHarness
 from shinkai_api.eval import build_eval_report
 from shinkai_api.graph import default_graph_store
+from shinkai_api.research import default_research_store
 from shinkai_api.runs import RunCreate, default_run_store
 from shinkai_api.tools import ToolResult, default_tool_registry
 from shinkai_api.tools.base import Tool
@@ -28,6 +29,14 @@ class FakeWebSearchTool(Tool):
                         "snippet": (
                             "Power and packaging are constraints for AI data center "
                             "supply chains."
+                        ),
+                    },
+                    {
+                        "title": "Fake AI infrastructure source two",
+                        "url": "https://example.org/ai-infrastructure",
+                        "snippet": (
+                            "AI clusters add pressure to power, packaging, and optical "
+                            "networking suppliers."
                         ),
                     }
                 ],
@@ -80,6 +89,8 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         assert event_types[-1] == "done"
         assert event_types.count("supply_chain_layer_started") >= 4
         assert event_types.count("candidate_scored") >= 12
+        assert event_types.count("claim_validated") >= 4
+        assert event_types.count("company_deep_analysis_completed") >= 12
         assert "review_completed" in event_types
         assert "optimization_decision" in event_types
         assert "memory_patch_proposed" in event_types
@@ -122,8 +133,21 @@ def test_autonomous_harness_can_use_source_backed_evidence() -> None:
 
         graph = await default_graph_store.get_by_run(run.id)
         evidence_events = [event for event in run.events if event.type == "evidence_found"]
+        claim_events = [event for event in run.events if event.type == "claim_validated"]
+        company_events = [
+            event for event in run.events if event.type == "company_deep_analysis_completed"
+        ]
+        research_state = await default_research_store.get_run_state(run.id)
         assert evidence_events
         assert all(event.data["source_backed"] for event in evidence_events)
+        assert claim_events
+        assert all(event.data["status"] == "supported" for event in claim_events)
+        assert company_events
+        assert research_state.sources
+        assert research_state.evidence
+        assert research_state.claims
+        assert research_state.candidates
+        assert research_state.tasks
         assert any(
             event.type == "tool_result" and event.data["name"] == "web_extract"
             for event in run.events

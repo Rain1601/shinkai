@@ -78,6 +78,7 @@ PY
 done
 
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/graph" >/tmp/shinkai-smoke-graph.json
+curl -fsS "${API_URL}/api/v1/runs/${run_id}/research" >/tmp/shinkai-smoke-research.json
 curl -fsS "${API_URL}/api/v1/eval/runs/${run_id}" >/tmp/shinkai-smoke-eval.json
 
 python3 - <<'PY'
@@ -87,6 +88,8 @@ with open("/tmp/shinkai-smoke-run.json") as f:
     run = json.load(f)
 with open("/tmp/shinkai-smoke-graph.json") as f:
     graph = json.load(f)
+with open("/tmp/shinkai-smoke-research.json") as f:
+    research = json.load(f)
 with open("/tmp/shinkai-smoke-eval.json") as f:
     report = json.load(f)
 
@@ -96,6 +99,9 @@ assert events[-1]["type"] == "done"
 assert sum(1 for event in events if event["type"] == "candidate_scored") >= 12
 assert len(graph["nodes"]) >= 53
 assert len(graph["edges"]) >= 56
+assert len(research["claims"]) >= 16
+assert len(research["candidates"]) >= 12
+assert len(research["tasks"]) >= 16
 assert report["process_score"] is not None
 assert report["discovery_score"] is not None
 print(
