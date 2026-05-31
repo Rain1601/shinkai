@@ -78,6 +78,15 @@ function summarizeZh(type: string | undefined, data: Record<string, unknown>): s
   if (type === "tool_result") {
     return `工具返回：${String(data.name ?? "tool")} · ${data.ok ? "成功" : "失败"}`;
   }
+  if (type === "frontier_selected") {
+    return `选择前沿：${localizeText(data.frontier, "zh")} · 优先级 ${formatNumber(data.priority)}`;
+  }
+  if (type === "frontier_reprioritized") {
+    return `前沿重排：${localizeText(data.frontier, "zh")} · ${localizeDecision(data.action, "zh") || String(data.action ?? "")}`;
+  }
+  if (type === "role_step_completed") {
+    return `角色完成：${String(data.role ?? "agent")} · ${String(data.step ?? "")}`;
+  }
   if (type === "supply_chain_layer_started") {
     return `开始扩展层级：${layer}`;
   }

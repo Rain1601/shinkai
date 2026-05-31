@@ -135,6 +135,9 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         event_types = [event.type for event in run.events]
 
         assert event_types[-1] == "done"
+        assert event_types.count("frontier_selected") >= 4
+        assert event_types.count("frontier_reprioritized") >= 4
+        assert event_types.count("role_step_completed") >= 9
         assert event_types.count("supply_chain_layer_started") >= 4
         assert event_types.count("candidate_scored") >= 12
         assert event_types.count("claim_validated") >= 4

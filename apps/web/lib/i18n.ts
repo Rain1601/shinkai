@@ -61,7 +61,11 @@ export function localizeDecision(decision: unknown, locale: Locale): string {
     {
       queue_mode_a: "进入模式 A 队列",
       watch_only: "继续观察",
-      continue_deeper: "继续向下挖掘"
+      continue_deeper: "继续向下挖掘",
+      expand_next_frontier: "扩展下一前沿",
+      block_and_research_contradiction: "先处理反证",
+      refresh_sources: "刷新来源",
+      raise_primary_source_priority: "提高一手来源优先级"
     }[value] ?? value
   );
 }
@@ -75,6 +79,9 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       plan: "计划生成",
       tool_call: "工具调用",
       tool_result: "工具返回",
+      frontier_selected: "前沿选择",
+      frontier_reprioritized: "前沿重排",
+      role_step_completed: "角色步骤完成",
       supply_chain_layer_started: "层级启动",
       frontier_expanded: "前沿扩展",
       theme_discovered: "主题发现",

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha1
 from urllib.parse import urlparse
 
+from shinkai_api.agent.frontier import FrontierItem, FrontierQueue
 from shinkai_api.core.config import settings
 from shinkai_api.graph import Edge, GraphDelta, Node, default_graph_store, edge_id, node_id
 from shinkai_api.llm import DeepSeekClient, DeepSeekError
@@ -198,7 +199,13 @@ class ShinkaiHarness:
                     },
                 )
 
-        max_loops = min(len(planned_layers), max(1, run.budget.max_tool_calls // 20))
+        frontier_items = _frontier_items_from_layers(planned_layers)
+        frontier_queue = FrontierQueue(frontier_items)
+        layer_by_frontier_id = {
+            item.frontier_id: layer
+            for item, layer in zip(frontier_items, planned_layers, strict=True)
+        }
+        max_loops = min(len(frontier_items), max(1, run.budget.max_tool_calls // 20))
         objective = run.scope.get(
             "objective",
             "autonomously discover AI supply-chain bottlenecks and under-covered companies",
@@ -220,12 +227,50 @@ class ShinkaiHarness:
                 ],
                 "termination": "stop when objective is met or budget is exhausted",
                 "planner": "deepseek" if planner_payload else "deterministic",
+                "roles": {
+                    "planner": "build and score frontier queue",
+                    "researcher": "execute source search and graph/research writes",
+                    "reviewer": "validate claims against support/refute/stale evidence",
+                    "optimizer": "reprioritize the frontier queue after review",
+                },
+                "frontier_queue": frontier_queue.snapshot(),
+            },
+        )
+        yield AgentEvent(
+            type="role_step_completed",
+            run_id=run.id,
+            data={
+                "role": "planner",
+                "step": "frontier_queue_initialized",
+                "frontier_count": len(frontier_items),
+                "queue": frontier_queue.snapshot(),
             },
         )
 
         live_sources = bool(run.scope.get("allow_live_sources", True))
 
-        for loop_index, layer in enumerate(planned_layers[:max_loops], start=1):
+        for loop_index in range(1, max_loops + 1):
+            frontier_item = frontier_queue.pop_next()
+            if frontier_item is None:
+                break
+            layer = layer_by_frontier_id[frontier_item.frontier_id]
+            yield AgentEvent(
+                type="frontier_selected",
+                run_id=run.id,
+                data={
+                    "loop_index": loop_index,
+                    "frontier_id": frontier_item.frontier_id,
+                    "frontier": frontier_item.name,
+                    "selection_score": frontier_item.selection_score,
+                    "priority": frontier_item.priority,
+                    "confidence": frontier_item.confidence,
+                    "expected_value": frontier_item.expected_value,
+                    "estimated_cost": frontier_item.estimated_cost,
+                    "reason": frontier_item.reason,
+                    "queue_remaining": frontier_queue.queued_count,
+                    "selected_by": "planner",
+                },
+            )
             yield AgentEvent(
                 type="supply_chain_layer_started",
                 run_id=run.id,
@@ -873,6 +918,21 @@ class ShinkaiHarness:
                 },
             )
             yield AgentEvent(
+                type="role_step_completed",
+                run_id=run.id,
+                data={
+                    "role": "reviewer",
+                    "step": "claim_evidence_review",
+                    "loop_index": loop_index,
+                    "frontier_id": frontier_item.frontier_id,
+                    "verification": assessment.verification,
+                    "status": assessment.status,
+                    "primary_source_count": assessment.primary_source_count,
+                    "contradicting_source_count": assessment.contradicting_source_count,
+                    "rationale": assessment.rationale,
+                },
+            )
+            yield AgentEvent(
                 type="memory_patch_proposed",
                 run_id=run.id,
                 data={
@@ -909,13 +969,36 @@ class ShinkaiHarness:
                     "requires_human_approval": True,
                 },
             )
+            queue_update = frontier_queue.reprioritize_after_review(frontier_item, assessment)
+            if frontier_item.status == "running":
+                frontier_queue.complete(frontier_item)
+            yield AgentEvent(
+                type="frontier_reprioritized",
+                run_id=run.id,
+                data={
+                    "loop_index": loop_index,
+                    **queue_update,
+                    "completed_count": frontier_queue.completed_count,
+                    "queue": frontier_queue.snapshot(),
+                },
+            )
+            yield AgentEvent(
+                type="role_step_completed",
+                run_id=run.id,
+                data={
+                    "role": "optimizer",
+                    "step": "frontier_queue_reprioritized",
+                    "loop_index": loop_index,
+                    **queue_update,
+                },
+            )
             yield AgentEvent(
                 type="optimization_decision",
                 run_id=run.id,
                 data={
                     "loop_index": loop_index,
                     "decision": "continue_deeper",
-                    "next_frontier": layer.next_frontier,
+                    "next_frontier": queue_update.get("next_frontier") or layer.next_frontier,
                     "policy_patch": (
                         "Spiral 2 must replace AgentInference evidence with "
                         "web/filing/transcript sources."
@@ -1404,6 +1487,32 @@ def _bounded_float(value: object, *, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return min(1.0, max(0.0, parsed))
+
+
+def _frontier_items_from_layers(layers: list[SupplyChainLayer]) -> list[FrontierItem]:
+    items: list[FrontierItem] = []
+    for index, layer in enumerate(layers):
+        expected_value = min(1.0, 0.56 + len(layer.companies) * 0.07)
+        confidence = 0.62 + min(0.18, len(layer.seed_giants) * 0.03)
+        cost = 0.34 + min(0.24, len(layer.companies) * 0.04)
+        priority = min(1.0, 0.64 + (0.04 if index == 0 else 0.0))
+        items.append(
+            FrontierItem(
+                frontier_id=_stable_id("frontier", layer.name),
+                name=layer.name,
+                priority=priority,
+                confidence=confidence,
+                expected_value=expected_value,
+                estimated_cost=cost,
+                reason=(
+                    "seeded by AI mega-cap demand and concrete second-order "
+                    "candidate coverage"
+                ),
+                source="deterministic_planner",
+                next_frontier=layer.next_frontier,
+            )
+        )
+    return items
 
 
 def _stable_id(prefix: str, *values: object) -> str:
