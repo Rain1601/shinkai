@@ -15,18 +15,22 @@ TERMINAL_STATUSES = {"completed", "failed", "aborted"}
 class RunExecutor:
     def __init__(self) -> None:
         self._tasks: dict[str, asyncio.Task[None]] = {}
+        self._start_lock = asyncio.Lock()
+        self._tool_call_counts: dict[str, int] = {}
 
     async def start(self, run_id: str) -> Run:
-        run = await default_run_store.get(run_id)
-        task = self._tasks.get(run_id)
-        if task and not task.done():
-            return run
-        if run.status in TERMINAL_STATUSES:
-            return run
+        async with self._start_lock:
+            run = await default_run_store.get(run_id)
+            task = self._tasks.get(run_id)
+            if task and not task.done():
+                return run
+            if run.status in TERMINAL_STATUSES:
+                return run
 
-        run = await default_run_store.set_status(run_id, "running", "scoped")
-        self._tasks[run_id] = asyncio.create_task(self._execute(run_id))
-        return run
+            run = await default_run_store.set_status(run_id, "running", "scoped")
+            self._tool_call_counts[run_id] = 0
+            self._tasks[run_id] = asyncio.create_task(self._execute(run_id))
+            return run
 
     async def recover_active_runs(self) -> list[Run]:
         recovered: list[Run] = []
@@ -111,7 +115,7 @@ class RunExecutor:
             run = await default_run_store.get(run_id)
             if run.status == "aborted":
                 return False
-            if run.status != "paused":
+            if run.status not in {"paused", "awaiting_checkpoint"}:
                 return True
             await asyncio.sleep(0.5)
 
@@ -119,8 +123,11 @@ class RunExecutor:
         if event.type != "tool_call":
             return False
         run = await default_run_store.get(run_id)
-        tool_calls = sum(1 for existing in run.events if existing.type == "tool_call")
-        return tool_calls >= run.budget.max_tool_calls
+        current = self._tool_call_counts.get(run_id, 0)
+        if current >= run.budget.max_tool_calls:
+            return True
+        self._tool_call_counts[run_id] = current + 1
+        return False
 
     async def _apply_event_side_effects(self, run_id: str, event: AgentEvent) -> None:
         stage = _stage_from_event(event)

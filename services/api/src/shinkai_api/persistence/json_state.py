@@ -64,8 +64,10 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    import os
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+    tmp_path = path.with_suffix(f"{path.suffix}.{os.getpid()}.tmp")
     tmp_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8",

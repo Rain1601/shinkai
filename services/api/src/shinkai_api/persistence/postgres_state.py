@@ -26,12 +26,94 @@ class PostgresStateFile:
     async def save_section(self, section: str, value: Any) -> None:
         await asyncio.to_thread(self._save_section_sync, section, value)
 
+    async def append_event(self, run_id: str, event: dict[str, Any]) -> None:
+        await asyncio.to_thread(self._append_event_sync, run_id, event)
+
+    async def query_events_by_type(
+        self,
+        event_type: str,
+        run_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self._query_events_by_type_sync, event_type, run_id, limit)
+
+    def _query_events_by_type_sync(
+        self,
+        event_type: str,
+        run_id: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        bounded_limit = max(1, min(1000, limit))
+        with self._connect() as connection:
+            self._ensure_schema(connection)
+            connection.commit()
+            with connection.cursor() as cursor:
+                if run_id is None:
+                    cursor.execute(
+                        """
+                        select event_id, run_id, type, ts, payload
+                        from shinkai_events
+                        where type = %s
+                        order by ts desc nulls last
+                        limit %s
+                        """,
+                        (event_type, bounded_limit),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        select event_id, run_id, type, ts, payload
+                        from shinkai_events
+                        where type = %s and run_id = %s
+                        order by ts desc nulls last
+                        limit %s
+                        """,
+                        (event_type, run_id, bounded_limit),
+                    )
+                rows = cursor.fetchall()
+            connection.commit()
+        return [
+            {
+                "event_id": str(event_id),
+                "run_id": run_id_value,
+                "type": event_type,
+                "ts": ts,
+                "payload": _parse_payload(payload),
+            }
+            for event_id, run_id_value, event_type, ts, payload in rows
+        ]
+
+    def _append_event_sync(self, run_id: str, event: dict[str, Any]) -> None:
+        event_id = event.get("event_id")
+        if not event_id:
+            return
+        with self._connect() as connection:
+            self._ensure_schema(connection)
+            with connection.transaction():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        insert into shinkai_events(event_id, run_id, type, ts, payload, updated_at)
+                        values (%s, %s, %s, %s, %s::jsonb, now())
+                        on conflict (event_id) do nothing
+                        """,
+                        (
+                            str(event_id),
+                            run_id,
+                            str(event.get("type") or ""),
+                            event.get("ts"),
+                            json.dumps(event, ensure_ascii=False),
+                        ),
+                    )
+
     def _load_sync(self) -> dict[str, Any]:
         with self._connect() as connection:
             self._ensure_schema(connection)
+            connection.commit()
             with connection.cursor() as cursor:
                 cursor.execute("select section, payload from shinkai_state")
                 rows = cursor.fetchall()
+            connection.commit()
         state = _empty_state()
         for section, payload in rows:
             state[str(section)] = _parse_payload(payload)
@@ -40,23 +122,24 @@ class PostgresStateFile:
     def _save_section_sync(self, section: str, value: Any) -> None:
         with self._connect() as connection:
             self._ensure_schema(connection)
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    insert into shinkai_state(section, payload, updated_at)
-                    values (%s, %s::jsonb, now())
-                    on conflict (section) do update set
-                        payload = excluded.payload,
-                        updated_at = excluded.updated_at
-                    """,
-                    (section, json.dumps(value, ensure_ascii=False)),
-                )
-                self._save_normalized_section(cursor, section, value)
+            with connection.transaction():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        insert into shinkai_state(section, payload, updated_at)
+                        values (%s, %s::jsonb, now())
+                        on conflict (section) do update set
+                            payload = excluded.payload,
+                            updated_at = excluded.updated_at
+                        """,
+                        (section, json.dumps(value, ensure_ascii=False)),
+                    )
+                    self._save_normalized_section(cursor, section, value)
 
     def _connect(self):
         import psycopg
 
-        return psycopg.connect(self.database_url, autocommit=True)
+        return psycopg.connect(self.database_url, autocommit=False)
 
     def _ensure_schema(self, connection) -> None:
         with connection.cursor() as cursor:
@@ -253,16 +336,6 @@ def _run_records(value: dict[str, Any]) -> list[NormalizedRecord]:
                 payload=payload,
             )
         )
-        for event in payload.get("events") or []:
-            if isinstance(event, dict) and event.get("event_id"):
-                records.append(
-                    NormalizedRecord(
-                        table="shinkai_events",
-                        key=(str(event["event_id"]),),
-                        run_id=str(run_id),
-                        payload=event,
-                    )
-                )
     return records
 
 

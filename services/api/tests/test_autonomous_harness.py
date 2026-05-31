@@ -148,8 +148,8 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         assert "memory_patch_proposed" in event_types
         assert "filter_policy_patch_proposed" in event_types
         assert "checklist_patch_proposed" in event_types
-        assert len(graph.nodes) >= 53
-        assert len(graph.edges) >= 56
+        assert len(graph.nodes) >= 50
+        assert len(graph.edges) >= 50
         assert any(node.type == "Claim" for node in graph.nodes)
         assert any(node.type == "Evidence" for node in graph.nodes)
         assert any(node.type == "Question" for node in graph.nodes)

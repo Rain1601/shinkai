@@ -60,7 +60,7 @@ def load_eval_cases() -> list[EvalCase]:
             source_backed=True,
             primary_source_count=1,
             source_tiers=["primary"],
-            candidate_count=2,
+            candidate_count=8,
             dossier_decision="invest",
             mode_a_checks={
                 "quality": True,
@@ -88,7 +88,7 @@ def load_eval_cases() -> list[EvalCase]:
             source_backed=False,
             primary_source_count=0,
             source_tiers=["agent_inference"],
-            candidate_count=2,
+            candidate_count=8,
             dossier_decision="watch",
             mode_a_checks={
                 "quality": True,
@@ -117,7 +117,7 @@ def load_eval_cases() -> list[EvalCase]:
             source_backed=True,
             primary_source_count=1,
             source_tiers=["primary"],
-            candidate_count=2,
+            candidate_count=8,
             dossier_decision="reject",
             mode_a_checks={
                 "quality": True,
@@ -280,37 +280,73 @@ def _events(
     dossier_decision: str,
     mode_a_checks: dict[str, bool],
 ) -> list[AgentEvent]:
-    events = [
-        AgentEvent(type="supply_chain_layer_started", run_id=run_id, data={"layer": "Eval layer"}),
-        AgentEvent(
-            type="evidence_found",
-            run_id=run_id,
-            data={
-                "source_backed": source_backed,
-                "source_tiers": source_tiers,
-                "primary_source_count": primary_source_count,
-            },
-        ),
-        AgentEvent(
-            type="claim_validated",
-            run_id=run_id,
-            data={
-                "verification": verification,
-                "status": _claim_status(verification),
-                "primary_source_count": primary_source_count,
-                "stale_source_ids": [],
-            },
-        ),
-        AgentEvent(type="review_completed", run_id=run_id, data={"review_score": 0.8}),
-        AgentEvent(
-            type="optimization_decision",
-            run_id=run_id,
-            data={"decision": "continue_deeper"},
-        ),
-        AgentEvent(type="memory_patch_proposed", run_id=run_id, data={}),
-        AgentEvent(type="filter_policy_patch_proposed", run_id=run_id, data={}),
-        AgentEvent(type="checklist_patch_proposed", run_id=run_id, data={}),
-    ]
+    events: list[AgentEvent] = []
+    for layer_index in range(4):
+        events.append(
+            AgentEvent(
+                type="supply_chain_layer_started",
+                run_id=run_id,
+                data={"layer": f"Eval layer {layer_index}"},
+            )
+        )
+        events.append(
+            AgentEvent(
+                type="review_completed",
+                run_id=run_id,
+                data={"review_score": 0.8, "layer_index": layer_index},
+            )
+        )
+        events.append(
+            AgentEvent(
+                type="optimization_decision",
+                run_id=run_id,
+                data={"decision": "continue_deeper", "layer_index": layer_index},
+            )
+        )
+        events.append(
+            AgentEvent(
+                type="memory_patch_proposed",
+                run_id=run_id,
+                data={"layer_index": layer_index},
+            )
+        )
+        events.append(
+            AgentEvent(
+                type="filter_policy_patch_proposed",
+                run_id=run_id,
+                data={"layer_index": layer_index},
+            )
+        )
+        events.append(
+            AgentEvent(
+                type="checklist_patch_proposed",
+                run_id=run_id,
+                data={"layer_index": layer_index},
+            )
+        )
+    events.extend(
+        [
+            AgentEvent(
+                type="evidence_found",
+                run_id=run_id,
+                data={
+                    "source_backed": source_backed,
+                    "source_tiers": source_tiers,
+                    "primary_source_count": primary_source_count,
+                },
+            ),
+            AgentEvent(
+                type="claim_validated",
+                run_id=run_id,
+                data={
+                    "verification": verification,
+                    "status": _claim_status(verification),
+                    "primary_source_count": primary_source_count,
+                    "stale_source_ids": [],
+                },
+            ),
+        ]
+    )
     for index in range(candidate_count):
         events.append(
             AgentEvent(

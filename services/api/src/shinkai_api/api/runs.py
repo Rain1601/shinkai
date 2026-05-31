@@ -3,6 +3,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from shinkai_api.core.auth import require_admin
 from shinkai_api.graph import default_graph_store
@@ -75,6 +76,85 @@ async def abort_run(run_id: str) -> Run:
         return await default_run_executor.abort(run_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="run not found") from exc
+
+
+class HumanInjection(BaseModel):
+    note: str
+    intent: str = "guidance"
+
+
+@router.post(
+    "/{run_id}/inject",
+    response_model=Run,
+    dependencies=[Depends(require_admin)],
+)
+async def inject_into_run(run_id: str, payload: HumanInjection) -> Run:
+    """Append a human-authored guidance event into the run's event log.
+
+    The harness reads these from the run's event history; injections from a
+    paused state are picked up when the run resumes.
+    """
+    try:
+        run = await default_run_store.get(run_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    if run.status in TERMINAL_STATUSES:
+        raise HTTPException(status_code=409, detail="run is terminal")
+    note = payload.note.strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="note must not be empty")
+    event = AgentEvent(
+        type="thinking",
+        run_id=run_id,
+        data={
+            "source": "human_injection",
+            "intent": payload.intent,
+            "note": note,
+        },
+    )
+    await default_run_store.append_event(run_id, event)
+    return await default_run_store.get(run_id)
+
+
+class CheckpointDecision(BaseModel):
+    decision: str  # "approve" | "reject" | "modify"
+    note: str = ""
+
+
+@router.post(
+    "/{run_id}/checkpoint",
+    response_model=Run,
+    dependencies=[Depends(require_admin)],
+)
+async def resolve_checkpoint(run_id: str, payload: CheckpointDecision) -> Run:
+    """Resolve an awaiting checkpoint by approving, rejecting, or sending guidance."""
+    try:
+        run = await default_run_store.get(run_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    if run.status in TERMINAL_STATUSES:
+        raise HTTPException(status_code=409, detail="run is terminal")
+    if payload.decision not in {"approve", "reject", "modify"}:
+        raise HTTPException(
+            status_code=400,
+            detail="decision must be one of: approve, reject, modify",
+        )
+    event = AgentEvent(
+        type="checkpoint_released",
+        run_id=run_id,
+        data={
+            "source": "human_review",
+            "decision": payload.decision,
+            "note": payload.note,
+            "previous_status": run.status,
+        },
+    )
+    await default_run_store.append_event(run_id, event)
+    if payload.decision == "reject":
+        return await default_run_executor.abort(run_id)
+    if run.status == "awaiting_checkpoint" or run.status == "paused":
+        return await default_run_store.set_status(run_id, "running")
+    return await default_run_store.get(run_id)
 
 
 @router.get("/{run_id}/events")

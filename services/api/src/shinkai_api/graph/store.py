@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import uuid
 
 from shinkai_api.core.async_lock import LoopBoundLock
 from shinkai_api.graph.models import Graph, GraphDelta, Node
-from shinkai_api.persistence import default_json_state
+from shinkai_api.persistence import default_state_store
 from shinkai_api.runs.models import Run
 
 
@@ -55,7 +56,7 @@ class InMemoryGraphStore:
     async def _ensure_loaded(self) -> None:
         if self._loaded:
             return
-        state = await default_json_state.load()
+        state = await default_state_store.load()
         graphs = state.get("graphs_by_run", {})
         if isinstance(graphs, dict):
             self._graphs_by_run = {
@@ -66,7 +67,7 @@ class InMemoryGraphStore:
         self._loaded = True
 
     async def _persist(self) -> None:
-        await default_json_state.save_section(
+        await default_state_store.save_section(
             "graphs_by_run",
             {
                 run_id: graph.model_dump(mode="json")
@@ -77,11 +78,13 @@ class InMemoryGraphStore:
 
 def node_id(prefix: str, value: str) -> str:
     safe = "".join(ch.lower() if ch.isalnum() else "_" for ch in value).strip("_")
-    return f"{prefix}_{safe[:48]}_{uuid.uuid4().hex[:6]}"
+    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+    return f"{prefix}_{safe[:48]}_{digest}"
 
 
 def edge_id(from_node: str, relation: str, to_node: str) -> str:
-    return f"e_{from_node[:16]}_{relation}_{to_node[:16]}_{uuid.uuid4().hex[:6]}"
+    digest = hashlib.sha1(f"{from_node}|{relation}|{to_node}".encode()).hexdigest()[:8]
+    return f"e_{from_node[:16]}_{relation}_{to_node[:16]}_{digest}"
 
 
 default_graph_store = InMemoryGraphStore()

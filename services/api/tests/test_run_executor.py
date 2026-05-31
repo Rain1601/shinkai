@@ -6,6 +6,32 @@ from shinkai_api.graph import default_graph_store
 from shinkai_api.runs import RunCreate, default_run_store
 from shinkai_api.runs.executor import RunExecutor, default_run_executor
 from shinkai_api.schemas.events import AgentEvent
+from shinkai_api.tools import default_tool_registry
+from shinkai_api.tools.base import Tool, ToolResult
+
+
+class _StubWebSearchTool(Tool):
+    name = "web_search"
+    description = "Stub web search; never fires HTTP."
+
+    async def run(self, **kwargs):
+        return ToolResult(
+            ok=True,
+            summary="stub",
+            data={"query": kwargs.get("query"), "results": []},
+        )
+
+
+class _StubWebExtractTool(Tool):
+    name = "web_extract"
+    description = "Stub web extract; never fires HTTP."
+
+    async def run(self, **kwargs):
+        return ToolResult(
+            ok=True,
+            summary="stub",
+            data={"url": kwargs.get("url"), "title": "stub", "excerpt": ""},
+        )
 
 
 def test_run_store_deduplicates_events_by_id() -> None:
@@ -149,8 +175,65 @@ def test_run_executor_recovers_running_run() -> None:
     asyncio.run(scenario())
 
 
+def test_recovery_does_not_duplicate_events_or_nodes() -> None:
+    async def scenario() -> None:
+        run = await default_run_store.create(
+            RunCreate(
+                mode="mode_b_narrative",
+                anchor="Idempotent Recovery",
+                scope={
+                    "objective": "verify recovery idempotency",
+                    "allow_live_sources": False,
+                },
+                budget={"max_wall_time_minutes": 120, "max_tool_calls": 80},
+            )
+        )
+        graph = await default_graph_store.create_for_run(run)
+        await default_run_store.set_graph_id(run.id, graph.graph_id)
+
+        await default_run_executor.start(run.id)
+        for _ in range(1200):
+            current = await default_run_store.get(run.id)
+            if current.status == "completed":
+                break
+            await asyncio.sleep(0.05)
+
+        baseline_run = await default_run_store.get(run.id)
+        baseline_graph = await default_graph_store.get_by_run(run.id)
+        baseline_event_count = len(baseline_run.events)
+        baseline_node_count = len(baseline_graph.nodes)
+        baseline_edge_count = len(baseline_graph.edges)
+        baseline_child_run_created = sum(
+            1 for event in baseline_run.events if event.type == "child_run_created"
+        )
+
+        await default_run_store.set_status(run.id, "running", "recovering")
+        executor = RunExecutor()
+        await executor.recover_active_runs()
+        for _ in range(1200):
+            current = await default_run_store.get(run.id)
+            if current.status == "completed":
+                break
+            await asyncio.sleep(0.05)
+
+        recovered_run = await default_run_store.get(run.id)
+        recovered_graph = await default_graph_store.get_by_run(run.id)
+        recovered_child_run_created = sum(
+            1 for event in recovered_run.events if event.type == "child_run_created"
+        )
+
+        assert len(recovered_graph.nodes) == baseline_node_count
+        assert len(recovered_graph.edges) == baseline_edge_count
+        assert recovered_child_run_created == baseline_child_run_created
+        assert len(recovered_run.events) <= baseline_event_count + 2
+
+    asyncio.run(scenario())
+
+
 def test_run_executor_stops_when_tool_call_budget_is_exhausted() -> None:
     async def scenario() -> None:
+        default_tool_registry.register(_StubWebSearchTool())
+        default_tool_registry.register(_StubWebExtractTool())
         run = await default_run_store.create(
             RunCreate(
                 mode="mode_b_narrative",

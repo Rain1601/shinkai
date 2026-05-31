@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     database_url: str | None = None
     persistence_json_fallback: bool = True
     state_path: str = ".shinkai/state.json"
+    published_dossier_top_n: int = 12
+    harness_max_loops_divisor: int = 20
 
 
 settings = Settings()

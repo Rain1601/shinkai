@@ -129,6 +129,15 @@ class InMemoryResearchStore:
             },
         )
 
+    def _reset_for_tests(self) -> None:
+        self._sources = {}
+        self._evidence = {}
+        self._claims = {}
+        self._candidates = {}
+        self._dossiers = {}
+        self._tasks = {}
+        self._loaded = False
+
 
 def _load_models(payload: object, model_class):
     if not isinstance(payload, dict):

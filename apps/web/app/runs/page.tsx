@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ActionPanel } from "../../components/portal/ActionPanel";
+import { InjectPanel } from "../../components/portal/InjectPanel";
 import { EventStream } from "../../components/portal/EventStream";
 import { GraphPanel } from "../../components/portal/GraphPanel";
 import { JudgmentPanel } from "../../components/portal/JudgmentPanel";
@@ -383,6 +384,68 @@ export default function RunsPage() {
       );
       if (!response.ok) {
         setError(isZh ? `${action} 失败：${response.status}` : `${action} failed: ${response.status}`);
+        return;
+      }
+      const run: Run = await response.json();
+      setRuns((current) => upsertRun(current, run));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function injectIntoRun(runId: string, note: string, intent: string) {
+    setError(null);
+    if (!canControlRuns) {
+      setError(isZh ? "只读模式：无法注入。" : "Read-only mode: cannot inject.");
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `/api/v1/runs/${runId}/inject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note, intent }),
+        },
+        adminToken
+      );
+      if (!response.ok) {
+        setError(isZh ? `注入失败：${response.status}` : `inject failed: ${response.status}`);
+        return;
+      }
+      const run: Run = await response.json();
+      setRuns((current) => upsertRun(current, run));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function resolveCheckpoint(
+    runId: string,
+    decision: "approve" | "reject" | "modify",
+    note: string
+  ) {
+    setError(null);
+    if (!canControlRuns) {
+      setError(isZh ? "只读模式：无法处理 checkpoint。" : "Read-only mode: cannot resolve checkpoint.");
+      return;
+    }
+    try {
+      const response = await apiFetch(
+        `/api/v1/runs/${runId}/checkpoint`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision, note }),
+        },
+        adminToken
+      );
+      if (!response.ok) {
+        setError(
+          isZh
+            ? `Checkpoint 处理失败：${response.status}`
+            : `checkpoint failed: ${response.status}`
+        );
         return;
       }
       const run: Run = await response.json();
@@ -803,6 +866,17 @@ export default function RunsPage() {
               onAbort={() => selectedRun && mutateRun(selectedRun.id, "abort")}
               onPause={() => selectedRun && mutateRun(selectedRun.id, "pause")}
               onStart={() => selectedRun && mutateRun(selectedRun.id, "start")}
+            />
+            <InjectPanel
+              disabled={!selectedRun || !canControlRuns}
+              locale={locale}
+              status={selectedRun?.status}
+              onInject={(note, intent) =>
+                selectedRun ? injectIntoRun(selectedRun.id, note, intent) : undefined
+              }
+              onResolveCheckpoint={(decision, note) =>
+                selectedRun ? resolveCheckpoint(selectedRun.id, decision, note) : undefined
+              }
             />
             {canViewProcess ? (
               <EventStream events={selectedRun?.events ?? []} locale={locale} />

@@ -96,9 +96,8 @@ def test_postgres_state_exposes_normalized_projection_records() -> None:
         },
     )
 
-    assert [record.table for record in records] == ["shinkai_runs", "shinkai_events"]
+    assert [record.table for record in records] == ["shinkai_runs"]
     assert records[0].key == ("run_1",)
-    assert records[1].key == ("evt_1",)
 
 
 def test_postgres_state_schema_contains_queryable_tables() -> None:
@@ -108,6 +107,18 @@ def test_postgres_state_schema_contains_queryable_tables() -> None:
     assert "shinkai_events" in schema
     assert "shinkai_graph_nodes" in schema
     assert "shinkai_research_records" in schema
+
+
+def test_postgres_state_schema_statements_are_well_formed_sql() -> None:
+    statements = _schema_statements()
+
+    for statement in statements:
+        normalized = " ".join(statement.split()).lower()
+        assert normalized.startswith(
+            ("create table if not exists", "create index if not exists")
+        ), normalized
+        assert "(" in normalized and ")" in normalized
+        assert normalized.count("(") == normalized.count(")")
 
 
 def test_json_state_recovers_research_domain_models(tmp_path) -> None:

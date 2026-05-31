@@ -89,6 +89,7 @@ class SourceRef(BaseModel):
     url: str
     title: str = ""
     publisher: str = ""
+    # POSIX timestamp in seconds (UTC), or None when publication date is unknown.
     published_at: float | None = None
     primary_source_flag: bool = False
     accessed_at: float = Field(default_factory=time)
@@ -180,16 +181,40 @@ def assess_claim_support(
         )
     )
     contradiction_count = len(_unique_ids(source.source_id for source in contradict))
-    if contradiction_count:
+    primary_contradictions = [
+        source for source in contradict if source.tier == "primary" or source.primary_source_flag
+    ]
+    contradiction_reliability = _average_reliability(contradict)
+    support_reliability = _average_reliability(fresh_support) if fresh_support else 0.0
+    contradiction_is_decisive = (
+        bool(primary_contradictions)
+        or contradiction_count >= 2
+        or (not fresh_support and contradiction_count >= 1)
+        or contradiction_reliability >= support_reliability + 0.15
+    )
+    if contradiction_count and contradiction_is_decisive:
         return ClaimAssessment(
             status="contradicted",
             verification="refute",
-            confidence=_average_reliability(contradict),
+            confidence=contradiction_reliability,
             independent_source_count=len(independent_ids),
             primary_source_count=primary_count,
             contradicting_source_count=contradiction_count,
             stale_source_ids=stale_source_ids,
-            rationale="contradicting evidence exists",
+            rationale="contradicting evidence is primary, replicated, or outweighs support",
+        )
+    if contradiction_count:
+        return ClaimAssessment(
+            status="weak",
+            verification="insufficient",
+            confidence=max(0.0, support_reliability - 0.15 * contradiction_count),
+            independent_source_count=len(independent_ids),
+            primary_source_count=primary_count,
+            contradicting_source_count=contradiction_count,
+            stale_source_ids=stale_source_ids,
+            rationale=(
+                "weak contradicting signal present but does not outweigh existing support"
+            ),
         )
     if stale_source_ids and not fresh_support:
         return ClaimAssessment(

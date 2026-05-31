@@ -150,9 +150,15 @@ class ShinkaiHarness:
     """
 
     async def run(self, run: Run) -> AsyncIterator[AgentEvent]:
-        planned_layers = list(AI_SUPPLY_CHAIN_LAYERS)
+        discovery_mode = str(run.scope.get("discovery_mode") or "auto")
+        prefer_llm = discovery_mode == "llm_driven" or (
+            discovery_mode == "auto" and bool(settings.deepseek_api_key)
+        )
+        planned_layers: list[SupplyChainLayer] = []
         planner_payload: dict | None = None
-        if settings.deepseek_api_key:
+        planner_source = "deterministic_fallback"
+
+        if prefer_llm and settings.deepseek_api_key:
             yield AgentEvent(
                 type="tool_call",
                 run_id=run.id,
@@ -163,8 +169,13 @@ class ShinkaiHarness:
                 },
             )
             try:
-                planner_payload = await self._plan_with_deepseek(run, planned_layers)
-                planned_layers.extend(self._layers_from_planner_payload(planner_payload))
+                planner_payload = await self._plan_with_deepseek(
+                    run, list(AI_SUPPLY_CHAIN_LAYERS)
+                )
+                llm_layers = self._layers_from_planner_payload(planner_payload)
+                if llm_layers:
+                    planned_layers = llm_layers
+                    planner_source = "deepseek_llm_planner"
                 usage = planner_payload.get("_usage", {})
                 yield AgentEvent(
                     type="tool_result",
@@ -172,10 +183,15 @@ class ShinkaiHarness:
                     data={
                         "name": "deepseek_frontier_planner",
                         "ok": True,
-                        "summary": "DeepSeek proposed additional frontiers and review policy.",
+                        "summary": (
+                            "DeepSeek proposed frontiers."
+                            if llm_layers
+                            else "DeepSeek returned no frontiers; using deterministic fallback."
+                        ),
                         "preview": {
                             "frontiers": len(planner_payload.get("frontiers", [])),
                             "usage": usage,
+                            "source_used": planner_source,
                         },
                     },
                 )
@@ -201,13 +217,32 @@ class ShinkaiHarness:
                     },
                 )
 
+        if not planned_layers:
+            planned_layers = list(AI_SUPPLY_CHAIN_LAYERS)
+            planner_source = "deterministic_fallback"
+
+        yield AgentEvent(
+            type="role_step_completed",
+            run_id=run.id,
+            data={
+                "role": "planner",
+                "step": "planner_source_selected",
+                "planner_source": planner_source,
+                "frontier_count": len(planned_layers),
+                "discovery_mode": discovery_mode,
+            },
+        )
+
         frontier_items = _frontier_items_from_layers(planned_layers)
         frontier_queue = FrontierQueue(frontier_items)
         layer_by_frontier_id = {
             item.frontier_id: layer
             for item, layer in zip(frontier_items, planned_layers, strict=True)
         }
-        max_loops = min(len(frontier_items), max(1, run.budget.max_tool_calls // 20))
+        max_loops = min(
+            len(frontier_items),
+            max(1, run.budget.max_tool_calls // max(1, settings.harness_max_loops_divisor)),
+        )
         objective = run.scope.get(
             "objective",
             "autonomously discover AI supply-chain bottlenecks and under-covered companies",
@@ -249,10 +284,12 @@ class ShinkaiHarness:
             },
         )
 
-        live_sources = bool(run.scope.get("allow_live_sources", True))
+        live_sources = bool(run.scope.get("allow_live_sources", False))
 
         for loop_index in range(1, max_loops + 1):
-            frontier_item = frontier_queue.pop_next()
+            frontier_item = frontier_queue.pop_next(
+                source_filter={"deterministic_planner", "planner"}
+            )
             if frontier_item is None:
                 break
             layer = layer_by_frontier_id[frontier_item.frontier_id]
@@ -739,6 +776,17 @@ class ShinkaiHarness:
             candidate_dossiers_by_ticker = {
                 dossier.ticker: dossier for dossier in dossier_records
             }
+            candidate_scores_by_ticker = {
+                candidate.ticker: {
+                    "quality": candidate.quality_score,
+                    "underwater": candidate.under_coverage_score,
+                    "score": candidate.relevance_score,
+                    "q1_pass": candidate.quality_score >= 0.65,
+                    "q2_pass": candidate.under_coverage_score >= 0.55,
+                    "decision": str(candidate.metadata.get("decision") or "watch_only"),
+                }
+                for candidate in candidate_records
+            }
 
             delta = GraphDelta(
                 nodes=[
@@ -837,12 +885,19 @@ class ShinkaiHarness:
             )
 
             for company in layer.companies:
-                quality = float(company["quality"])
-                underwater = float(company["underwater"])
-                score = round((quality * 0.55) + (underwater * 0.45), 3)
-                q1_pass = quality >= 0.65
-                q2_pass = underwater >= 0.55
-                decision = "queue_mode_a" if q1_pass and q2_pass and score >= 0.62 else "watch_only"
+                ticker = str(company["ticker"])
+                cached = candidate_scores_by_ticker.get(ticker, {})
+                quality = float(cached.get("quality") or company["quality"])
+                underwater = float(cached.get("underwater") or company["underwater"])
+                score = float(
+                    cached.get("score") or round((quality * 0.55) + (underwater * 0.45), 3)
+                )
+                q1_pass = bool(cached.get("q1_pass", quality >= 0.65))
+                q2_pass = bool(cached.get("q2_pass", underwater >= 0.55))
+                decision = str(
+                    cached.get("decision")
+                    or ("queue_mode_a" if q1_pass and q2_pass and score >= 0.62 else "watch_only")
+                )
                 yield AgentEvent(
                     type="candidate_created",
                     run_id=run.id,
@@ -1533,14 +1588,19 @@ def _bounded_float(value: object, *, default: float) -> float:
 
 def _frontier_items_from_layers(layers: list[SupplyChainLayer]) -> list[FrontierItem]:
     items: list[FrontierItem] = []
+    seen_ids: set[str] = set()
     for index, layer in enumerate(layers):
         expected_value = min(1.0, 0.56 + len(layer.companies) * 0.07)
         confidence = 0.62 + min(0.18, len(layer.seed_giants) * 0.03)
         cost = 0.34 + min(0.24, len(layer.companies) * 0.04)
         priority = min(1.0, 0.64 + (0.04 if index == 0 else 0.0))
+        frontier_id = _stable_id("frontier", layer.name, layer.bottleneck)
+        if frontier_id in seen_ids:
+            frontier_id = _stable_id("frontier", layer.name, layer.bottleneck, str(index))
+        seen_ids.add(frontier_id)
         items.append(
             FrontierItem(
-                frontier_id=_stable_id("frontier", layer.name),
+                frontier_id=frontier_id,
                 name=layer.name,
                 priority=priority,
                 confidence=confidence,
@@ -1616,7 +1676,7 @@ def _build_company_dossier(
         directness=directness,
         margin=margin_check,
         valuation=valuation_check,
-        risk=assessment.verification != "refute",
+        risk=risk_check,
     )
     return CompanyDossier(
         dossier_id=_stable_id("dossier", run_id, candidate.ticker, layer.name),

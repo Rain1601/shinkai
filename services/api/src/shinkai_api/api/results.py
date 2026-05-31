@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import RedirectResponse
 
 from shinkai_api.eval import build_eval_report
 from shinkai_api.graph import default_graph_store
@@ -17,14 +18,14 @@ async def list_results() -> list[PublishedResult]:
     return [await _build_result(run) for run in completed_runs[:20]]
 
 
-@router.get("/runs/{run_id}", response_model=PublishedResult)
-async def get_result(run_id: str) -> PublishedResult:
-    return await _build_result_by_id(run_id)
-
-
 @run_result_router.get("/{run_id}/result", response_model=PublishedResult)
 async def get_run_result(run_id: str) -> PublishedResult:
     return await _build_result_by_id(run_id)
+
+
+@router.get("/runs/{run_id}")
+async def get_result_redirect(run_id: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/api/v1/runs/{run_id}/result", status_code=308)
 
 
 async def _build_result_by_id(run_id: str) -> PublishedResult:

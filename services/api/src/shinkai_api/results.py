@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from shinkai_api.core.config import settings
 from shinkai_api.eval import EvalReport
 from shinkai_api.research import CompanyDossier, RunResearchState
 from shinkai_api.runs import Run
@@ -108,14 +109,16 @@ def _key_findings(research: RunResearchState) -> list[str]:
 
 def _ranked_dossiers(dossiers: list[CompanyDossier]) -> list[CompanyDossier]:
     decision_rank = {"invest": 0, "watch": 1, "reject": 2}
-    return sorted(
+    ranked = sorted(
         dossiers,
         key=lambda dossier: (
             decision_rank.get(dossier.decision, 3),
             dossier.supply_chain_layer,
             dossier.ticker,
         ),
-    )[:12]
+    )
+    top_n = max(1, settings.published_dossier_top_n)
+    return ranked[:top_n]
 
 
 def _published_company(dossier: CompanyDossier) -> PublishedCompany:

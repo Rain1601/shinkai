@@ -40,8 +40,13 @@ class FrontierQueue:
         if not any(existing.frontier_id == item.frontier_id for existing in self._items):
             self._items.append(item)
 
-    def pop_next(self) -> FrontierItem | None:
-        queued = [item for item in self._items if item.status == "queued"]
+    def pop_next(self, source_filter: set[str] | None = None) -> FrontierItem | None:
+        queued = [
+            item
+            for item in self._items
+            if item.status == "queued"
+            and (source_filter is None or item.source in source_filter)
+        ]
         if not queued:
             return None
         selected = max(queued, key=lambda item: item.selection_score)
@@ -88,12 +93,33 @@ class FrontierQueue:
                 "next_frontier": f"Find primary sources for {item.name}",
             }
             item.status = "reprioritized"
+
+        next_name = update["next_frontier"]
+        derived_id = f"{item.frontier_id}::followup::{update['action']}"
+        if next_name and not any(existing.frontier_id == derived_id for existing in self._items):
+            followup_priority = min(1.0, max(0.0, item.priority + update["priority_delta"]))
+            self._items.append(
+                FrontierItem(
+                    frontier_id=derived_id,
+                    name=next_name,
+                    priority=followup_priority,
+                    confidence=max(0.05, item.confidence - 0.05),
+                    expected_value=item.expected_value,
+                    estimated_cost=min(1.0, item.estimated_cost + 0.05),
+                    reason=update["reason"],
+                    source="reviewer",
+                    parent_frontier_id=item.frontier_id,
+                    status="queued",
+                )
+            )
+
         return {
             **update,
             "frontier_id": item.frontier_id,
             "frontier": item.name,
             "verification": assessment.verification,
             "remaining_queue_size": self.queued_count,
+            "followup_frontier_id": derived_id if next_name else None,
         }
 
     @property

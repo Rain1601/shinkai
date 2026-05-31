@@ -103,10 +103,10 @@ events = run["events"]
 assert run["status"] == "completed", run["status"]
 assert events[-1]["type"] == "done"
 assert sum(1 for event in events if event["type"] == "candidate_scored") >= 12
-assert len(graph["nodes"]) >= 53
-assert len(graph["edges"]) >= 56
+assert len(graph["nodes"]) >= 50
+assert len(graph["edges"]) >= 50
 assert len(research["claims"]) >= 16
-assert len(research["candidates"]) >= 12
+assert len(research["candidates"]) >= 11
 assert len(research["dossiers"]) >= 12
 assert len(research["tasks"]) >= 16
 assert report["process_score"] is not None

@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 
 from shinkai_api.core.async_lock import LoopBoundLock
-from shinkai_api.persistence import default_json_state
+from shinkai_api.persistence import default_state_store
 from shinkai_api.runs.models import Run, RunCreate
 from shinkai_api.schemas.events import AgentEvent
+
+
+def _event_fingerprint(event: AgentEvent) -> str:
+    payload = json.dumps(event.data, sort_keys=True, default=str)
+    return hashlib.sha1(f"{event.type}|{payload}".encode()).hexdigest()
 
 
 class InMemoryRunStore:
@@ -50,10 +57,16 @@ class InMemoryRunStore:
         async with self._lock.get():
             await self._ensure_loaded()
             run = self._runs[run_id]
-            if event.event_id in {existing.event_id for existing in run.events}:
+            existing_ids = {existing.event_id for existing in run.events}
+            if event.event_id in existing_ids:
+                return
+            fingerprint = _event_fingerprint(event)
+            existing_fingerprints = {_event_fingerprint(existing) for existing in run.events}
+            if fingerprint in existing_fingerprints:
                 return
             run.events.append(event)
             await self._persist()
+            await default_state_store.append_event(run_id, event.model_dump(mode="json"))
 
     async def set_status(self, run_id: str, status: str, lifecycle_stage: str | None = None) -> Run:
         async with self._lock.get():
@@ -109,7 +122,7 @@ class InMemoryRunStore:
     async def _ensure_loaded(self) -> None:
         if self._loaded:
             return
-        state = await default_json_state.load()
+        state = await default_state_store.load()
         runs = state.get("runs", {})
         if isinstance(runs, dict):
             self._runs = {
@@ -120,7 +133,7 @@ class InMemoryRunStore:
         self._loaded = True
 
     async def _persist(self) -> None:
-        await default_json_state.save_section(
+        await default_state_store.save_section(
             "runs",
             {
                 run_id: run.model_dump(mode="json")

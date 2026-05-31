@@ -177,7 +177,9 @@ def build_eval_report(run: Run, graph: Graph) -> EvalReport:
         )
 
     process_score = _bounded_score(
-        (layers > 0) * 0.3 + (reviews > 0) * 0.3 + (optimizations > 0) * 0.4
+        min(1.0, layers / 4) * 0.3
+        + min(1.0, reviews / 4) * 0.3
+        + min(1.0, optimizations / 4) * 0.4
     )
     evidence_score = _bounded_score(len(source_backed) / max(1, len(evidence_nodes)))
     reasoning_score = _bounded_score(
@@ -261,7 +263,7 @@ def _claim_score(claims: list[Node], claim_payloads: list[Mapping[str, Any]]) ->
 
 def _source_quality_score(evidence_events: list[Any], evidence_score: float) -> float:
     if not evidence_events:
-        return evidence_score
+        return 0.0
     total = max(1, len(evidence_events))
     backed_ratio = sum(
         1 for event in evidence_events if bool(_payload(event).get("source_backed"))
