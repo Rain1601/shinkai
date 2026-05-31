@@ -1,0 +1,14 @@
+{
+  "name": "shinkai",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "web": "pnpm --filter @shinkai/web dev",
+    "types": "bash scripts/gen-types.sh",
+    "lint": "pnpm -r --filter './apps/**' --filter './packages/**' lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
