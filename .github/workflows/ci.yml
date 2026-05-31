@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install API dependencies
+        working-directory: services/api
+        run: uv sync --frozen
+
+      - name: Typecheck web
+        run: pnpm --filter @shinkai/web lint
+
+      - name: Lint and test API
+        working-directory: services/api
+        run: uv run ruff check src tests && uv run pytest
+
+      - name: Smoke test
+        run: bash scripts/smoke.sh

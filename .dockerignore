@@ -1,0 +1,17 @@
+.git
+.github
+.idea
+.DS_Store
+node_modules
+apps/web/.next
+apps/web/tsconfig.tsbuildinfo
+services/api/.venv
+services/api/.pytest_cache
+services/api/.ruff_cache
+services/api/.shinkai
+.shinkai
+.env
+.env.local
+*.log
+*.pyc
+*.tsbuildinfo

@@ -1,0 +1,171 @@
+name: Deploy to Google Cloud Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-production
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY || 'shinkai' }}
+  API_SERVICE: ${{ vars.CLOUD_RUN_API_SERVICE || 'shinkai-api' }}
+  WEB_SERVICE: ${{ vars.CLOUD_RUN_WEB_SERVICE || 'shinkai-web' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install API dependencies
+        working-directory: services/api
+        run: uv sync --frozen
+
+      - name: Verify
+        run: |
+          pnpm --filter @shinkai/web lint
+          cd services/api
+          uv run ruff check src tests
+          uv run pytest
+
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        name: Check Google Cloud configuration
+        env:
+          DEPLOY_ENABLED: ${{ vars.CLOUD_RUN_DEPLOY_ENABLED }}
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+        run: |
+          if [ "$DEPLOY_ENABLED" != "true" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cloud Run deploy skipped. Set CLOUD_RUN_DEPLOY_ENABLED=true after billing and secrets are ready."
+          elif [ -n "$PROJECT_ID" ] && [ -n "$WIF_PROVIDER" ] && [ -n "$SERVICE_ACCOUNT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cloud Run deploy skipped. Configure GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, and GCP_SERVICE_ACCOUNT repository variables."
+          fi
+
+  configuration-required:
+    needs: [verify, preflight]
+    if: needs.preflight.outputs.configured != 'true' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail manual deploy without Google Cloud configuration
+        run: |
+          echo "Manual deploy requires CLOUD_RUN_DEPLOY_ENABLED=true plus GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, and GCP_SERVICE_ACCOUNT repository variables."
+          exit 1
+
+  deploy:
+    needs: [verify, preflight]
+    if: needs.preflight.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          version: ">= 416.0.0"
+
+      - name: Configure Artifact Registry
+        run: |
+          gcloud artifacts repositories describe "$REPOSITORY" \
+            --location "$REGION" \
+            --project "$PROJECT_ID" \
+            >/dev/null 2>&1 || \
+          gcloud artifacts repositories create "$REPOSITORY" \
+            --repository-format docker \
+            --location "$REGION" \
+            --project "$PROJECT_ID"
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - id: images
+        name: Build and push API image
+        run: |
+          API_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${API_SERVICE}:${GITHUB_SHA}"
+          docker build -f services/api/Dockerfile -t "$API_IMAGE" .
+          docker push "$API_IMAGE"
+          echo "api=$API_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - id: deploy-api
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          region: ${{ env.REGION }}
+          service: ${{ env.API_SERVICE }}
+          image: ${{ steps.images.outputs.api }}
+          flags: ${{ vars.CLOUD_RUN_API_FLAGS || '--allow-unauthenticated' }}
+          env_vars: |-
+            SHINKAI_ENV=production
+            SHINKAI_AUTH_REQUIRED=true
+            SHINKAI_CORS_ORIGIN_REGEX=https://.*\.run\.app
+            SHINKAI_STATE_PATH=/tmp/shinkai-state.json
+          secrets: |-
+            SHINKAI_ADMIN_TOKEN=shinkai-admin-token:latest
+            SHINKAI_DEEPSEEK_API_KEY=deepseek-api-key:latest
+
+      - id: web-image
+        name: Build and push web image
+        run: |
+          WEB_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${WEB_SERVICE}:${GITHUB_SHA}"
+          docker build \
+            -f apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL="${{ steps.deploy-api.outputs.url }}" \
+            -t "$WEB_IMAGE" .
+          docker push "$WEB_IMAGE"
+          echo "web=$WEB_IMAGE" >> "$GITHUB_OUTPUT"
+
+      - id: deploy-web
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          region: ${{ env.REGION }}
+          service: ${{ env.WEB_SERVICE }}
+          image: ${{ steps.web-image.outputs.web }}
+          flags: ${{ vars.CLOUD_RUN_WEB_FLAGS || '--allow-unauthenticated' }}
+          env_vars: |-
+            NEXT_PUBLIC_API_URL=${{ steps.deploy-api.outputs.url }}
+
+      - name: Verify deployed services
+        run: |
+          curl -fsS "${{ steps.deploy-api.outputs.url }}/health"
+          curl -fsS "${{ steps.deploy-web.outputs.url }}/runs" >/dev/null
