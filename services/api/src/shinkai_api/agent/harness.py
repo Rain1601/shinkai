@@ -14,8 +14,10 @@ from shinkai_api.research import (
     Evidence,
     ResearchTask,
     SourceRef,
-    classify_claim_status,
+    assess_claim_support,
+    classify_source_tier,
     default_research_store,
+    source_reliability_score,
 )
 from shinkai_api.runs.models import Run
 from shinkai_api.schemas.events import AgentEvent
@@ -39,6 +41,8 @@ class LayerEvidence:
     source_backed: bool
     sources: list[SourceRef]
     evidence_records: list[Evidence]
+    contradicting_sources: list[SourceRef]
+    contradicting_evidence_records: list[Evidence]
     tool_result: ToolResult | None
     extract_result: ToolResult | None = None
 
@@ -290,28 +294,56 @@ class ShinkaiHarness:
                             "layer": layer.name,
                         },
                     )
+                contradiction_query = self._contradiction_query(layer)
+                yield AgentEvent(
+                    type="tool_call",
+                    run_id=run.id,
+                    data={
+                        "name": "web_search",
+                        "args": {"query": contradiction_query, "max_results": 3},
+                        "loop_index": loop_index,
+                        "layer": layer.name,
+                        "purpose": "refute_claim",
+                        "autonomous": True,
+                    },
+                )
+                contradiction_search_result = await self._run_web_search(contradiction_query)
+                yield AgentEvent(
+                    type="tool_result",
+                    run_id=run.id,
+                    data={
+                        "name": "web_search",
+                        "ok": contradiction_search_result.ok,
+                        "summary": contradiction_search_result.summary,
+                        "preview": contradiction_search_result.data,
+                        "loop_index": loop_index,
+                        "layer": layer.name,
+                        "purpose": "refute_claim",
+                    },
+                )
                 evidence = self._evidence_from_tool_results(
                     layer,
                     run.id,
                     search_query,
                     search_result,
                     extract_result,
+                    contradiction_query,
+                    contradiction_search_result,
                 )
             else:
                 evidence = self._stub_evidence(layer, run.id)
 
             evidence_ids = [record.evidence_id for record in evidence.evidence_records]
-            supporting_source_ids = (
-                [source.source_id for source in evidence.sources]
-                if evidence.source_backed
-                else []
+            contradicting_evidence_ids = [
+                record.evidence_id for record in evidence.contradicting_evidence_records
+            ]
+            assessment = assess_claim_support(
+                evidence.sources if evidence.source_backed else [],
+                evidence.contradicting_sources,
             )
-            contradicting_source_ids = self._conflicting_source_ids(layer, evidence)
-            claim_status = classify_claim_status(
-                supporting_source_ids,
-                contradicting_source_ids,
-            )
-            independent_source_count = len(set(supporting_source_ids))
+            claim_status = assessment.status
+            claim_verification = assessment.verification
+            independent_source_count = assessment.independent_source_count
 
             frontier_node = Node(
                 id=node_id("frontier", layer.name),
@@ -331,9 +363,14 @@ class ShinkaiHarness:
                     "statement": layer.bottleneck,
                     "claim_kind": "Qualitative",
                     "status": claim_status,
+                    "verification": claim_verification,
                     "independent_source_count": independent_source_count,
-                    "contradicting_source_ids": contradicting_source_ids,
+                    "primary_source_count": assessment.primary_source_count,
+                    "contradicting_source_count": assessment.contradicting_source_count,
+                    "stale_source_ids": assessment.stale_source_ids,
                     "evidence_ids": evidence_ids,
+                    "contradicting_evidence_ids": contradicting_evidence_ids,
+                    "rationale": assessment.rationale,
                 },
                 tags=["bottleneck", "ai-infrastructure", f"claim-{claim_status}"],
             )
@@ -343,12 +380,19 @@ class ShinkaiHarness:
                 text=layer.bottleneck,
                 topic=layer.name,
                 status=claim_status,
+                verification=claim_verification,
                 confidence=bottleneck_node.confidence,
+                supporting_evidence_ids=evidence_ids,
                 evidence_ids=evidence_ids,
+                contradicting_evidence_ids=contradicting_evidence_ids,
+                stale_evidence_ids=_stale_evidence_ids(evidence, assessment.stale_source_ids),
                 metadata={
                     "kind": "bottleneck",
                     "independent_source_count": independent_source_count,
-                    "contradicting_source_ids": contradicting_source_ids,
+                    "primary_source_count": assessment.primary_source_count,
+                    "contradicting_source_count": assessment.contradicting_source_count,
+                    "stale_source_ids": assessment.stale_source_ids,
+                    "rationale": assessment.rationale,
                     "source_backed": evidence.source_backed,
                 },
             )
@@ -421,8 +465,12 @@ class ShinkaiHarness:
                         "claim_kind": "Forward",
                         "ticker": company["ticker"],
                         "status": claim_status,
+                        "verification": claim_verification,
                         "evidence_ids": evidence_ids,
+                        "contradicting_evidence_ids": contradicting_evidence_ids,
                         "independent_source_count": independent_source_count,
+                        "primary_source_count": assessment.primary_source_count,
+                        "rationale": assessment.rationale,
                     },
                     tags=["candidate-claim", "underwriting-input", f"claim-{claim_status}"],
                 )
@@ -433,12 +481,21 @@ class ShinkaiHarness:
                         topic=layer.name,
                         text=str(claim_node.data["statement"]),
                         status=claim_status,
+                        verification=claim_verification,
                         confidence=score,
+                        supporting_evidence_ids=evidence_ids,
                         evidence_ids=evidence_ids,
+                        contradicting_evidence_ids=contradicting_evidence_ids,
+                        stale_evidence_ids=_stale_evidence_ids(
+                            evidence,
+                            assessment.stale_source_ids,
+                        ),
                         metadata={
                             "kind": "candidate_exposure",
                             "ticker": company["ticker"],
                             "independent_source_count": independent_source_count,
+                            "primary_source_count": assessment.primary_source_count,
+                            "rationale": assessment.rationale,
                             "source_backed": evidence.source_backed,
                         },
                     )
@@ -666,6 +723,10 @@ class ShinkaiHarness:
                     "summary": evidence_node.data.get("excerpt", layer.evidence_stub),
                     "source_uri": evidence_node.data.get("source_uri"),
                     "source_title": evidence_node.data.get("source_title"),
+                    "source_tiers": [source.tier for source in evidence.sources],
+                    "primary_source_count": assessment.primary_source_count,
+                    "citation_urls": [record.citation_url for record in evidence.evidence_records],
+                    "quotes": [record.quote for record in evidence.evidence_records[:2]],
                     "source_backed": evidence.source_backed,
                     "needs_real_source": not evidence.source_backed,
                 },
@@ -687,10 +748,15 @@ class ShinkaiHarness:
                     "loop_index": loop_index,
                     "claim_id": bottleneck_node.id,
                     "status": claim_status,
+                    "verification": claim_verification,
                     "independent_source_count": independent_source_count,
                     "required_independent_sources": bottleneck_claim.required_independent_sources,
+                    "primary_source_count": assessment.primary_source_count,
                     "evidence_ids": evidence_ids,
-                    "contradicting_source_ids": contradicting_source_ids,
+                    "contradicting_evidence_ids": contradicting_evidence_ids,
+                    "contradicting_source_count": assessment.contradicting_source_count,
+                    "stale_source_ids": assessment.stale_source_ids,
+                    "rationale": assessment.rationale,
                     "source_backed": evidence.source_backed,
                 },
             )
@@ -1029,7 +1095,11 @@ class ShinkaiHarness:
     ) -> None:
         for source in evidence.sources:
             await default_research_store.upsert_source(source)
+        for source in evidence.contradicting_sources:
+            await default_research_store.upsert_source(source)
         for record in evidence.evidence_records:
+            await default_research_store.upsert_evidence(record)
+        for record in evidence.contradicting_evidence_records:
             await default_research_store.upsert_evidence(record)
         for claim in claims:
             await default_research_store.upsert_claim(claim)
@@ -1064,6 +1134,8 @@ class ShinkaiHarness:
         query: str,
         search_result: ToolResult,
         extract_result: ToolResult | None,
+        contradiction_query: str = "",
+        contradiction_search_result: ToolResult | None = None,
     ) -> LayerEvidence:
         if not search_result.ok:
             return self._stub_evidence(layer, run_id, tool_result=search_result)
@@ -1118,13 +1190,17 @@ class ShinkaiHarness:
             result_title = str(result.get("title") or "Web evidence").strip()
             result_snippet = str(result.get("snippet") or "").strip()
             result_excerpt = excerpt if index == 1 else result_snippet or result_title
+            tier = classify_source_tier("web", result_url, _publisher_from_url(result_url))
+            extracted = index == 1 and bool(extracted_excerpt)
             source = SourceRef(
                 source_id=_stable_id("source", result_url or result_title, layer.name),
                 type="web",
+                tier=tier,
                 url=result_url,
                 title=result_title,
                 publisher=_publisher_from_url(result_url),
-                reliability=0.72 if index == 1 and extracted_excerpt else 0.62,
+                primary_source_flag=tier == "primary",
+                reliability=source_reliability_score(tier, extracted=extracted),
                 metadata={
                     "run_id": run_id,
                     "layer": layer.name,
@@ -1140,7 +1216,11 @@ class ShinkaiHarness:
                 kind="web_extract" if index == 1 and extracted_excerpt else "summary",
                 text=result_excerpt,
                 url=result_url,
+                quote=_quote_from_excerpt(result_excerpt),
                 summary=result_snippet or result_excerpt[:240],
+                citation_url=result_url,
+                citation_anchor=_citation_anchor(index),
+                citation_label=f"{result_title}#{index}",
                 confidence=0.78 if index == 1 and extracted_excerpt else 0.66,
                 metadata={
                     "layer": layer.name,
@@ -1152,15 +1232,96 @@ class ShinkaiHarness:
             )
             sources.append(source)
             evidence_records.append(record)
+        contradicting_sources, contradicting_records = self._contradicting_records_from_search(
+            layer,
+            run_id,
+            contradiction_query,
+            contradiction_search_result,
+        )
         node.source_refs = [record.evidence_id for record in evidence_records]
         return LayerEvidence(
             node=node,
             source_backed=True,
             sources=sources,
             evidence_records=evidence_records,
+            contradicting_sources=contradicting_sources,
+            contradicting_evidence_records=contradicting_records,
             tool_result=search_result,
             extract_result=extract_result,
         )
+
+    def _contradicting_records_from_search(
+        self,
+        layer: SupplyChainLayer,
+        run_id: str,
+        query: str,
+        search_result: ToolResult | None,
+    ) -> tuple[list[SourceRef], list[Evidence]]:
+        if not search_result or not search_result.ok:
+            return [], []
+        results = search_result.data.get("results", [])
+        if not isinstance(results, list):
+            return [], []
+        sources: list[SourceRef] = []
+        records: list[Evidence] = []
+        for index, result in enumerate(results[:3], start=1):
+            if not isinstance(result, dict):
+                continue
+            result_url = str(result.get("url") or "").strip()
+            result_title = str(result.get("title") or "Contradicting web evidence").strip()
+            result_snippet = str(result.get("snippet") or "").strip()
+            text = f"{result_title} {result_snippet}"
+            if not _looks_contradictory(text):
+                continue
+            publisher = _publisher_from_url(result_url)
+            tier = classify_source_tier("web", result_url, publisher)
+            source = SourceRef(
+                source_id=_stable_id("source", "refute", result_url or result_title, layer.name),
+                type="web",
+                tier=tier,
+                url=result_url,
+                title=result_title,
+                publisher=publisher,
+                primary_source_flag=tier == "primary",
+                reliability=source_reliability_score(tier),
+                metadata={
+                    "run_id": run_id,
+                    "layer": layer.name,
+                    "query": query,
+                    "rank": index,
+                    "polarity": "contradict",
+                },
+            )
+            record = Evidence(
+                evidence_id=_stable_id(
+                    "evidence",
+                    run_id,
+                    layer.name,
+                    "refute",
+                    result_url or result_title,
+                ),
+                source_id=source.source_id,
+                run_id=run_id,
+                kind="summary",
+                text=result_snippet or result_title,
+                url=result_url,
+                quote=_quote_from_excerpt(result_snippet or result_title),
+                summary=result_snippet or result_title,
+                citation_url=result_url,
+                citation_anchor=_citation_anchor(index),
+                citation_label=f"{result_title}#{index}",
+                confidence=source.reliability,
+                metadata={
+                    "layer": layer.name,
+                    "query": query,
+                    "rank": index,
+                    "polarity": "contradict",
+                    "source_title": result_title,
+                },
+            )
+            sources.append(source)
+            records.append(record)
+        return sources, records
 
     def _stub_evidence(
         self,
@@ -1171,9 +1332,11 @@ class ShinkaiHarness:
         source = SourceRef(
             source_id=_stable_id("source", run_id, layer.name, "agent-inference"),
             type="manual",
+            tier="agent_inference",
             url="",
             title=f"Agent inference stub: {layer.name}",
             publisher="shinkai",
+            primary_source_flag=False,
             reliability=0.2,
             metadata={
                 "run_id": run_id,
@@ -1188,7 +1351,9 @@ class ShinkaiHarness:
             run_id=run_id,
             kind="summary",
             text=layer.evidence_stub,
+            quote=_quote_from_excerpt(layer.evidence_stub),
             summary=layer.evidence_stub,
+            citation_label=f"Agent inference: {layer.name}",
             confidence=0.35,
             metadata={
                 "layer": layer.name,
@@ -1216,12 +1381,21 @@ class ShinkaiHarness:
             source_backed=False,
             sources=[source],
             evidence_records=[record],
+            contradicting_sources=[],
+            contradicting_evidence_records=[],
             tool_result=tool_result,
         )
 
     def _evidence_query(self, layer: SupplyChainLayer) -> str:
         seeds = " ".join(layer.seed_giants[:3])
         return f"{layer.name} AI data center supply chain bottleneck {seeds}"
+
+    def _contradiction_query(self, layer: SupplyChainLayer) -> str:
+        seeds = " ".join(layer.seed_giants[:3])
+        return (
+            f"{layer.name} AI data center not a bottleneck demand decline "
+            f"margin pressure supply constraint refute {seeds}"
+        )
 
 
 def _bounded_float(value: object, *, default: float) -> float:
@@ -1266,6 +1440,40 @@ def _candidate_questions(company_name: str, layer_name: str) -> list[str]:
         "Is the AI-linked demand durable across a full cycle?",
         "Does the exposure improve margins rather than only revenue growth?",
     ]
+
+
+def _stale_evidence_ids(evidence: LayerEvidence, stale_source_ids: list[str]) -> list[str]:
+    stale_sources = set(stale_source_ids)
+    return [
+        record.evidence_id
+        for record in evidence.evidence_records
+        if record.source_id in stale_sources
+    ]
+
+
+def _quote_from_excerpt(text: str) -> str:
+    cleaned = " ".join(text.split())
+    return cleaned[:280]
+
+
+def _citation_anchor(index: int) -> str:
+    return f"result-{index}"
+
+
+def _looks_contradictory(text: str) -> bool:
+    lowered = text.lower()
+    markers = [
+        "not a bottleneck",
+        "no bottleneck",
+        "no supply constraint",
+        "not constrained",
+        "demand decline",
+        "demand is declining",
+        "margin pressure",
+        "oversupply",
+        "capacity glut",
+    ]
+    return any(marker in lowered for marker in markers)
 
 
 def _first_result_url(result: ToolResult) -> str:

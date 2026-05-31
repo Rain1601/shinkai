@@ -47,11 +47,12 @@ The repository now contains a runnable V1.0 vertical slice:
 - bounded autonomous child-run spirals for self-iteration
 - DeepSeek frontier-planning integration with deterministic fallback
 - web search/extract tool events plus structured source, evidence, claim, candidate, and task records
+- source tiering, primary-source flags, citation locators, and refuting-evidence search for claim review
 - Postgres-ready persistence with JSON fallback for local runs, events, research state, and graphs
 - eval reports for process, evidence, reasoning, and discovery quality
 - web dashboards for runs, graph, eval, review, and A2A views
 
-The next slices are richer source grading, stronger scheduling policy, and deeper Mode A company-analysis loops.
+The next slices are durable worker scheduling, stronger eval sets, and deeper Mode A company-analysis dossiers.
 
 ## DeepSeek Runtime
 

@@ -1,6 +1,6 @@
 # Shinkai Research Graph Schema v0
 
-> **状态**:概念设计版,未实现
+> **状态**:概念设计版,核心 Source/Evidence/Claim/Candidate/Task 域模型已实现
 > **时间**:2026-05-27
 > **配套文档**:`docs/alignment-v1.md`
 
@@ -62,6 +62,7 @@ interface ClaimNode extends NodeMeta {
   type: "Claim";
   statement: string;
   claim_kind: "Quantitative" | "Qualitative" | "Forward" | "Historical";
+  verification: "support" | "refute" | "insufficient" | "stale";
   temporal_scope?: { from?: ISODate; to?: ISODate };
   subject_refs: NodeId[];
   evidence_refs: NodeId[];
@@ -72,8 +73,10 @@ interface EvidenceNode extends NodeMeta {
   type: "Evidence";
   source_kind: "FinancialReport" | "Filing" | "News" | "Transcript"
              | "PrimaryResearch" | "Computed" | "AgentInference" | "Other";
+  source_tier: "primary" | "secondary" | "tertiary" | "agent_inference";
   source_uri?: string;
   source_locator?: string;
+  citation_anchor?: string;
   excerpt: string;                 // 原文摘录,防失链
   retrieved_at: ISODate;
   reliability: 1 | 2 | 3 | 4 | 5;

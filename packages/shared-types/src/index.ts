@@ -87,6 +87,8 @@ export type ResearchGraph = {
   edges: GraphEdge[];
 };
 
+export type SourceTier = "primary" | "secondary" | "tertiary" | "agent_inference";
+
 export type SourceType =
   | "web"
   | "sec"
@@ -108,6 +110,8 @@ export type EvidenceKind =
 
 export type ClaimStatus = "unsupported" | "weak" | "supported" | "contradicted";
 
+export type ClaimVerification = "support" | "refute" | "insufficient" | "stale";
+
 export type CandidateStatus = "new" | "researching" | "qualified" | "rejected" | "watchlist";
 
 export type TaskStatus = "queued" | "running" | "blocked" | "completed" | "failed";
@@ -115,10 +119,12 @@ export type TaskStatus = "queued" | "running" | "blocked" | "completed" | "faile
 export type SourceRef = {
   source_id: string;
   type: SourceType;
+  tier: SourceTier;
   url: string;
   title: string;
   publisher: string;
   published_at?: number | null;
+  primary_source_flag: boolean;
   accessed_at: number;
   reliability: number;
   metadata: Record<string, unknown>;
@@ -133,6 +139,9 @@ export type Evidence = {
   url: string;
   quote: string;
   summary: string;
+  citation_url: string;
+  citation_anchor: string;
+  citation_label: string;
   published_at?: number | null;
   extracted_at: number;
   confidence: number;
@@ -146,9 +155,12 @@ export type Claim = {
   text: string;
   topic: string;
   status: ClaimStatus;
+  verification: ClaimVerification;
   confidence: number;
+  supporting_evidence_ids: string[];
   evidence_ids: string[];
   contradicting_evidence_ids: string[];
+  stale_evidence_ids: string[];
   required_independent_sources: number;
   metadata: Record<string, unknown>;
 };

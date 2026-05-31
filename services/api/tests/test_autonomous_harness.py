@@ -25,7 +25,7 @@ class FakeWebSearchTool(Tool):
                 "results": [
                     {
                         "title": "Fake AI infrastructure source",
-                        "url": "https://example.com/ai-infrastructure",
+                        "url": "https://www.sec.gov/Archives/fake-ai-infrastructure",
                         "snippet": (
                             "Power and packaging are constraints for AI data center "
                             "supply chains."
@@ -60,6 +60,54 @@ class FakeWebExtractTool(Tool):
                     "AI data center buildouts require power equipment, advanced "
                     "packaging, optical networking, and liquid cooling suppliers."
                 ),
+            },
+        )
+
+
+class FakeContradictionWebSearchTool(Tool):
+    name = "web_search"
+    description = "Fake source search that returns refuting evidence for refute queries."
+
+    async def run(self, **kwargs):
+        query = str(kwargs.get("query") or "")
+        if "refute" in query or "not a bottleneck" in query:
+            return ToolResult(
+                ok=True,
+                summary=f"Found fake refuting source for {query}",
+                data={
+                    "query": query,
+                    "results": [
+                        {
+                            "title": "Fake company IR refutes bottleneck exposure",
+                            "url": "https://investor.example.com/ai-capacity",
+                            "snippet": (
+                                "Management says power equipment is not a bottleneck "
+                                "and there is no supply constraint."
+                            ),
+                        }
+                    ],
+                },
+            )
+        return ToolResult(
+            ok=True,
+            summary=f"Found fake source for {query}",
+            data={
+                "query": query,
+                "results": [
+                    {
+                        "title": "Fake SEC source",
+                        "url": "https://www.sec.gov/Archives/fake-ai-infrastructure",
+                        "snippet": (
+                            "Power and packaging are constraints for AI data center "
+                            "supply chains."
+                        ),
+                    },
+                    {
+                        "title": "Fake secondary source",
+                        "url": "https://example.org/ai-infrastructure",
+                        "snippet": "AI clusters add pressure to power and packaging suppliers.",
+                    },
+                ],
             },
         )
 
@@ -106,6 +154,42 @@ def test_autonomous_harness_generates_trace_and_graph() -> None:
         assert report.process_score is not None
         assert report.discovery_score is not None
         assert report.evidence_score == 0.0
+
+    asyncio.run(scenario())
+
+
+def test_autonomous_harness_records_refuting_evidence() -> None:
+    async def scenario() -> None:
+        default_tool_registry.register(FakeContradictionWebSearchTool())
+        default_tool_registry.register(FakeWebExtractTool())
+        run = await default_run_store.create(
+            RunCreate(
+                mode="mode_b_narrative",
+                anchor="Autonomous Discovery",
+                scope={
+                    "objective": "discover AI supply-chain key companies",
+                    "allow_live_sources": True,
+                },
+                budget={"max_wall_time_minutes": 120, "max_tool_calls": 20},
+            )
+        )
+        graph = await default_graph_store.create_for_run(run)
+        run.graph_id = graph.graph_id
+
+        async for event in ShinkaiHarness().run(run):
+            await default_run_store.append_event(run.id, event)
+
+        claim_events = [event for event in run.events if event.type == "claim_validated"]
+        research_state = await default_research_store.get_run_state(run.id)
+
+        assert claim_events
+        assert all(event.data["verification"] == "refute" for event in claim_events)
+        assert all(event.data["contradicting_evidence_ids"] for event in claim_events)
+        assert any(claim.verification == "refute" for claim in research_state.claims)
+        assert any(
+            evidence.metadata.get("polarity") == "contradict"
+            for evidence in research_state.evidence
+        )
 
     asyncio.run(scenario())
 
