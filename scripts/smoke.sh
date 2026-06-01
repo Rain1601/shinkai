@@ -92,6 +92,7 @@ done
 
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/graph" >/tmp/shinkai-smoke-graph.json
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/research" >/tmp/shinkai-smoke-research.json
+curl -fsS "${API_URL}/api/v1/runs/${run_id}/hypotheses" >/tmp/shinkai-smoke-hypotheses.json
 curl -fsS "${API_URL}/api/v1/eval/runs/${run_id}" >/tmp/shinkai-smoke-eval.json
 curl -fsS "${API_URL}/api/v1/results" >/tmp/shinkai-smoke-results.json
 curl -fsS "${API_URL}/api/v1/runs/${run_id}/result" >/tmp/shinkai-smoke-result.json
@@ -111,6 +112,8 @@ with open("/tmp/shinkai-smoke-results.json") as f:
     results = json.load(f)
 with open("/tmp/shinkai-smoke-result.json") as f:
     result = json.load(f)
+with open("/tmp/shinkai-smoke-hypotheses.json") as f:
+    hypotheses = json.load(f)
 
 events = run["events"]
 assert run["status"] == "completed", run["status"]
@@ -123,6 +126,16 @@ checkpoint_raised = [event for event in events if event["type"] == "checkpoint_r
 assert len(checkpoint_raised) >= 1, "expected checkpoint_raised event"
 checkpoint_released = [event for event in events if event["type"] == "checkpoint_released"]
 assert len(checkpoint_released) >= 1, "expected checkpoint_released event"
+hypothesis_created = [event for event in events if event["type"] == "hypothesis_created"]
+assert len(hypothesis_created) >= 4, "expected at least 4 hypothesis_created events"
+confidence_updated = [
+    event for event in events if event["type"] == "hypothesis_confidence_updated"
+]
+assert len(confidence_updated) >= 4, "expected hypothesis_confidence_updated events"
+assert len(hypotheses) >= 4, "expected hypotheses endpoint to return at least 4"
+for hypothesis in hypotheses:
+    assert hypothesis["confidence_history"], hypothesis["hypothesis_id"]
+    assert hypothesis["state"] in {"active", "falsified", "superseded"}
 assert len(graph["nodes"]) >= 50
 assert len(graph["edges"]) >= 50
 assert len(research["claims"]) >= 16

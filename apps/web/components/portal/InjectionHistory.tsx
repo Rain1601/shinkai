@@ -21,8 +21,29 @@ type PairedInjection = {
     adopted: boolean;
     appliedTo: string;
     effectSummary: string;
+    hypothesisId?: string;
+    frontierId?: string;
   };
 };
+
+function effectTarget(
+  appliedTo: string,
+  hypothesisId?: string,
+  frontierId?: string,
+): string | null {
+  if (appliedTo === "hypothesis" && hypothesisId) return `hypothesis-${hypothesisId}`;
+  if (appliedTo === "frontier" && frontierId) return `frontier-${frontierId}`;
+  return null;
+}
+
+function scrollToTarget(targetId: string) {
+  const element = document.getElementById(targetId);
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.classList.add("flash-highlight");
+    window.setTimeout(() => element.classList.remove("flash-highlight"), 1500);
+  }
+}
 
 function intentLabel(intent: string, isZh: boolean): string {
   if (isZh) {
@@ -67,6 +88,14 @@ export function InjectionHistory({ events, locale = "zh" }: InjectionHistoryProp
         adopted: Boolean(event.data?.adopted),
         appliedTo: String(event.data?.applied_to ?? "none"),
         effectSummary: String(event.data?.effect_summary ?? ""),
+        hypothesisId:
+          typeof event.data?.hypothesis_id === "string"
+            ? event.data.hypothesis_id
+            : undefined,
+        frontierId:
+          typeof event.data?.frontier_id === "string"
+            ? event.data.frontier_id
+            : undefined,
       };
       if (existing) {
         existing.ack = ack;
@@ -128,6 +157,22 @@ export function InjectionHistory({ events, locale = "zh" }: InjectionHistoryProp
                 <p className="muted injection-effect">
                   <strong>{appliedToLabel(item.ack.appliedTo, isZh)}</strong>
                   {item.ack.effectSummary ? ` — ${item.ack.effectSummary}` : ""}
+                  {(() => {
+                    const target = effectTarget(
+                      item.ack.appliedTo,
+                      item.ack.hypothesisId,
+                      item.ack.frontierId,
+                    );
+                    return target ? (
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => scrollToTarget(target)}
+                      >
+                        {isZh ? "查看" : "view"} →
+                      </button>
+                    ) : null;
+                  })()}
                 </p>
               ) : null}
             </article>

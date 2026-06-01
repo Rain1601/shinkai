@@ -1,24 +1,111 @@
-import type { Locale } from "../../lib/i18n";
-import { formatNumber, localizeText } from "../../lib/i18n";
+"use client";
 
-type RunEvent = {
-  event_id?: string;
-  type?: string;
-  ts?: number;
-  data?: Record<string, unknown>;
+import { useEffect, useState } from "react";
+import type { Locale } from "../../lib/i18n";
+import { formatNumber } from "../../lib/i18n";
+
+type ConfidencePoint = {
+  ts: number;
+  confidence: number;
+  delta: number;
+  evidence_id: string;
+  kind: "support" | "contradict" | "human_correction";
+  method: string;
+};
+
+type Hypothesis = {
+  hypothesis_id: string;
+  run_id: string;
+  layer: string;
+  claim: string;
+  confidence: number;
+  state: "active" | "falsified" | "superseded";
+  falsification_condition: string;
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  confidence_history: ConfidencePoint[];
+  superseded_by_id: string | null;
 };
 
 type HypothesisCardProps = {
-  events: RunEvent[];
+  runId: string | null;
   locale?: Locale;
+  refreshSignal?: number;
 };
 
-export function HypothesisCard({ events, locale = "zh" }: HypothesisCardProps) {
-  const isZh = locale === "zh";
-  const judgments = events.filter((event) => event.type === "judgment_created");
-  const latest = judgments.length > 0 ? judgments[judgments.length - 1] : undefined;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
-  if (!latest) {
+const KIND_COLORS: Record<ConfidencePoint["kind"], string> = {
+  support: "#28a745",
+  contradict: "#dc3545",
+  human_correction: "#ff9900",
+};
+
+function Sparkline({ points }: { points: ConfidencePoint[] }) {
+  const width = 280;
+  const height = 80;
+  const padding = 6;
+  if (points.length === 0) return null;
+  const xs = points.map((_, i) => padding + (i / Math.max(1, points.length - 1)) * (width - 2 * padding));
+  const ys = points.map((point) => padding + (1 - point.confidence) * (height - 2 * padding));
+  const pathD = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
+  return (
+    <svg className="hypothesis-sparkline" width={width} height={height} role="img" aria-label="confidence trajectory">
+      <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#ccc" strokeWidth={1} />
+      <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#ccc" strokeWidth={1} />
+      <line x1={padding} y1={padding + (height - 2 * padding) * 0.5} x2={width - padding} y2={padding + (height - 2 * padding) * 0.5} stroke="#eee" strokeWidth={1} strokeDasharray="2 2" />
+      <path d={pathD} fill="none" stroke="#5a8dee" strokeWidth={1.5} />
+      {points.map((point, i) => (
+        <circle key={`${point.evidence_id}-${i}`} cx={xs[i]} cy={ys[i]} r={3} fill={KIND_COLORS[point.kind]} />
+      ))}
+    </svg>
+  );
+}
+
+function stateLabel(state: Hypothesis["state"], isZh: boolean): string {
+  if (isZh) {
+    if (state === "active") return "活跃";
+    if (state === "falsified") return "已证伪";
+    return "已替换";
+  }
+  return state;
+}
+
+export function HypothesisCard({ runId, locale = "zh", refreshSignal }: HypothesisCardProps) {
+  const isZh = locale === "zh";
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!runId) {
+      setHypotheses([]);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const response = await fetch(`${API_URL}/api/v1/runs/${runId}/hypotheses`, {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(`${response.status}`);
+        const data: Hypothesis[] = await response.json();
+        if (cancelled) return;
+        setHypotheses(data);
+        setActiveIndex((current) => Math.min(current, Math.max(0, data.length - 1)));
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [runId, refreshSignal]);
+
+  if (!runId || hypotheses.length === 0) {
     return (
       <section className="surface hypothesis-card">
         <div className="panel-heading">
@@ -27,36 +114,78 @@ export function HypothesisCard({ events, locale = "zh" }: HypothesisCardProps) {
         </div>
         <p className="muted">
           {isZh
-            ? "Agent 还没有产出可追踪的判断。运行启动后会显示当前正在跟踪的假设。"
-            : "The agent has not produced a trackable judgment yet. Once a run starts, the live hypothesis will appear here."}
+            ? "Agent 还没有产出可追踪的假设。运行启动后,每个层级会在这里出现一张卡。"
+            : "No tracked hypotheses yet. Each layer's hypothesis will appear here once the run starts."}
         </p>
+        {error ? <p className="muted">{error}</p> : null}
       </section>
     );
   }
 
-  const judgment = localizeText(latest.data?.judgment ?? "", locale);
-  const layer = localizeText(latest.data?.layer ?? "", locale);
-  const confidence = latest.data?.confidence;
-  const hypothesisId = String(latest.data?.hypothesis_id ?? "");
-  const totalUpdates = judgments.filter(
-    (event) => String(event.data?.hypothesis_id ?? "") === hypothesisId
+  const safeIndex = Math.min(activeIndex, hypotheses.length - 1);
+  const active = hypotheses[safeIndex];
+  const supportCount = active.supporting_evidence_ids.length;
+  const contradictCount = active.contradicting_evidence_ids.length;
+  const correctionCount = active.confidence_history.filter(
+    (point) => point.kind === "human_correction"
   ).length;
 
   return (
-    <section className="surface hypothesis-card">
+    <section
+      className="surface hypothesis-card"
+      id={`hypothesis-${active.hypothesis_id}`}
+    >
       <div className="panel-heading">
         <h2>{isZh ? "当前假设" : "Current Hypothesis"}</h2>
-        <span className="label hypothesis-confidence">
-          {isZh ? "置信" : "Conf"} {formatNumber(confidence)}
-        </span>
+        <span className={`pill pill-state-${active.state}`}>{stateLabel(active.state, isZh)}</span>
       </div>
-      <p className="hypothesis-judgment">{judgment}</p>
-      <div className="hypothesis-meta">
-        {layer ? <span>{isZh ? "层级" : "Layer"}: {layer}</span> : null}
-        {hypothesisId ? <code>{hypothesisId}</code> : null}
-        <span>
-          {isZh ? `已更新 ${totalUpdates} 次` : `${totalUpdates} update${totalUpdates === 1 ? "" : "s"}`}
+      {hypotheses.length > 1 ? (
+        <div className="hypothesis-pager">
+          <button
+            className="button secondary"
+            onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            disabled={safeIndex === 0}
+            type="button"
+          >
+            ‹
+          </button>
+          <span>
+            {safeIndex + 1} / {hypotheses.length}
+          </span>
+          <button
+            className="button secondary"
+            onClick={() => setActiveIndex((i) => Math.min(hypotheses.length - 1, i + 1))}
+            disabled={safeIndex === hypotheses.length - 1}
+            type="button"
+          >
+            ›
+          </button>
+        </div>
+      ) : null}
+      <p className="hypothesis-claim">{active.claim}</p>
+      <div className="hypothesis-confidence-row">
+        <span className="hypothesis-confidence-label">
+          {isZh ? "当前置信度" : "Confidence"}
         </span>
+        <strong className="hypothesis-confidence-value">
+          {formatNumber(active.confidence)}
+        </strong>
+      </div>
+      <Sparkline points={active.confidence_history} />
+      <div className="hypothesis-legend">
+        <span><i style={{ background: KIND_COLORS.support }} /> {isZh ? "支持" : "support"} ({supportCount})</span>
+        <span><i style={{ background: KIND_COLORS.contradict }} /> {isZh ? "反对" : "contradict"} ({contradictCount})</span>
+        <span><i style={{ background: KIND_COLORS.human_correction }} /> {isZh ? "人工纠正" : "human"} ({correctionCount})</span>
+      </div>
+      {active.falsification_condition ? (
+        <div className="hypothesis-falsification">
+          <span className="label">{isZh ? "证伪条件" : "Falsification"}</span>
+          <p>{active.falsification_condition}</p>
+        </div>
+      ) : null}
+      <div className="hypothesis-meta">
+        <span>{isZh ? "层级" : "Layer"}: {active.layer}</span>
+        <code>{active.hypothesis_id}</code>
       </div>
     </section>
   );

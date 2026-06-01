@@ -1,13 +1,13 @@
 # Shinkai V0 · Alignment v2 — Implementation-Ready Spec
 
-> **时间**:2026-05-27 · **最近实现盘点**:2026-05-31
+> **时间**:2026-05-27 · **最近实现盘点**:2026-06-01(路径 A 完成)
 > **状态**:概念设计 **COMPLETE**。本文档是 V0 实施的权威 spec。
 > **前一版**:`docs/alignment-v1.md`(对话式记录,保留作历史参考,**不再权威**)
 > **关系**:v1 = "我们怎么走到这一步的对话记录";v2 = "我们决定怎么做的实施规范"
 
 ## ⚠ Implementation Status Map(诚信声明)
 
-下表对照 spec 与当前 code(2026-05-31)的差距,避免"看文档以为 X 已建好"的误解。
+下表对照 spec 与当前 code(2026-06-01,路径 A 完成)的差距,避免"看文档以为 X 已建好"的误解。
 
 | Spec 章节/能力 | 状态 | 备注 |
 | --- | --- | --- |
@@ -19,19 +19,27 @@
 | Mode A 价值投资 checklist v1 | ⚠ Partial | doc 完整但 harness 只实现少数 check |
 | 3 级 Agent Loop(Run/Item/Step ReAct) | ❌ Not built | 当前是单层 frontier loop,LLM 不做 ReAct 决策 |
 | 中间层:观察(SSE/events) | ✅ Built | 事件可订阅 |
-| 中间层:暂停/恢复 | ⚠ Partial | pause 状态存在,但 inject channel 未建 |
-| 中间层:checkpoint approval | ❌ Not built | UI affordance 缺失 |
+| 中间层:暂停/恢复 + inject channel | ✅ Built (路径 B+) | `human_injection` → harness 读 → `injection_acknowledged` 闭环 |
+| 中间层:checkpoint approval | ✅ Built (路径 B+) | harness 在第一个 dossier 前自动暂停,`<CheckpointBanner />` 全站可见 |
 | 中间层:cross-device handoff | ❌ Not built | iOS 客户端未建 |
+| Hypothesis 状态机 + 置信度时间序列 | ✅ Built (路径 A G1) | `research/models.py` Hypothesis,evidence-weighted average,`docs/hypothesis-card-v0.md` 契约 |
+| 注入按 intent 真实改 state | ✅ Built (路径 A G2) | question → frontier push,constraint → filter patches,correction → confidence penalty,guidance → noted-only |
+| 前端 cockpit IA(/runs/[id] 4 tab) | ✅ Built (路径 A G3) | Cockpit/Dossier/Graph/Eval tab,HypothesisCard + FrontierQueueCard + InjectionHistory + EventStream |
 | 4 层 eval(L1 形态 / L2 critic / L3 预测 / L4 真实回报) | ⚠ L1 only | `eval/runner.py` 是形态/统计检查,L2-L4 未建 |
 | 4 层 memory(Working / Episodic / Semantic / Procedural) | ❌ Not built | 仅 per-run state |
-| Critic 三 persona(Buffett/short-seller/auditor) | ❌ Not built | spec 描述但无 prompt 与代码 |
-| LLMRouter(DeepSeek + Claude via AIHubMix) | ❌ Not built | 当前只 DeepSeek 一条 |
+| Critic 三 persona(Buffett/short-seller/auditor) | ⚠ Scaffolded | prompts + aggregator 在 `agent/personas/`,未挂到 harness |
+| LLMRouter(DeepSeek + Claude via AIHubMix) | ⚠ Scaffolded | `llm/router.py` 框架就位,未挂到 harness |
 | Postgres-first persistence + JSON fallback | ✅ Built | 投影表写已加事务,fallback 改为 sticky |
 | 自我迭代 spiral(child runs) | ✅ Built | `_maybe_spawn_next_spiral` |
-| Web 仪表盘(/runs /graph /eval /review /a2a) | ✅ Built | 但偏 status viewer,非 cockpit |
+| Web 仪表盘(/runs /graph /eval /review /a2a) | ✅ Built | 路径 A 后 `/runs` 是列表,`/runs/[id]` 是 cockpit tab |
 | iOS 原生 SwiftUI | ❌ Not built | 完全没动 |
 
-**主要 leap 还未跨过**:LLM 真正驱动 frontier(把 `AI_SUPPLY_CHAIN_LAYERS` 从权威路径降级为 fallback)。在这之前,"discover underwater companies" 的承诺与 V0 跑出来的实际轨迹之间有显著差距。
+**主要 leap 还未跨过**:
+- LLM 真正驱动 frontier(把 `AI_SUPPLY_CHAIN_LAYERS` 从权威路径降级为 fallback)
+- L2 critic / L3 预测 / L4 真实回报 eval
+- 4 层 memory 真实实现
+
+在这些之前,"discover underwater companies" 的承诺与 V0 跑出来的实际轨迹之间仍有显著差距,但**思考过程已经看得见、可干预、可审计**(路径 A 完成的核心目标)。
 
 ---
 
