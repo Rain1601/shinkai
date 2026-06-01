@@ -13,6 +13,7 @@ def isolated_state(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "state_path", str(state_file))
     monkeypatch.setenv("SHINKAI_STATE_PATH", str(state_file))
 
+    from shinkai_api.actions.store import default_actions_store
     from shinkai_api.graph.store import default_graph_store
     from shinkai_api.memory.store import default_memory_store
     from shinkai_api.research.store import default_research_store
@@ -27,6 +28,7 @@ def isolated_state(monkeypatch, tmp_path):
     default_graph_store._loaded = False
     default_research_store._reset_for_tests()
     default_memory_store._reset_for_tests()
+    default_actions_store._reset_for_tests()
     default_run_executor._tasks = {}
     default_run_executor._tool_call_counts = {}
 

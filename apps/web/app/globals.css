@@ -2613,6 +2613,196 @@ select {
   }
 }
 
+/* ── actions page ───────────────────────────────────────────────────────── */
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.critic-personas-panel,
+.memory-layers-panel,
+.patch-inbox {
+  padding: 22px 24px;
+}
+
+.critic-personas-list,
+.memory-layers-list,
+.patch-inbox-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--hair);
+}
+
+.critic-persona-card,
+.memory-layer-row,
+.patch-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hair);
+  display: grid;
+  gap: 8px;
+}
+
+.critic-persona-card header,
+.memory-layer-row header,
+.patch-row header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.critic-persona-card header strong,
+.memory-layer-row header strong,
+.patch-row header strong {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 16px;
+  color: var(--pearl);
+  letter-spacing: -0.005em;
+}
+
+.critic-persona-card header code,
+.memory-layer-row header code,
+.patch-row header code {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--pearl-mute);
+  margin-left: 10px;
+}
+
+.critic-persona-summary,
+.memory-layer-row p,
+.patch-row p {
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pearl-soft);
+  margin: 0;
+}
+
+.critic-persona-prompt {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--pearl-soft);
+  background: var(--abyss-1);
+  padding: 14px 16px;
+  border-left: 1px solid var(--teal-line);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.memory-layer-scaffolded {
+  opacity: 0.65;
+}
+
+.memory-layer-sample {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.memory-layer-sample li {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pearl-mute);
+  padding: 4px 0;
+  border-top: 1px solid var(--hair);
+}
+
+.patch-inbox-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.patch-inbox-tabs button {
+  background: transparent;
+  border: 1px solid var(--hair-strong);
+  border-right-width: 0;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--pearl-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: color 200ms var(--ease);
+}
+
+.patch-inbox-tabs button:last-child {
+  border-right-width: 1px;
+}
+
+.patch-inbox-tabs button:hover {
+  color: var(--pearl);
+}
+
+.patch-inbox-tabs button.active {
+  color: var(--teal);
+  border-color: var(--teal-line);
+  border-right-width: 1px;
+}
+
+.patch-inbox-tabs button.active + button {
+  border-left-width: 0;
+}
+
+.patch-inbox-empty {
+  padding: 24px 0;
+  text-align: center;
+  font-style: italic;
+  color: var(--pearl-mute);
+}
+
+.patch-row header {
+  cursor: default;
+}
+
+.patch-row header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.patch-row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.patch-row-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pill-accepted {
+  color: var(--support);
+  border-color: rgba(122, 170, 152, 0.36);
+}
+
+.pill-rejected {
+  color: var(--contradict);
+  border-color: rgba(184, 92, 87, 0.36);
+}
+
+.pill-modified {
+  color: var(--teal);
+  border-color: var(--teal-line);
+}
+
+@media (max-width: 1024px) {
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── overview / published page ──────────────────────────────────────────── */
 
 .published-layout {
