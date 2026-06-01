@@ -2350,6 +2350,44 @@ select {
   }
 }
 
+.theme-tile-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.theme-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.theme-hypothesis-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.theme-hypothesis-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.theme-hypothesis-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.theme-falsified-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .eval-tab {
   display: grid;
   gap: 16px;

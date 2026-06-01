@@ -7,6 +7,7 @@ import {
   Compass,
   Gauge,
   Home,
+  Layers,
   Network,
   PanelLeftClose,
   Pin,
@@ -21,7 +22,7 @@ import { CheckpointBanner } from "./CheckpointBanner";
 type PortalShellProps = {
   title: string;
   subtitle?: string;
-  active: "overview" | "runs" | "review" | "graph" | "eval" | "a2a";
+  active: "overview" | "themes" | "runs" | "review" | "graph" | "eval" | "a2a";
   actions?: ReactNode;
   children: ReactNode;
   locale?: Locale;
@@ -34,6 +35,7 @@ const navItems: Array<{
   icon: LucideIcon;
 }> = [
   { id: "overview", href: "/", label: "Overview", icon: Home },
+  { id: "themes", href: "/themes", label: "Themes", icon: Layers },
   { id: "runs", href: "/runs", label: "Runs", icon: Activity },
   { id: "review", href: "/review", label: "Review", icon: ClipboardCheck },
   { id: "graph", href: "/graph", label: "Graph", icon: Network },
@@ -43,6 +45,7 @@ const navItems: Array<{
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
   overview: "总览",
+  themes: "主题",
   runs: "运行",
   review: "复盘",
   graph: "图谱",
