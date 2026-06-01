@@ -18,6 +18,7 @@ type CockpitTabProps = {
   events: RunEvent[];
   locale: Locale;
   canControlRuns: boolean;
+  lastSeen?: number;
   onInject: (note: string, intent: string) => Promise<void> | void;
   onResolveCheckpoint: (
     decision: "approve" | "reject" | "modify",
@@ -31,6 +32,7 @@ export function CockpitTab({
   events,
   locale,
   canControlRuns,
+  lastSeen = 0,
   onInject,
   onResolveCheckpoint,
 }: CockpitTabProps) {
@@ -49,7 +51,7 @@ export function CockpitTab({
           onResolveCheckpoint={onResolveCheckpoint}
         />
         <InjectionHistory events={events} locale={locale} />
-        <EventStream events={events} locale={locale} />
+        <EventStream events={events} locale={locale} lastSeen={lastSeen} />
       </div>
     </div>
   );

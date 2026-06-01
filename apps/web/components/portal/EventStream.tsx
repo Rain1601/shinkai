@@ -6,6 +6,7 @@ import {
   localizeMode,
   localizeText
 } from "../../lib/i18n";
+import { isImportantEvent } from "../../lib/useLastSeen";
 
 type EventStreamProps = {
   events: Array<{
@@ -15,9 +16,10 @@ type EventStreamProps = {
     data?: Record<string, unknown>;
   }>;
   locale?: Locale;
+  lastSeen?: number;
 };
 
-export function EventStream({ events, locale = "zh" }: EventStreamProps) {
+export function EventStream({ events, locale = "zh", lastSeen = 0 }: EventStreamProps) {
   const isZh = locale === "zh";
   return (
     <section className="surface panel-fill">
@@ -29,12 +31,24 @@ export function EventStream({ events, locale = "zh" }: EventStreamProps) {
         {events.length === 0 ? (
           <p className="muted">{isZh ? "暂无事件。" : "No events yet."}</p>
         ) : null}
-        {events.map((event, index) => (
-          <article className="event-row" key={event.event_id ?? `${event.type ?? "event"}-${index}`}>
-            <div className="event-type">{localizeEventType(event.type, locale)}</div>
-            <div className="event-body">{summarizeEvent(event, locale)}</div>
-          </article>
-        ))}
+        {events.map((event, index) => {
+          const ts = typeof event.ts === "number" ? event.ts : 0;
+          const isNew = lastSeen > 0 && ts > lastSeen;
+          const badgeClass = isNew
+            ? isImportantEvent(event.type)
+              ? "badge-since-last-seen-red"
+              : "badge-since-last-seen-grey"
+            : "";
+          return (
+            <article
+              className={`event-row ${badgeClass}`.trim()}
+              key={event.event_id ?? `${event.type ?? "event"}-${index}`}
+            >
+              <div className="event-type">{localizeEventType(event.type, locale)}</div>
+              <div className="event-body">{summarizeEvent(event, locale)}</div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

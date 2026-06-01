@@ -9,6 +9,7 @@ import { EvalTab } from "../../../components/portal/EvalTab";
 import { GraphTab } from "../../../components/portal/GraphTab";
 import { PlannerBadge } from "../../../components/portal/PlannerBadge";
 import { PortalShell } from "../../../components/portal/PortalShell";
+import { RecapCard } from "../../../components/portal/RecapCard";
 import type { Locale } from "../../../lib/i18n";
 import {
   localizeMode,
@@ -16,6 +17,7 @@ import {
   localizeStatus,
   localizeText,
 } from "../../../lib/i18n";
+import { useLastSeen } from "../../../lib/useLastSeen";
 
 type RunEvent = {
   event_id?: string;
@@ -245,6 +247,7 @@ export default function RunDetailPage() {
   }
 
   const events = run?.events ?? [];
+  const { lastSeen } = useLastSeen(runId ? `run:${runId}` : null);
 
   return (
     <PortalShell
@@ -265,6 +268,8 @@ export default function RunDetailPage() {
       <div className="run-meta-row">
         <PlannerBadge events={events} locale={locale} />
       </div>
+
+      <RecapCard events={events} lastSeen={lastSeen} locale={locale} />
 
       <nav className="run-tabs" aria-label={isZh ? "运行视图" : "Run views"}>
         {TABS.map((tab) => (
@@ -291,6 +296,7 @@ export default function RunDetailPage() {
               events={events}
               locale={locale}
               canControlRuns={canControlRuns}
+              lastSeen={lastSeen}
               onInject={injectIntoRun}
               onResolveCheckpoint={resolveCheckpoint}
             />
