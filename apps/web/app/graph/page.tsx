@@ -4,7 +4,7 @@ import { PortalShell } from "../../components/portal/PortalShell";
 export default function GraphPage() {
   return (
     <PortalShell
-      active="graph"
+      active="history"
       subtitle="Inspect claims, evidence, questions, and thesis nodes."
       title="Research Graph"
     >

@@ -3,7 +3,7 @@ import { PortalShell } from "../../components/portal/PortalShell";
 export default function ReviewPage() {
   return (
     <PortalShell
-      active="review"
+      active="history"
       subtitle="Review blocking checkpoints before the agent continues."
       title="Checkpoint Review"
     >

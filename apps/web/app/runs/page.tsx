@@ -257,8 +257,9 @@ export default function RunsPage() {
 
   return (
     <PortalShell
-      active="runs"
+      active="history"
       locale={locale}
+      onLocaleChange={changeLocale}
       title={isZh ? "自主研究" : "Autonomous Research"}
       subtitle={
         isZh
@@ -267,24 +268,6 @@ export default function RunsPage() {
       }
       actions={
         <>
-          <div className="segmented-control" aria-label={isZh ? "语言切换" : "Language"}>
-            <button
-              aria-pressed={locale === "zh"}
-              className={locale === "zh" ? "active" : ""}
-              onClick={() => changeLocale("zh")}
-              type="button"
-            >
-              中文
-            </button>
-            <button
-              aria-pressed={locale === "en"}
-              className={locale === "en" ? "active" : ""}
-              onClick={() => changeLocale("en")}
-              type="button"
-            >
-              EN
-            </button>
-          </div>
           <div className="admin-auth-control">
             {isAdmin ? (
               <button className="button secondary" onClick={clearAdminToken} type="button">

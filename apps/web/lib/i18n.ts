@@ -170,5 +170,31 @@ const exactZh: Record<string, string> = {
   "Self-directed discovery": "自主发现",
   "Agent-led": "Agent 主导",
   "No payload": "无载荷",
-  "needs source": "需要来源"
+  "needs source": "需要来源",
+  "Rejected until risk is resolved and the quality filter passes.":
+    "在风险消化、质量筛选通过前暂不进入。",
+  "Queued for Mode A underwriting after the discovery loop completes.":
+    "等待发现循环完成后进入 Mode A 深研。",
+  "Watching for primary-source signals before promotion.":
+    "等待一手来源信号确认后再推进。",
+  "Vertiv": "Vertiv",
+  "Powell Industries": "Powell Industries",
+  "nVent Electric": "nVent Electric",
+  "FormFactor": "FormFactor",
+  "Onto Innovation": "Onto Innovation",
+  "Cohu": "Cohu",
+  "Coherent": "Coherent",
+  "Credo Technology": "Credo Technology",
+  "Lumentum": "Lumentum",
 };
+
+const summaryRegex = /^(.*?) produced (\d+) themes?, (\d+) claims?, and (\d+) company dossiers?\.?$/;
+
+export function localizeSummary(text: string, locale: Locale): string {
+  if (locale !== "zh") return text;
+  const match = text.match(summaryRegex);
+  if (!match) return localizeText(text, locale);
+  const [, prefix, themes, claims, dossiers] = match;
+  const localizedPrefix = exactZh[prefix] ?? prefix;
+  return `${localizedPrefix}已产出 ${themes} 个主题、${claims} 个论点、${dossiers} 个公司档案。`;
+}

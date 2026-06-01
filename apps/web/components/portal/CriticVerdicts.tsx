@@ -12,15 +12,15 @@ type CriticVerdictsProps = {
 };
 
 const VERDICT_COLORS: Record<string, string> = {
-  endorse: "#1f7a3a",
-  concerns: "#b27200",
-  reject: "#a02633",
+  endorse: "#7AAA98",
+  concerns: "#A0B5BD",
+  reject: "#B85C57",
 };
 
 const VERDICT_BG: Record<string, string> = {
-  endorse: "rgba(40, 167, 69, 0.12)",
-  concerns: "rgba(255, 165, 0, 0.14)",
-  reject: "rgba(220, 53, 69, 0.14)",
+  endorse: "transparent",
+  concerns: "transparent",
+  reject: "transparent",
 };
 
 function verdictLabel(verdict: string, isZh: boolean): string {

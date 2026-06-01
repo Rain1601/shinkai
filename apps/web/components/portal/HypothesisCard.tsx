@@ -36,27 +36,68 @@ type HypothesisCardProps = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
 const KIND_COLORS: Record<ConfidencePoint["kind"], string> = {
-  support: "#28a745",
-  contradict: "#dc3545",
-  human_correction: "#ff9900",
+  support: "#7AAA98",
+  contradict: "#B85C57",
+  human_correction: "#A0B5BD",
 };
 
+const SPARK_LINE_AXIS = "rgba(232,226,210,0.10)";
+const SPARK_LINE_GUIDE = "rgba(232,226,210,0.05)";
+const SPARK_LINE_CURVE = "#4FA89B";
+
 function Sparkline({ points }: { points: ConfidencePoint[] }) {
-  const width = 280;
-  const height = 80;
-  const padding = 6;
+  const width = 300;
+  const height = 88;
+  const padding = 8;
   if (points.length === 0) return null;
-  const xs = points.map((_, i) => padding + (i / Math.max(1, points.length - 1)) * (width - 2 * padding));
-  const ys = points.map((point) => padding + (1 - point.confidence) * (height - 2 * padding));
+  const xs = points.map(
+    (_, i) => padding + (i / Math.max(1, points.length - 1)) * (width - 2 * padding)
+  );
+  const ys = points.map(
+    (point) => padding + (1 - point.confidence) * (height - 2 * padding)
+  );
   const pathD = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
   return (
-    <svg className="hypothesis-sparkline" width={width} height={height} role="img" aria-label="confidence trajectory">
-      <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#ccc" strokeWidth={1} />
-      <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#ccc" strokeWidth={1} />
-      <line x1={padding} y1={padding + (height - 2 * padding) * 0.5} x2={width - padding} y2={padding + (height - 2 * padding) * 0.5} stroke="#eee" strokeWidth={1} strokeDasharray="2 2" />
-      <path d={pathD} fill="none" stroke="#5a8dee" strokeWidth={1.5} />
+    <svg
+      className="hypothesis-sparkline"
+      width={width}
+      height={height}
+      role="img"
+      aria-label="confidence trajectory"
+    >
+      <line
+        x1={padding}
+        y1={padding}
+        x2={padding}
+        y2={height - padding}
+        stroke={SPARK_LINE_AXIS}
+        strokeWidth={0.5}
+      />
+      <line
+        x1={padding}
+        y1={height - padding}
+        x2={width - padding}
+        y2={height - padding}
+        stroke={SPARK_LINE_AXIS}
+        strokeWidth={0.5}
+      />
+      <line
+        x1={padding}
+        y1={padding + (height - 2 * padding) * 0.5}
+        x2={width - padding}
+        y2={padding + (height - 2 * padding) * 0.5}
+        stroke={SPARK_LINE_GUIDE}
+        strokeWidth={0.5}
+      />
+      <path d={pathD} fill="none" stroke={SPARK_LINE_CURVE} strokeWidth={1} />
       {points.map((point, i) => (
-        <circle key={`${point.evidence_id}-${i}`} cx={xs[i]} cy={ys[i]} r={3} fill={KIND_COLORS[point.kind]} />
+        <circle
+          key={`${point.evidence_id}-${i}`}
+          cx={xs[i]}
+          cy={ys[i]}
+          r={2.5}
+          fill={KIND_COLORS[point.kind]}
+        />
       ))}
     </svg>
   );

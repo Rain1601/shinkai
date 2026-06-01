@@ -98,15 +98,17 @@ type ReasoningTreeViewProps = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 const KIND_COLORS: Record<string, string> = {
-  support: "#28a745",
-  contradict: "#dc3545",
-  human_correction: "#ff9900",
+  support: "#7AAA98",
+  contradict: "#B85C57",
+  human_correction: "#A0B5BD",
 };
+const SPARK_AXIS = "rgba(232,226,210,0.10)";
+const SPARK_CURVE = "#4FA89B";
 
 function Sparkline({ points }: { points: ConfidencePoint[] }) {
-  const width = 260;
-  const height = 60;
-  const padding = 6;
+  const width = 280;
+  const height = 68;
+  const padding = 8;
   if (points.length === 0) return null;
   const xs = points.map(
     (_, i) => padding + (i / Math.max(1, points.length - 1)) * (width - 2 * padding),
@@ -117,22 +119,30 @@ function Sparkline({ points }: { points: ConfidencePoint[] }) {
   const pathD = xs.map((x, i) => `${i === 0 ? "M" : "L"}${x},${ys[i]}`).join(" ");
   return (
     <svg width={width} height={height} className="hypothesis-sparkline" role="img">
-      <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#ccc" />
+      <line
+        x1={padding}
+        y1={padding}
+        x2={padding}
+        y2={height - padding}
+        stroke={SPARK_AXIS}
+        strokeWidth={0.5}
+      />
       <line
         x1={padding}
         y1={height - padding}
         x2={width - padding}
         y2={height - padding}
-        stroke="#ccc"
+        stroke={SPARK_AXIS}
+        strokeWidth={0.5}
       />
-      <path d={pathD} fill="none" stroke="#5a8dee" strokeWidth={1.5} />
+      <path d={pathD} fill="none" stroke={SPARK_CURVE} strokeWidth={1} />
       {points.map((point, i) => (
         <circle
           key={`${point.evidence_id}-${i}`}
           cx={xs[i]}
           cy={ys[i]}
-          r={3}
-          fill={KIND_COLORS[point.kind] ?? "#888"}
+          r={2.5}
+          fill={KIND_COLORS[point.kind] ?? "#A0B5BD"}
         />
       ))}
     </svg>

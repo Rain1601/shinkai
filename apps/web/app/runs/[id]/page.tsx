@@ -259,7 +259,7 @@ export default function RunDetailPage() {
 
   return (
     <PortalShell
-      active="runs"
+      active="history"
       locale={locale}
       title={run ? localizeText(run.anchor, locale) : isZh ? "运行详情" : "Run Detail"}
       subtitle={

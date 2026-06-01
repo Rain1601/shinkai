@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from shinkai_api.api import (
     a2a,
+    agent,
     auth,
     checkpoints,
     evals,
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(evals.router, prefix="/api/v1")
     app.include_router(a2a.router, prefix="/api/v1")
     app.include_router(themes.router, prefix="/api/v1")
+    app.include_router(agent.router, prefix="/api/v1")
 
     @app.on_event("startup")
     async def recover_active_runs() -> None:

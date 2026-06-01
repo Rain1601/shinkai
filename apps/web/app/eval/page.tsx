@@ -77,7 +77,7 @@ export default function EvalPage() {
 
   return (
     <PortalShell
-      active="eval"
+      active="history"
       actions={
         <div className="segmented-control" aria-label={isZh ? "语言" : "Language"}>
           <button
