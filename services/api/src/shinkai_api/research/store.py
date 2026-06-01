@@ -7,6 +7,7 @@ from shinkai_api.research.models import (
     Claim,
     CompanyDossier,
     Evidence,
+    Hypothesis,
     ResearchTask,
     RunResearchState,
     SourceRef,
@@ -21,6 +22,7 @@ class InMemoryResearchStore:
         self._candidates: dict[str, CandidateCompany] = {}
         self._dossiers: dict[str, CompanyDossier] = {}
         self._tasks: dict[str, ResearchTask] = {}
+        self._hypotheses: dict[str, Hypothesis] = {}
         self._lock = LoopBoundLock()
         self._loaded = False
 
@@ -65,6 +67,26 @@ class InMemoryResearchStore:
             self._tasks[task.task_id] = task
             await self._persist("research_tasks", self._tasks)
             return task
+
+    async def upsert_hypothesis(self, hypothesis: Hypothesis) -> Hypothesis:
+        async with self._lock.get():
+            await self._ensure_loaded()
+            self._hypotheses[hypothesis.hypothesis_id] = hypothesis
+            await self._persist("research_hypotheses", self._hypotheses)
+            return hypothesis
+
+    async def get_hypothesis(self, hypothesis_id: str) -> Hypothesis | None:
+        async with self._lock.get():
+            await self._ensure_loaded()
+            return self._hypotheses.get(hypothesis_id)
+
+    async def get_hypotheses_by_run(self, run_id: str) -> list[Hypothesis]:
+        async with self._lock.get():
+            await self._ensure_loaded()
+            return sorted(
+                [h for h in self._hypotheses.values() if h.run_id == run_id],
+                key=lambda h: h.hypothesis_id,
+            )
 
     async def get_run_state(self, run_id: str) -> RunResearchState:
         async with self._lock.get():
@@ -118,6 +140,7 @@ class InMemoryResearchStore:
         )
         self._dossiers = _load_models(state.get("research_dossiers", {}), CompanyDossier)
         self._tasks = _load_models(state.get("research_tasks", {}), ResearchTask)
+        self._hypotheses = _load_models(state.get("research_hypotheses", {}), Hypothesis)
         self._loaded = True
 
     async def _persist(self, section: str, values: dict) -> None:
@@ -136,6 +159,7 @@ class InMemoryResearchStore:
         self._candidates = {}
         self._dossiers = {}
         self._tasks = {}
+        self._hypotheses = {}
         self._loaded = False
 
 

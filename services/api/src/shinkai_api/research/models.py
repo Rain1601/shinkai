@@ -31,6 +31,31 @@ ClaimVerification = Literal["support", "refute", "insufficient", "stale"]
 CandidateStatus = Literal["new", "researching", "qualified", "rejected", "watchlist"]
 TaskStatus = Literal["queued", "running", "blocked", "completed", "failed"]
 InvestmentDecision = Literal["invest", "watch", "reject"]
+HypothesisState = Literal["active", "falsified", "superseded"]
+ConfidenceChangeKind = Literal["support", "contradict", "human_correction"]
+
+
+class ConfidencePoint(BaseModel):
+    ts: float = Field(default_factory=time)
+    confidence: float
+    delta: float
+    evidence_id: str
+    kind: ConfidenceChangeKind
+    method: str = "evidence_weighted_average_v0"
+
+
+class Hypothesis(BaseModel):
+    hypothesis_id: str
+    run_id: str
+    layer: str
+    claim: str
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    state: HypothesisState = "active"
+    falsification_condition: str = ""
+    supporting_evidence_ids: list[str] = Field(default_factory=list)
+    contradicting_evidence_ids: list[str] = Field(default_factory=list)
+    confidence_history: list[ConfidencePoint] = Field(default_factory=list)
+    superseded_by_id: str | None = None
 
 
 def _unique_ids(values: Iterable[str]) -> set[str]:

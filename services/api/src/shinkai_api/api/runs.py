@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 from shinkai_api.core.auth import require_admin
 from shinkai_api.graph import default_graph_store
+from shinkai_api.research import default_research_store
+from shinkai_api.research.models import Hypothesis
 from shinkai_api.runs import Run, RunCreate, default_run_store
 from shinkai_api.runs.executor import default_run_executor
 from shinkai_api.schemas.events import AgentEvent
@@ -154,6 +156,15 @@ async def resolve_checkpoint(run_id: str, payload: CheckpointDecision) -> Run:
     if run.status == "awaiting_checkpoint" or run.status == "paused":
         return await default_run_store.set_status(run_id, "running")
     return await default_run_store.get(run_id)
+
+
+@router.get("/{run_id}/hypotheses", response_model=list[Hypothesis])
+async def list_hypotheses(run_id: str) -> list[Hypothesis]:
+    try:
+        await default_run_store.get(run_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+    return await default_research_store.get_hypotheses_by_run(run_id)
 
 
 @router.get("/{run_id}/events")

@@ -6,6 +6,11 @@ from hashlib import sha1
 from urllib.parse import urlparse
 
 from shinkai_api.agent.frontier import FrontierItem, FrontierQueue
+from shinkai_api.agent.hypothesis import (
+    apply_human_correction,
+    promote_contradicting,
+    promote_supporting,
+)
 from shinkai_api.core.config import settings
 from shinkai_api.graph import Edge, GraphDelta, Node, default_graph_store, edge_id, node_id
 from shinkai_api.llm import DeepSeekClient, DeepSeekError
@@ -22,6 +27,7 @@ from shinkai_api.research import (
     default_research_store,
     source_reliability_score,
 )
+from shinkai_api.research.models import Hypothesis
 from shinkai_api.runs.models import Run
 from shinkai_api.runs.store import default_run_store
 from shinkai_api.schemas.events import AgentEvent
@@ -289,10 +295,16 @@ class ShinkaiHarness:
         checkpoints_enabled = bool(run.scope.get("checkpoints_enabled", False))
         checkpoint_raised_already = False
         consumed_injection_ids = await self._seed_consumed_injection_ids(run.id)
+        filter_policy_patches: list[str] = list(run.scope.get("filter_policy_patches", []))
+        current_layer_name: list[str | None] = [None]
 
         for loop_index in range(1, max_loops + 1):
             async for ack_event in self._consume_pending_injections(
-                run.id, consumed_injection_ids
+                run,
+                consumed_injection_ids,
+                frontier_queue=frontier_queue,
+                filter_policy_patches=filter_policy_patches,
+                current_layer_name=current_layer_name,
             ):
                 yield ack_event
             frontier_item = frontier_queue.pop_next(
@@ -301,6 +313,7 @@ class ShinkaiHarness:
             if frontier_item is None:
                 break
             layer = layer_by_frontier_id[frontier_item.frontier_id]
+            current_layer_name[0] = layer.name
             yield AgentEvent(
                 type="frontier_selected",
                 run_id=run.id,
@@ -878,21 +891,95 @@ class ShinkaiHarness:
                     "source_backed": evidence.source_backed,
                 },
             )
+            hypothesis_id = _stable_id("hyp", run.id, layer.name)
+            hypothesis_claim = (
+                f"{layer.name} is a candidate AI infrastructure bottleneck "
+                "where second-order suppliers may be more under-covered than seed giants."
+            )
+            falsification_condition = (
+                f"Two independent primary sources refute the claim that {layer.name} "
+                "is structurally constrained, OR the layer's next frontier "
+                f"({layer.next_frontier}) yields no supplier improvement signal."
+            )
+            hypothesis = Hypothesis(
+                hypothesis_id=hypothesis_id,
+                run_id=run.id,
+                layer=layer.name,
+                claim=hypothesis_claim,
+                confidence=0.5,
+                falsification_condition=falsification_condition,
+            )
+            await default_research_store.upsert_hypothesis(hypothesis)
+            yield AgentEvent(
+                type="hypothesis_created",
+                run_id=run.id,
+                data={
+                    "hypothesis_id": hypothesis_id,
+                    "layer": layer.name,
+                    "claim": hypothesis_claim,
+                    "initial_confidence": 0.5,
+                    "falsification_condition": falsification_condition,
+                },
+            )
             yield AgentEvent(
                 type="judgment_created",
                 run_id=run.id,
                 data={
                     "loop_index": loop_index,
-                    "hypothesis_id": _stable_id("hyp", run.id, layer.name),
+                    "hypothesis_id": hypothesis_id,
                     "layer": layer.name,
-                    "judgment": (
-                        f"{layer.name} is a candidate AI infrastructure bottleneck "
-                        "where second-order suppliers may be more under-covered than seed giants."
-                    ),
+                    "judgment": hypothesis_claim,
                     "confidence": 0.66,
                     "support": [layer.bottleneck],
                 },
             )
+            sources_by_id = {source.source_id: source for source in evidence.sources}
+            sources_by_id.update(
+                {source.source_id: source for source in evidence.contradicting_sources}
+            )
+            for evidence_record in evidence.evidence_records:
+                source = sources_by_id.get(evidence_record.source_id)
+                reliability = float(source.reliability) if source else 0.5
+                point = promote_supporting(
+                    hypothesis,
+                    evidence_id=evidence_record.evidence_id,
+                    reliability_score=reliability,
+                )
+                yield AgentEvent(
+                    type="hypothesis_confidence_updated",
+                    run_id=run.id,
+                    data={
+                        "hypothesis_id": hypothesis_id,
+                        "prev_confidence": round(point.confidence - point.delta, 4),
+                        "new_confidence": point.confidence,
+                        "delta": point.delta,
+                        "evidence_id": point.evidence_id,
+                        "kind": point.kind,
+                        "method": point.method,
+                    },
+                )
+            for evidence_record in evidence.contradicting_evidence_records:
+                source = sources_by_id.get(evidence_record.source_id)
+                reliability = float(source.reliability) if source else 0.5
+                point = promote_contradicting(
+                    hypothesis,
+                    evidence_id=evidence_record.evidence_id,
+                    reliability_score=reliability,
+                )
+                yield AgentEvent(
+                    type="hypothesis_confidence_updated",
+                    run_id=run.id,
+                    data={
+                        "hypothesis_id": hypothesis_id,
+                        "prev_confidence": round(point.confidence - point.delta, 4),
+                        "new_confidence": point.confidence,
+                        "delta": point.delta,
+                        "evidence_id": point.evidence_id,
+                        "kind": point.kind,
+                        "method": point.method,
+                    },
+                )
+            await default_research_store.upsert_hypothesis(hypothesis)
 
             for company in layer.companies:
                 ticker = str(company["ticker"])
@@ -1156,7 +1243,11 @@ class ShinkaiHarness:
             )
 
         async for ack_event in self._consume_pending_injections(
-            run.id, consumed_injection_ids
+            run,
+            consumed_injection_ids,
+            frontier_queue=frontier_queue,
+            filter_policy_patches=filter_policy_patches,
+            current_layer_name=current_layer_name,
         ):
             yield ack_event
 
@@ -1199,17 +1290,30 @@ class ShinkaiHarness:
 
     async def _consume_pending_injections(
         self,
-        run_id: str,
+        run: Run,
         consumed_injection_ids: set[str],
+        *,
+        frontier_queue: FrontierQueue,
+        filter_policy_patches: list[str],
+        current_layer_name: list[str | None],
     ) -> AsyncIterator[AgentEvent]:
-        """Read unconsumed human_injection events and yield acknowledgment events.
+        """Read unconsumed human_injection events, apply their effect to harness
+        state, and yield acknowledgment events.
 
-        Each injection is acknowledged exactly once. The acknowledgment records the
-        intent classification so the UI can show whether the agent saw the note.
-        State mutation from intents (frontier reordering, filter policy changes,
-        hypothesis edits) is intentionally not wired here yet — only the closed
-        visibility loop is established. See InjectionHistory in the dashboard.
+        Each injection is acknowledged exactly once. The effect depends on intent:
+          - question: push a FrontierItem so the queue snapshot shows it.
+          - constraint: append the note to filter_policy_patches (consulted in
+            candidate scoring).
+          - correction: apply a confidence penalty to the current layer's
+            hypothesis (persisted via research_store).
+          - guidance: recorded only; no state change (no clear executable
+            semantics in V0 — reserved for reviewer/optimizer phase).
+
+        Effects on in-memory state (frontier_queue, filter_policy_patches) are
+        not preserved across run recovery. Hypothesis corrections are persisted
+        via the research store and therefore survive recovery.
         """
+        run_id = run.id
         current = await default_run_store.get(run_id)
         for event in current.events:
             if event.type != "human_injection":
@@ -1233,7 +1337,87 @@ class ShinkaiHarness:
                     },
                 )
                 continue
-            applied_to, effect_summary = self._classify_injection_effect(intent)
+
+            applied_to: str
+            effect_summary: str
+            extras: dict = {}
+
+            if intent == "question":
+                frontier_id = f"human::question::{injection_id}"
+                frontier_queue.push(
+                    FrontierItem(
+                        frontier_id=frontier_id,
+                        name=note[:80],
+                        priority=0.85,
+                        confidence=0.5,
+                        expected_value=0.6,
+                        estimated_cost=0.5,
+                        reason=f"human_injection: {note[:120]}",
+                        source="human_injection",
+                    )
+                )
+                applied_to = "frontier"
+                effect_summary = (
+                    f"queued in frontier as {frontier_id} (priority 0.85); "
+                    "awaiting reviewer to schedule"
+                )
+                extras["frontier_id"] = frontier_id
+
+            elif intent == "constraint":
+                if note not in filter_policy_patches:
+                    filter_policy_patches.append(note)
+                applied_to = "filter"
+                effect_summary = (
+                    f"appended to filter_policy_patches ({len(filter_policy_patches)} total)"
+                )
+                extras["filter_policy_patches_count"] = len(filter_policy_patches)
+
+            elif intent == "correction":
+                layer = current_layer_name[0]
+                if layer is None:
+                    applied_to = "none"
+                    effect_summary = "no active layer; correction recorded for next layer"
+                else:
+                    hypothesis_id = _stable_id("hyp", run_id, layer)
+                    hypothesis = await default_research_store.get_hypothesis(hypothesis_id)
+                    if hypothesis is None:
+                        applied_to = "none"
+                        effect_summary = (
+                            f"no hypothesis found for layer {layer}; correction noted only"
+                        )
+                    else:
+                        point = apply_human_correction(hypothesis, injection_id=injection_id)
+                        await default_research_store.upsert_hypothesis(hypothesis)
+                        yield AgentEvent(
+                            type="hypothesis_confidence_updated",
+                            run_id=run_id,
+                            data={
+                                "hypothesis_id": hypothesis_id,
+                                "prev_confidence": round(
+                                    point.confidence - point.delta, 4
+                                ),
+                                "new_confidence": point.confidence,
+                                "delta": point.delta,
+                                "evidence_id": point.evidence_id,
+                                "kind": point.kind,
+                                "method": point.method,
+                            },
+                        )
+                        applied_to = "hypothesis"
+                        effect_summary = (
+                            f"applied confidence penalty to {hypothesis_id} "
+                            f"(delta {point.delta})"
+                        )
+                        extras["hypothesis_id"] = hypothesis_id
+                        extras["delta"] = point.delta
+
+            else:  # guidance
+                applied_to = "none"
+                effect_summary = (
+                    "recorded only; guidance has no V0 executable effect "
+                    "(reserved for reviewer/optimizer phase)"
+                )
+
             yield AgentEvent(
                 type="injection_acknowledged",
                 run_id=run_id,
@@ -1241,26 +1425,12 @@ class ShinkaiHarness:
                     "injection_id": injection_id,
                     "intent": intent,
                     "note": note,
-                    "adopted": True,
+                    "adopted": applied_to != "none",
                     "applied_to": applied_to,
                     "effect_summary": effect_summary,
+                    **extras,
                 },
             )
-
-    def _classify_injection_effect(self, intent: str) -> tuple[str, str]:
-        """Map intent to (applied_to, effect_summary) describing what the agent
-        commits to do with the note. Until state mutation is wired, the agent only
-        commits to *consider* the note at the next reasoning boundary."""
-        if intent == "constraint":
-            return "filter", "noted as constraint; will check against future candidates"
-        if intent == "correction":
-            return "hypothesis", "noted as correction; will revisit current judgment at next review"
-        if intent == "question":
-            return (
-                "frontier",
-                "noted as research question; will be surfaced at next frontier review",
-            )
-        return "hypothesis", "noted as guidance; will be considered at next reasoning step"
 
     async def _plan_with_deepseek(
         self,
