@@ -2900,115 +2900,152 @@ select {
   color: var(--pearl-mute);
 }
 
-/* ── live page ──────────────────────────────────────────────────────────── */
+/* ── live page (flat — hairlines, no nested boxes) ──────────────────────── */
 
-.live-cockpit {
-  padding: 28px 32px;
+.live-flat {
   display: grid;
-  gap: 20px;
+  gap: 32px;
+  max-width: 920px;
 }
 
-.live-cockpit-anchor {
+.live-flat-eyebrow {
   display: flex;
+  justify-content: space-between;
   align-items: baseline;
-  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--hair);
 }
 
-.live-cockpit-anchor strong {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 300;
-  font-size: 32px;
-  color: var(--pearl);
-  letter-spacing: -0.018em;
-}
-
-.live-cockpit-anchor code {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--pearl-mute);
-}
-
-.live-cockpit-judgment {
-  display: grid;
-  gap: 6px;
-  padding: 18px 20px;
-  border-left: 1px solid var(--teal-line);
-  background: var(--teal-soft);
-}
-
-.live-cockpit-judgment p {
-  font-family: var(--body);
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--pearl);
-}
-
-.live-cockpit-confidence {
+.live-flat-status {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--pearl-mute);
 }
 
-.live-cockpit-confidence strong {
+.live-flat-anchor {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
   font-family: var(--display);
   font-style: italic;
   font-weight: 300;
-  font-size: 22px;
-  color: var(--teal);
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  margin-left: 6px;
+  font-size: 44px;
+  line-height: 1.05;
+  color: var(--pearl);
+  letter-spacing: -0.025em;
+  margin: 0;
 }
 
-.live-cockpit-events {
+.live-flat-anchor code {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-style: normal;
+  letter-spacing: 0.1em;
+  color: var(--pearl-mute);
+}
+
+.live-flat-judgment {
   display: grid;
   gap: 8px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--hair);
 }
 
-.live-cockpit-events ul {
+.live-flat-layer {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  color: var(--pearl);
+  letter-spacing: -0.01em;
+  margin: 4px 0 0;
+}
+
+.live-flat-claim {
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--pearl-soft);
+  margin: 4px 0 0;
+  max-width: 64ch;
+}
+
+.live-flat-confidence {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.live-flat-confidence span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.live-flat-confidence strong {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 38px;
+  line-height: 1;
+  color: var(--teal);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.live-flat-events {
+  display: grid;
+  gap: 10px;
+}
+
+.live-flat-events ol {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.live-cockpit-events li {
+.live-flat-events li {
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: 18px;
-  padding: 9px 0;
+  padding: 10px 0;
   border-top: 1px solid var(--hair);
   font-family: var(--body);
   font-size: 13px;
   line-height: 1.55;
+  color: var(--pearl-soft);
 }
 
-.live-cockpit-events li:first-child {
+.live-flat-events li:first-child {
   border-top: none;
 }
 
-.live-cockpit-events li code {
+.live-flat-events li code {
   font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--pearl-mute);
+  align-self: start;
 }
 
-.live-idle {
-  padding: 28px 32px;
-  display: grid;
-  gap: 16px;
+.live-flat-footer {
+  padding-top: 6px;
 }
 
-.live-idle h2 {
-  font-family: var(--display);
+.live-idle-note {
+  font-family: var(--body);
   font-style: italic;
-  font-weight: 300;
-  font-size: 28px;
-  color: var(--pearl);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pearl-mute);
+  margin: 0 0 28px;
+  max-width: 60ch;
 }
 
 /* ── overview / published page ──────────────────────────────────────────── */

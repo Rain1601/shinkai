@@ -41,50 +41,62 @@ function elapsedLabel(seconds: number, isZh: boolean): string {
 export function LiveCockpit({ run, locale, label }: LiveCockpitProps) {
   const isZh = locale === "zh";
   return (
-    <section className="surface live-cockpit">
-      <div className="panel-heading">
-        <h2>{label ?? (isZh ? "实时驾驶舱" : "Live cockpit")}</h2>
+    <article className="live-flat">
+      <header className="live-flat-eyebrow">
         <span className="label">
+          {label ?? (isZh ? "实时驾驶舱" : "Live cockpit")}
+        </span>
+        <span className="live-flat-status">
           {localizeStatus(run.status, locale)} · {elapsedLabel(run.elapsed_seconds, isZh)}
         </span>
-      </div>
-      <div className="live-cockpit-anchor">
-        <strong>{localizeText(run.anchor, locale)}</strong>
+      </header>
+
+      <h2 className="live-flat-anchor">
+        {localizeText(run.anchor, locale)}
         <code>#{run.run_id.slice(0, 8)}</code>
-      </div>
-      {run.judgment ? (
-        <div className="live-cockpit-judgment">
-          <span className="label">{isZh ? "当前判断" : "Current judgment"}</span>
-          <p>{run.judgment.layer || (isZh ? "未命名层" : "unnamed layer")}</p>
-          <p className="muted">{run.judgment.judgment}</p>
-          {run.judgment.confidence !== null ? (
-            <span className="live-cockpit-confidence">
-              {isZh ? "置信度" : "Confidence"} ·{" "}
-              <strong>{formatNumber(run.judgment.confidence)}</strong>
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <p className="muted">{isZh ? "尚未形成判断。" : "No judgment yet."}</p>
-      )}
-      <div className="live-cockpit-events">
+      </h2>
+
+      <section className="live-flat-judgment">
+        <span className="label">{isZh ? "当前判断" : "Current judgment"}</span>
+        {run.judgment ? (
+          <>
+            <p className="live-flat-layer">
+              {run.judgment.layer || (isZh ? "未命名层" : "unnamed layer")}
+            </p>
+            <p className="live-flat-claim">{run.judgment.judgment}</p>
+            {run.judgment.confidence !== null ? (
+              <p className="live-flat-confidence">
+                <span>{isZh ? "置信度" : "Confidence"}</span>
+                <strong>{formatNumber(run.judgment.confidence)}</strong>
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="muted">{isZh ? "尚未形成判断。" : "No judgment yet."}</p>
+        )}
+      </section>
+
+      <section className="live-flat-events">
         <span className="label">{isZh ? "最近事件" : "Recent events"}</span>
         {run.recent_events.length === 0 ? (
           <p className="muted">{isZh ? "暂无事件。" : "No events yet."}</p>
         ) : (
-          <ul>
+          <ol>
             {run.recent_events.map((event) => (
               <li key={event.event_id}>
                 <code>{event.type}</code>
                 <span>{event.summary}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
-      </div>
-      <Link className="button" href={`/runs/${run.run_id}?tab=cockpit`}>
-        {isZh ? "进入完整 Cockpit" : "Open full cockpit"}
-      </Link>
-    </section>
+      </section>
+
+      <footer className="live-flat-footer">
+        <Link className="link-button" href={`/runs/${run.run_id}?tab=cockpit`}>
+          {isZh ? "进入完整 Cockpit" : "Open full cockpit"} →
+        </Link>
+      </footer>
+    </article>
   );
 }

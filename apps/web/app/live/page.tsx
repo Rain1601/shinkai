@@ -91,26 +91,23 @@ export default function LivePage() {
         <p className="muted">{isZh ? "加载中…" : "Loading…"}</p>
       ) : data.active ? (
         <LiveCockpit run={data.active} locale={locale} />
-      ) : (
-        <section className="surface live-idle">
-          <h2>{isZh ? "Agent 空闲" : "Agent idle"}</h2>
-          <p className="muted">
+      ) : data.last_completed ? (
+        <>
+          <p className="live-idle-note">
             {isZh
-              ? "目前没有活跃 run。下面是最近一次完成的运行,可作上下文参考。"
-              : "No active run. The most recently completed run is shown below for context."}
+              ? "Agent 当前空闲 — 下方是最近一次完成的运行,作上下文。"
+              : "Agent is idle — the most recently completed run is shown below as context."}
           </p>
-          {data.last_completed ? (
-            <LiveCockpit
-              run={data.last_completed}
-              locale={locale}
-              label={isZh ? "最近完成" : "Last completed"}
-            />
-          ) : (
-            <p className="muted">
-              {isZh ? "暂无任何运行历史。" : "No runs yet."}
-            </p>
-          )}
-        </section>
+          <LiveCockpit
+            run={data.last_completed}
+            locale={locale}
+            label={isZh ? "最近完成" : "Last completed"}
+          />
+        </>
+      ) : (
+        <p className="live-idle-note">
+          {isZh ? "Agent 当前空闲,且尚无任何运行历史。" : "Agent is idle and there are no past runs yet."}
+        </p>
       )}
     </PortalShell>
   );
