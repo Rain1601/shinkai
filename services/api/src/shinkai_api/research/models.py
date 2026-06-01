@@ -154,6 +154,7 @@ class Claim(BaseModel):
     contradicting_evidence_ids: list[str] = Field(default_factory=list)
     stale_evidence_ids: list[str] = Field(default_factory=list)
     required_independent_sources: int = Field(default=2, ge=1)
+    hypothesis_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def support_status(

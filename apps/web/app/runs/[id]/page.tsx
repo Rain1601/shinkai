@@ -9,6 +9,7 @@ import { EvalTab } from "../../../components/portal/EvalTab";
 import { GraphTab } from "../../../components/portal/GraphTab";
 import { PlannerBadge } from "../../../components/portal/PlannerBadge";
 import { PortalShell } from "../../../components/portal/PortalShell";
+import { ReasoningTreeView } from "../../../components/portal/ReasoningTreeView";
 import { RecapCard } from "../../../components/portal/RecapCard";
 import type { Locale } from "../../../lib/i18n";
 import {
@@ -43,9 +44,10 @@ type AuthSession = {
   capabilities: string[];
 };
 
-type TabId = "cockpit" | "dossier" | "graph" | "eval";
+type TabId = "framework" | "cockpit" | "dossier" | "graph" | "eval";
 
 const TABS: { id: TabId; zh: string; en: string }[] = [
+  { id: "framework", zh: "框架", en: "Framework" },
   { id: "cockpit", zh: "驾驶舱", en: "Cockpit" },
   { id: "dossier", zh: "档案", en: "Dossier" },
   { id: "graph", zh: "图谱", en: "Graph" },
@@ -83,7 +85,13 @@ function hasCapability(session: AuthSession, capability: string): boolean {
 }
 
 function isValidTab(value: string | null): value is TabId {
-  return value === "cockpit" || value === "dossier" || value === "graph" || value === "eval";
+  return (
+    value === "framework" ||
+    value === "cockpit" ||
+    value === "dossier" ||
+    value === "graph" ||
+    value === "eval"
+  );
 }
 
 export default function RunDetailPage() {
@@ -108,7 +116,7 @@ export default function RunDetailPage() {
       const stored = window.localStorage.getItem(TAB_STORAGE_KEY);
       if (isValidTab(stored)) return stored;
     }
-    return "cockpit";
+    return "framework";
   }, [searchParams]);
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
@@ -289,6 +297,13 @@ export default function RunDetailPage() {
 
       {run ? (
         <div className="run-detail-body">
+          {activeTab === "framework" ? (
+            <ReasoningTreeView
+              runId={run.id}
+              locale={locale}
+              refreshSignal={events.length}
+            />
+          ) : null}
           {activeTab === "cockpit" && canViewProcess ? (
             <CockpitTab
               runId={run.id}

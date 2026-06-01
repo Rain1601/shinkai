@@ -543,6 +543,7 @@ class ShinkaiHarness:
                 evidence_ids=evidence_ids,
                 contradicting_evidence_ids=contradicting_evidence_ids,
                 stale_evidence_ids=_stale_evidence_ids(evidence, assessment.stale_source_ids),
+                hypothesis_id=_stable_id("hyp", run.id, layer.name),
                 metadata={
                     "kind": "bottleneck",
                     "independent_source_count": independent_source_count,
@@ -648,6 +649,7 @@ class ShinkaiHarness:
                             evidence,
                             assessment.stale_source_ids,
                         ),
+                        hypothesis_id=_stable_id("hyp", run.id, layer.name),
                         metadata={
                             "kind": "candidate_exposure",
                             "ticker": company["ticker"],

@@ -17,3 +17,4 @@ build/
 .shinkai/
 services/api/.env
 apps/web/.env.local
+RESUME.md

@@ -8,7 +8,12 @@ from pydantic import BaseModel
 from shinkai_api.core.auth import require_admin
 from shinkai_api.graph import default_graph_store
 from shinkai_api.research import default_research_store
-from shinkai_api.research.models import Hypothesis
+from shinkai_api.research.models import (
+    Claim,
+    Evidence,
+    Hypothesis,
+    SourceRef,
+)
 from shinkai_api.runs import Run, RunCreate, default_run_store
 from shinkai_api.runs.executor import default_run_executor
 from shinkai_api.schemas.events import AgentEvent
@@ -165,6 +170,91 @@ async def list_hypotheses(run_id: str) -> list[Hypothesis]:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="run not found") from exc
     return await default_research_store.get_hypotheses_by_run(run_id)
+
+
+class ReasoningClaim(BaseModel):
+    """A claim plus its resolved supporting / contradicting evidence records."""
+
+    claim: Claim
+    supporting_evidence: list[Evidence] = []
+    contradicting_evidence: list[Evidence] = []
+
+
+class ReasoningHypothesis(BaseModel):
+    hypothesis: Hypothesis
+    claims: list[ReasoningClaim] = []
+    orphan: bool = False
+
+
+class ReasoningTree(BaseModel):
+    run_id: str
+    hypotheses: list[ReasoningHypothesis]
+    orphan_claims: list[ReasoningClaim]
+    sources: dict[str, SourceRef]
+
+
+@router.get("/{run_id}/reasoning-tree", response_model=ReasoningTree)
+async def reasoning_tree(run_id: str) -> ReasoningTree:
+    """Return the full reasoning structure for a run in one call.
+
+    The shape is Hypothesis -> Claim -> Evidence -> Source. Claims that do
+    not carry a ``hypothesis_id`` (typically older runs or non-layer claims)
+    are returned under ``orphan_claims`` so the client can still surface
+    them. ``sources`` is a flat map keyed by ``source_id`` so the client
+    does not need a second lookup per evidence row.
+    """
+    try:
+        await default_run_store.get(run_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="run not found") from exc
+
+    state = await default_research_store.get_run_state(run_id)
+    hypotheses = await default_research_store.get_hypotheses_by_run(run_id)
+
+    evidence_by_id = {ev.evidence_id: ev for ev in state.evidence}
+    sources_by_id = {src.source_id: src for src in state.sources}
+
+    def _resolve(claim: Claim) -> ReasoningClaim:
+        supporting = [
+            evidence_by_id[eid]
+            for eid in claim.supporting_evidence_ids
+            if eid in evidence_by_id
+        ]
+        contradicting = [
+            evidence_by_id[eid]
+            for eid in claim.contradicting_evidence_ids
+            if eid in evidence_by_id
+        ]
+        return ReasoningClaim(
+            claim=claim,
+            supporting_evidence=supporting,
+            contradicting_evidence=contradicting,
+        )
+
+    claims_by_hypothesis: dict[str, list[Claim]] = {}
+    orphan_claims: list[Claim] = []
+    for claim in state.claims:
+        if claim.hypothesis_id:
+            claims_by_hypothesis.setdefault(claim.hypothesis_id, []).append(claim)
+        else:
+            orphan_claims.append(claim)
+
+    tree_hypotheses: list[ReasoningHypothesis] = []
+    for hypothesis in hypotheses:
+        claims = claims_by_hypothesis.get(hypothesis.hypothesis_id, [])
+        tree_hypotheses.append(
+            ReasoningHypothesis(
+                hypothesis=hypothesis,
+                claims=[_resolve(claim) for claim in claims],
+            )
+        )
+
+    return ReasoningTree(
+        run_id=run_id,
+        hypotheses=tree_hypotheses,
+        orphan_claims=[_resolve(claim) for claim in orphan_claims],
+        sources=sources_by_id,
+    )
 
 
 @router.get("/{run_id}/events")
