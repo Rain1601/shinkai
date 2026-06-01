@@ -2803,6 +2803,214 @@ select {
   }
 }
 
+/* ── history view ───────────────────────────────────────────────────────── */
+
+.history-view-switch {
+  display: inline-flex;
+  margin-bottom: 18px;
+}
+
+.history-view-switch button {
+  background: transparent;
+  border: 1px solid var(--hair-strong);
+  border-right-width: 0;
+  padding: 7px 14px;
+  cursor: pointer;
+  color: var(--pearl-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: color 200ms var(--ease);
+}
+
+.history-view-switch button:last-child {
+  border-right-width: 1px;
+}
+
+.history-view-switch button.active {
+  color: var(--teal);
+  border-color: var(--teal-line);
+  border-right-width: 1px;
+}
+
+.history-view-switch button.active + button {
+  border-left-width: 0;
+}
+
+.history-time-list {
+  padding: 22px 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.history-time-rows {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--hair);
+}
+
+.history-time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hair);
+  text-decoration: none;
+  color: var(--pearl);
+  transition: padding 200ms var(--ease);
+}
+
+.history-time-row:hover {
+  text-decoration: none;
+  padding-left: 8px;
+}
+
+.history-time-row-main {
+  display: grid;
+  gap: 2px;
+}
+
+.history-time-row-main strong {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 17px;
+  color: var(--pearl);
+  letter-spacing: -0.005em;
+}
+
+.history-time-row-main span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.history-time-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+/* ── live page ──────────────────────────────────────────────────────────── */
+
+.live-cockpit {
+  padding: 28px 32px;
+  display: grid;
+  gap: 20px;
+}
+
+.live-cockpit-anchor {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.live-cockpit-anchor strong {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 32px;
+  color: var(--pearl);
+  letter-spacing: -0.018em;
+}
+
+.live-cockpit-anchor code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pearl-mute);
+}
+
+.live-cockpit-judgment {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border-left: 1px solid var(--teal-line);
+  background: var(--teal-soft);
+}
+
+.live-cockpit-judgment p {
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--pearl);
+}
+
+.live-cockpit-confidence {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.live-cockpit-confidence strong {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 22px;
+  color: var(--teal);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  margin-left: 6px;
+}
+
+.live-cockpit-events {
+  display: grid;
+  gap: 8px;
+}
+
+.live-cockpit-events ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.live-cockpit-events li {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 18px;
+  padding: 9px 0;
+  border-top: 1px solid var(--hair);
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.live-cockpit-events li:first-child {
+  border-top: none;
+}
+
+.live-cockpit-events li code {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.live-idle {
+  padding: 28px 32px;
+  display: grid;
+  gap: 16px;
+}
+
+.live-idle h2 {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 28px;
+  color: var(--pearl);
+}
+
 /* ── overview / published page ──────────────────────────────────────────── */
 
 .published-layout {

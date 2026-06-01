@@ -172,7 +172,10 @@ async def get_memory() -> list[MemoryLayer]:
             layer="working",
             name_en="Working memory",
             name_zh="工作记忆",
-            description_en="Per-step scratch state used by the harness while executing a single loop iteration. Not persisted in V0.",
+            description_en=(
+                "Per-step scratch state used by the harness while executing a "
+                "single loop iteration. Not persisted in V0."
+            ),
             description_zh="harness 单次循环步内的临时状态,V0 不持久化。",
             count=0,
             status="scaffolded",
@@ -181,7 +184,10 @@ async def get_memory() -> list[MemoryLayer]:
             layer="episodic",
             name_en="Episodic memory",
             name_zh="情景记忆",
-            description_en="Per-run event log — every AgentEvent emitted by a run is preserved in the run store.",
+            description_en=(
+                "Per-run event log — every AgentEvent emitted by a run is "
+                "preserved in the run store."
+            ),
             description_zh="每次 run 的事件流 — 所有 AgentEvent 都在 run store 里持久化。",
             count=total_events,
             status="live",
@@ -190,7 +196,10 @@ async def get_memory() -> list[MemoryLayer]:
             layer="semantic",
             name_en="Semantic memory",
             name_zh="语义记忆",
-            description_en="Cross-run hypotheses — the agent's tracked claims about reality. Stored in research store.",
+            description_en=(
+                "Cross-run hypotheses — the agent's tracked claims about "
+                "reality. Stored in research store."
+            ),
             description_zh="跨 run 的假设 — agent 对现实的追踪性论断,放在 research store。",
             count=semantic_count,
             sample=semantic_sample,
@@ -200,7 +209,10 @@ async def get_memory() -> list[MemoryLayer]:
             layer="procedural",
             name_en="Procedural memory",
             name_zh="过程记忆",
-            description_en="Habits / patches the agent has been taught via accepted memory patches. Drives future runs.",
+            description_en=(
+                "Habits / patches the agent has been taught via accepted "
+                "memory patches. Drives future runs."
+            ),
             description_zh="经过接受的 memory patch 累积出的策略 — 影响未来 run 的行为。",
             count=len(accepted_patches),
             sample=[

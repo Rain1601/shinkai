@@ -32,6 +32,10 @@
 | Postgres-first persistence + JSON fallback | ✅ Built | 投影表写已加事务,fallback 改为 sticky |
 | 自我迭代 spiral(child runs) | ✅ Built | `_maybe_spawn_next_spiral` |
 | Web 仪表盘(/runs /graph /eval /review /a2a) | ✅ Built | 路径 A 后 `/runs` 是列表,`/runs/[id]` 是 cockpit tab |
+| Agent overview `/agent` | ✅ Built (2026-06-02) | identity + heartrate + active work + capability matrix |
+| Actions inbox `/actions` | ✅ Built (2026-06-02) | triggers / critics(persona prompt 可展开) / memory layers / patch inbox |
+| Live `/live` | ✅ Built (2026-06-02) | 自动选最近 active run,无 active 时显示最近完成 |
+| History `/runs?view=time\|theme` | ✅ Built (2026-06-02) | `/runs` 改名 History,按主题 / 按时间二选一;`/themes` 重定向 |
 | iOS 原生 SwiftUI | ❌ Not built | 完全没动 |
 
 **主要 leap 还未跨过**:

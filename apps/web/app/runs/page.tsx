@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PortalShell } from "../../components/portal/PortalShell";
 import type { Locale } from "../../lib/i18n";
@@ -10,6 +11,9 @@ import {
   localizeStatus,
   localizeText,
 } from "../../lib/i18n";
+
+type ViewMode = "theme" | "time";
+const VALID_VIEWS: ViewMode[] = ["theme", "time"];
 
 type RunEvent = {
   event_id?: string;
@@ -255,16 +259,39 @@ export default function RunsPage() {
   const themeGroups = useMemo(() => groupRunsByTheme(runs, locale), [runs, locale]);
   const runningRuns = runs.filter((run) => !isTerminalRun(run)).length;
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const viewParam = searchParams.get("view");
+  const view: ViewMode = VALID_VIEWS.includes(viewParam as ViewMode)
+    ? (viewParam as ViewMode)
+    : "theme";
+
+  function switchView(next: ViewMode) {
+    const params = new URLSearchParams(window.location.search);
+    if (next === "theme") {
+      params.delete("view");
+    } else {
+      params.set("view", next);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/runs?${qs}` : "/runs", { scroll: false });
+  }
+
+  const flatRuns = useMemo(
+    () => [...runs].sort((a, b) => lastActivityTs(b) - lastActivityTs(a)),
+    [runs],
+  );
+
   return (
     <PortalShell
       active="history"
       locale={locale}
       onLocaleChange={changeLocale}
-      title={isZh ? "自主研究" : "Autonomous Research"}
+      title={isZh ? "运行历史" : "Run History"}
       subtitle={
         isZh
-          ? "选择一个主题进入详情查看 agent 思考过程、档案、图谱与评测。"
-          : "Pick a theme to inspect the agent's thinking, dossiers, graph, and eval."
+          ? "Agent 跑过的每次研究 — 按主题聚合或按时间排序查看。"
+          : "Every research run the agent has produced — view grouped by theme or by time."
       }
       actions={
         <>
@@ -319,39 +346,100 @@ export default function RunsPage() {
 
       {error ? <p className="muted error-copy">{error}</p> : null}
 
-      <section className="theme-grid">
-        {themeGroups.length === 0 ? (
-          <p className="muted">
-            {isZh ? "暂无主题。点上方“启动自主扫描”开始。" : "No themes yet — start an autonomous scan."}
-          </p>
-        ) : null}
-        {themeGroups.map((group) => (
-          <article className="surface theme-tile" key={group.key}>
-            <header>
-              <h2>{group.title}</h2>
-              <span className="label">
-                {isZh
-                  ? `${group.runs.length} 次 · ${group.runningCount} 运行中`
-                  : `${group.runs.length} runs · ${group.runningCount} active`}
-              </span>
-            </header>
-            <p className="muted">{formatActivityTime(group.lastActivity, locale)}</p>
-            <div className="theme-tile-runs">
-              {group.runs.slice(0, 6).map((run, index) => (
+      <div className="history-view-switch">
+        <button
+          type="button"
+          className={view === "theme" ? "active" : ""}
+          onClick={() => switchView("theme")}
+        >
+          {isZh ? "按主题" : "By theme"}
+        </button>
+        <button
+          type="button"
+          className={view === "time" ? "active" : ""}
+          onClick={() => switchView("time")}
+        >
+          {isZh ? "按时间" : "By time"}
+        </button>
+      </div>
+
+      {view === "theme" ? (
+        <section className="theme-grid">
+          {themeGroups.length === 0 ? (
+            <p className="muted">
+              {isZh
+                ? "暂无主题。点上方“启动自主扫描”开始。"
+                : "No themes yet — start an autonomous scan."}
+            </p>
+          ) : null}
+          {themeGroups.map((group) => (
+            <article className="surface theme-tile" key={group.key}>
+              <header>
+                <h2>{group.title}</h2>
+                <span className="label">
+                  {isZh
+                    ? `${group.runs.length} 次 · ${group.runningCount} 运行中`
+                    : `${group.runs.length} runs · ${group.runningCount} active`}
+                </span>
+              </header>
+              <p className="muted">{formatActivityTime(group.lastActivity, locale)}</p>
+              <div className="theme-tile-runs">
+                {group.runs.slice(0, 6).map((run, index) => (
+                  <Link
+                    className="theme-run-chip"
+                    href={`/runs/${run.id}`}
+                    key={run.id}
+                  >
+                    <span>
+                      {isZh
+                        ? `第 ${group.runs.length - index} 次`
+                        : `Run ${group.runs.length - index}`}
+                    </span>
+                    <strong>{localizeStatus(run.status, locale)}</strong>
+                    <small>{localizeStage(run.lifecycle_stage, locale)}</small>
+                  </Link>
+                ))}
+              </div>
+            </article>
+          ))}
+        </section>
+      ) : (
+        <section className="surface history-time-list">
+          <div className="panel-heading">
+            <h2>{isZh ? "按时间倒序" : "Reverse chronological"}</h2>
+            <span className="label">{flatRuns.length}</span>
+          </div>
+          {flatRuns.length === 0 ? (
+            <p className="muted">
+              {isZh ? "暂无运行。" : "No runs yet."}
+            </p>
+          ) : (
+            <div className="history-time-rows">
+              {flatRuns.map((run) => (
                 <Link
-                  className="theme-run-chip"
+                  className="history-time-row"
                   href={`/runs/${run.id}`}
                   key={run.id}
                 >
-                  <span>{isZh ? `第 ${group.runs.length - index} 次` : `Run ${group.runs.length - index}`}</span>
-                  <strong>{localizeStatus(run.status, locale)}</strong>
-                  <small>{localizeStage(run.lifecycle_stage, locale)}</small>
+                  <div className="history-time-row-main">
+                    <strong>{localizeText(run.anchor, locale)}</strong>
+                    <span>
+                      {localizeStatus(run.status, locale)} ·{" "}
+                      {localizeStage(run.lifecycle_stage, locale)}
+                    </span>
+                  </div>
+                  <div className="history-time-row-meta">
+                    <span>
+                      {formatActivityTime(lastActivityTs(run), locale)}
+                    </span>
+                    <code>#{run.id.slice(0, 8)}</code>
+                  </div>
                 </Link>
               ))}
             </div>
-          </article>
-        ))}
-      </section>
+          )}
+        </section>
+      )}
 
       <section className="surface manual-run-section">
         <div className="panel-heading">
