@@ -46,6 +46,8 @@ EventType = Literal[
     "critic_warning",
     "checkpoint_raised",
     "checkpoint_released",
+    "human_injection",
+    "injection_acknowledged",
     "budget_exhausted",
     "eval_completed",
     "child_run_created",

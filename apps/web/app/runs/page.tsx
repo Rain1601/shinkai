@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { ActionPanel } from "../../components/portal/ActionPanel";
+import { CheckpointBanner } from "../../components/portal/CheckpointBanner";
 import { InjectPanel } from "../../components/portal/InjectPanel";
+import { InjectionHistory } from "../../components/portal/InjectionHistory";
 import { EventStream } from "../../components/portal/EventStream";
 import { GraphPanel } from "../../components/portal/GraphPanel";
+import { HypothesisCard } from "../../components/portal/HypothesisCard";
 import { JudgmentPanel } from "../../components/portal/JudgmentPanel";
 import { PortalShell } from "../../components/portal/PortalShell";
 import type { Locale } from "../../lib/i18n";
@@ -878,6 +881,8 @@ export default function RunsPage() {
                 selectedRun ? resolveCheckpoint(selectedRun.id, decision, note) : undefined
               }
             />
+            <InjectionHistory events={selectedRun?.events ?? []} locale={locale} />
+            <HypothesisCard events={selectedRun?.events ?? []} locale={locale} />
             {canViewProcess ? (
               <EventStream events={selectedRun?.events ?? []} locale={locale} />
             ) : (

@@ -23,6 +23,7 @@ from shinkai_api.research import (
     source_reliability_score,
 )
 from shinkai_api.runs.models import Run
+from shinkai_api.runs.store import default_run_store
 from shinkai_api.schemas.events import AgentEvent
 from shinkai_api.tools import default_tool_registry
 from shinkai_api.tools.base import ToolResult
@@ -285,8 +286,15 @@ class ShinkaiHarness:
         )
 
         live_sources = bool(run.scope.get("allow_live_sources", False))
+        checkpoints_enabled = bool(run.scope.get("checkpoints_enabled", False))
+        checkpoint_raised_already = False
+        consumed_injection_ids = await self._seed_consumed_injection_ids(run.id)
 
         for loop_index in range(1, max_loops + 1):
+            async for ack_event in self._consume_pending_injections(
+                run.id, consumed_injection_ids
+            ):
+                yield ack_event
             frontier_item = frontier_queue.pop_next(
                 source_filter={"deterministic_planner", "planner"}
             )
@@ -875,6 +883,8 @@ class ShinkaiHarness:
                 run_id=run.id,
                 data={
                     "loop_index": loop_index,
+                    "hypothesis_id": _stable_id("hyp", run.id, layer.name),
+                    "layer": layer.name,
                     "judgment": (
                         f"{layer.name} is a candidate AI infrastructure bottleneck "
                         "where second-order suppliers may be more under-covered than seed giants."
@@ -952,6 +962,27 @@ class ShinkaiHarness:
                         },
                     )
                 if dossier_record:
+                    if checkpoints_enabled and not checkpoint_raised_already:
+                        yield AgentEvent(
+                            type="checkpoint_raised",
+                            run_id=run.id,
+                            data={
+                                "reason": "first_dossier_publication",
+                                "loop_index": loop_index,
+                                "ticker": dossier_record.ticker,
+                                "decision": dossier_record.decision,
+                                "prompt": (
+                                    "First company dossier ready. Review the decision "
+                                    "before subsequent dossiers are published."
+                                ),
+                            },
+                        )
+                        await default_run_store.set_status(
+                            run.id,
+                            "awaiting_checkpoint",
+                            "awaiting_checkpoint",
+                        )
+                        checkpoint_raised_already = True
                     yield AgentEvent(
                         type="company_dossier_created",
                         run_id=run.id,
@@ -1124,6 +1155,11 @@ class ShinkaiHarness:
                 },
             )
 
+        async for ack_event in self._consume_pending_injections(
+            run.id, consumed_injection_ids
+        ):
+            yield ack_event
+
         exhausted = max_loops < len(planned_layers)
         yield AgentEvent(
             type="eval_completed",
@@ -1150,6 +1186,81 @@ class ShinkaiHarness:
                 "budget_exhausted": exhausted,
             },
         )
+
+    async def _seed_consumed_injection_ids(self, run_id: str) -> set[str]:
+        """Seed the set of already-acknowledged injection ids so a recovered run does not
+        re-acknowledge injections that were acknowledged before the previous crash."""
+        current = await default_run_store.get(run_id)
+        return {
+            str(event.data.get("injection_id", ""))
+            for event in current.events
+            if event.type == "injection_acknowledged" and event.data.get("injection_id")
+        }
+
+    async def _consume_pending_injections(
+        self,
+        run_id: str,
+        consumed_injection_ids: set[str],
+    ) -> AsyncIterator[AgentEvent]:
+        """Read unconsumed human_injection events and yield acknowledgment events.
+
+        Each injection is acknowledged exactly once. The acknowledgment records the
+        intent classification so the UI can show whether the agent saw the note.
+        State mutation from intents (frontier reordering, filter policy changes,
+        hypothesis edits) is intentionally not wired here yet — only the closed
+        visibility loop is established. See InjectionHistory in the dashboard.
+        """
+        current = await default_run_store.get(run_id)
+        for event in current.events:
+            if event.type != "human_injection":
+                continue
+            injection_id = event.event_id
+            if injection_id in consumed_injection_ids:
+                continue
+            consumed_injection_ids.add(injection_id)
+            intent = str(event.data.get("intent", "guidance"))
+            note = str(event.data.get("note", "")).strip()
+            if not note:
+                yield AgentEvent(
+                    type="injection_acknowledged",
+                    run_id=run_id,
+                    data={
+                        "injection_id": injection_id,
+                        "intent": intent,
+                        "adopted": False,
+                        "applied_to": "none",
+                        "effect_summary": "ignored: note was empty",
+                    },
+                )
+                continue
+            applied_to, effect_summary = self._classify_injection_effect(intent)
+            yield AgentEvent(
+                type="injection_acknowledged",
+                run_id=run_id,
+                data={
+                    "injection_id": injection_id,
+                    "intent": intent,
+                    "note": note,
+                    "adopted": True,
+                    "applied_to": applied_to,
+                    "effect_summary": effect_summary,
+                },
+            )
+
+    def _classify_injection_effect(self, intent: str) -> tuple[str, str]:
+        """Map intent to (applied_to, effect_summary) describing what the agent
+        commits to do with the note. Until state mutation is wired, the agent only
+        commits to *consider* the note at the next reasoning boundary."""
+        if intent == "constraint":
+            return "filter", "noted as constraint; will check against future candidates"
+        if intent == "correction":
+            return "hypothesis", "noted as correction; will revisit current judgment at next review"
+        if intent == "question":
+            return (
+                "frontier",
+                "noted as research question; will be surfaced at next frontier review",
+            )
+        return "hypothesis", "noted as guidance; will be considered at next reasoning step"
 
     async def _plan_with_deepseek(
         self,

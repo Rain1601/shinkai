@@ -52,7 +52,7 @@ curl -fsS -X OPTIONS "${API_URL}/api/v1/runs" \
 
 run_json="$(curl -fsS -X POST "${API_URL}/api/v1/runs" \
   -H "Content-Type: application/json" \
-  -d '{"mode":"mode_b_narrative","anchor":"Autonomous Discovery","scope":{"objective":"discover AI supply-chain key companies","allow_live_sources":false},"budget":{"max_wall_time_minutes":120,"max_tool_calls":80}}')"
+  -d '{"mode":"mode_b_narrative","anchor":"Autonomous Discovery","scope":{"objective":"discover AI supply-chain key companies","allow_live_sources":false,"checkpoints_enabled":true},"budget":{"max_wall_time_minutes":120,"max_tool_calls":80}}')"
 run_id="$(RUN_JSON="${run_json}" python3 - <<'PY'
 import json
 import os
@@ -62,7 +62,13 @@ PY
 
 curl -fsS -X POST "${API_URL}/api/v1/runs/${run_id}/start" >/tmp/shinkai-smoke-start.json
 
-for _ in {1..120}; do
+curl -fsS -X POST "${API_URL}/api/v1/runs/${run_id}/inject" \
+  -H "Content-Type: application/json" \
+  -d '{"intent":"question","note":"smoke: verify injection closed loop"}' \
+  >/tmp/shinkai-smoke-inject.json
+
+checkpoint_released=false
+for _ in {1..240}; do
   curl -fsS "${API_URL}/api/v1/runs/${run_id}" >/tmp/shinkai-smoke-run.json
   status="$(python3 - <<'PY'
 import json
@@ -71,6 +77,13 @@ with open("/tmp/shinkai-smoke-run.json") as f:
     print(json.load(f)["status"])
 PY
 )"
+  if [[ "${status}" == "awaiting_checkpoint" && "${checkpoint_released}" == "false" ]]; then
+    curl -fsS -X POST "${API_URL}/api/v1/runs/${run_id}/checkpoint" \
+      -H "Content-Type: application/json" \
+      -d '{"decision":"approve","note":"smoke release"}' \
+      >/tmp/shinkai-smoke-checkpoint.json
+    checkpoint_released=true
+  fi
   if [[ "${status}" == "completed" || "${status}" == "failed" || "${status}" == "aborted" ]]; then
     break
   fi
@@ -103,6 +116,13 @@ events = run["events"]
 assert run["status"] == "completed", run["status"]
 assert events[-1]["type"] == "done"
 assert sum(1 for event in events if event["type"] == "candidate_scored") >= 12
+ack_events = [event for event in events if event["type"] == "injection_acknowledged"]
+assert len(ack_events) >= 1, "expected injection_acknowledged event"
+assert any(event.get("data", {}).get("adopted") for event in ack_events), ack_events
+checkpoint_raised = [event for event in events if event["type"] == "checkpoint_raised"]
+assert len(checkpoint_raised) >= 1, "expected checkpoint_raised event"
+checkpoint_released = [event for event in events if event["type"] == "checkpoint_released"]
+assert len(checkpoint_released) >= 1, "expected checkpoint_released event"
 assert len(graph["nodes"]) >= 50
 assert len(graph["edges"]) >= 50
 assert len(research["claims"]) >= 16

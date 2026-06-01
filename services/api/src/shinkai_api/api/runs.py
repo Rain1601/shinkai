@@ -104,10 +104,9 @@ async def inject_into_run(run_id: str, payload: HumanInjection) -> Run:
     if not note:
         raise HTTPException(status_code=400, detail="note must not be empty")
     event = AgentEvent(
-        type="thinking",
+        type="human_injection",
         run_id=run_id,
         data={
-            "source": "human_injection",
             "intent": payload.intent,
             "note": note,
         },

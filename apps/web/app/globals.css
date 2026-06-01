@@ -1622,6 +1622,120 @@ select {
   font-size: 11px;
 }
 
+.injection-history {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.injection-list {
+  display: grid;
+  gap: 10px;
+}
+
+.injection-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.injection-item header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.injection-note {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}
+
+.injection-effect {
+  font-size: 12px;
+  margin: 0;
+}
+
+.pill-adopted {
+  background: rgba(40, 167, 69, 0.15);
+  color: #1f7a3a;
+}
+
+.pill-ignored {
+  background: rgba(120, 120, 120, 0.15);
+  color: #555;
+}
+
+.pill-pending {
+  background: rgba(255, 165, 0, 0.15);
+  color: #b27200;
+}
+
+.injection-adopted {
+  border-left: 3px solid #28a745;
+}
+
+.injection-ignored {
+  border-left: 3px solid #888;
+}
+
+.injection-pending {
+  border-left: 3px solid #ff9900;
+}
+
+.checkpoint-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(255, 165, 0, 0.18);
+  border-bottom: 1px solid rgba(255, 165, 0, 0.4);
+  font-size: 13px;
+}
+
+.checkpoint-banner strong {
+  font-weight: 600;
+}
+
+.checkpoint-banner button {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.hypothesis-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-left: 3px solid #5a8dee;
+}
+
+.hypothesis-card .hypothesis-judgment {
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.hypothesis-card .hypothesis-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.hypothesis-card .hypothesis-confidence {
+  font-weight: 600;
+  color: #1a4480;
+}
+
 .objective-copy {
   margin: -4px 0 16px;
   font-size: 13px;

@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
+import { CheckpointBanner } from "./CheckpointBanner";
 
 type PortalShellProps = {
   title: string;
@@ -115,6 +116,7 @@ export function PortalShell({
         </div>
       </aside>
       <main className="portal-main">
+        <CheckpointBanner locale={locale} />
         <header className="portal-header">
           <div>
             <h1>{title}</h1>
