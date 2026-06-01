@@ -10,6 +10,7 @@ EventType = Literal[
     "run_start",
     "run_recovered",
     "plan",
+    "planner_proposals",
     "section_started",
     "section_completed",
     "item_started",

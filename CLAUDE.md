@@ -71,7 +71,23 @@ Every state change in the system is expressed as an `AgentEvent` (`schemas/event
 
 ### The harness
 
-`ShinkaiHarness` (`agent/harness.py`) is the planner/reviewer/optimizer loop. For Mode B it walks `AI_SUPPLY_CHAIN_LAYERS` (a curated seed) through a `FrontierQueue` (`agent/frontier.py`), emitting `frontier_selected` / `candidate_scored` / `claim_created` / `judgment_created` events and writing into the graph + research stores. It calls `DeepSeekClient` (`llm/deepseek.py`) for planning; **when `SHINKAI_DEEPSEEK_API_KEY` is unset or DeepSeek errors, it falls back to deterministic layer expansion** — this is what keeps tests stable and what the smoke script relies on. Don't remove the deterministic path.
+`ShinkaiHarness` (`agent/harness.py`) is the planner/reviewer/optimizer loop. For Mode B it walks the planned `SupplyChainLayer`s (proposed by DeepSeek when available, or `AI_SUPPLY_CHAIN_LAYERS` as fallback) through a `FrontierQueue` (`agent/frontier.py`), emitting `frontier_selected` / `candidate_scored` / `claim_created` / `judgment_created` / `hypothesis_created` events and writing into the graph + research stores. It calls `DeepSeekClient` (`llm/deepseek.py`) for planning; **when `SHINKAI_DEEPSEEK_API_KEY` is unset, DeepSeek errors, or its output fails validation, it falls back to deterministic layer expansion** — this is what keeps tests stable and what the smoke script relies on. Don't remove the deterministic path.
+
+### Discovery mode matrix
+
+`scope.discovery_mode` and `scope.force_llm_planner` decide where the layer list comes from:
+
+| `discovery_mode` | API key set | LLM output valid | Result |
+| --- | --- | --- | --- |
+| `auto` (default) | yes | yes | LLM layers (`planner_source: deepseek_llm_planner`) |
+| `auto` | yes | no | `AI_SUPPLY_CHAIN_LAYERS` (`planner_source: fallback_after_reject`) |
+| `auto` | no | — | `AI_SUPPLY_CHAIN_LAYERS` (`planner_source: deterministic_fallback`) |
+| `llm_driven` | yes | yes | LLM layers; `planner_source: deepseek_llm_planner` |
+| `llm_driven` | yes | no | run fails (`status: failed`, `planner_source: force_llm_fail`) |
+| `llm_driven` | no | — | run fails |
+| `deterministic` | — | — | `AI_SUPPLY_CHAIN_LAYERS`, LLM never called |
+
+Setting `scope.force_llm_planner: true` on top of `auto` raises the same fail-fast behaviour as `llm_driven`. The harness emits a `planner_proposals` event in every case so the UI can show the chosen source, raw vs validated layer count, sample layer names, and reject reason.
 
 ### Tools
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from hashlib import sha1
@@ -33,6 +34,8 @@ from shinkai_api.runs.store import default_run_store
 from shinkai_api.schemas.events import AgentEvent
 from shinkai_api.tools import default_tool_registry
 from shinkai_api.tools.base import ToolResult
+
+TICKER_PATTERN = re.compile(r"^[A-Z]{1,5}\d?$")
 
 
 @dataclass(frozen=True)
@@ -161,9 +164,15 @@ class ShinkaiHarness:
         prefer_llm = discovery_mode == "llm_driven" or (
             discovery_mode == "auto" and bool(settings.deepseek_api_key)
         )
+        force_llm = discovery_mode == "llm_driven" or bool(
+            run.scope.get("force_llm_planner")
+        )
         planned_layers: list[SupplyChainLayer] = []
         planner_payload: dict | None = None
         planner_source = "deterministic_fallback"
+        raw_frontier_count = 0
+        validated_layer_count = 0
+        reject_reason: str | None = None
 
         if prefer_llm and settings.deepseek_api_key:
             yield AgentEvent(
@@ -171,15 +180,16 @@ class ShinkaiHarness:
                 run_id=run.id,
                 data={
                     "name": "deepseek_frontier_planner",
-                    "args": {"model": settings.llm_model, "objective": run.scope.get("objective")},
+                    "args": {"model": settings.llm_model, "theme": run.anchor},
                     "autonomous": True,
                 },
             )
             try:
-                planner_payload = await self._plan_with_deepseek(
-                    run, list(AI_SUPPLY_CHAIN_LAYERS)
-                )
-                llm_layers = self._layers_from_planner_payload(planner_payload)
+                planner_payload = await self._plan_with_deepseek(run)
+                frontiers = planner_payload.get("frontiers", [])
+                raw_frontier_count = len(frontiers) if isinstance(frontiers, list) else 0
+                llm_layers, reject_reason = self._validate_planner_payload(planner_payload)
+                validated_layer_count = len(llm_layers)
                 if llm_layers:
                     planned_layers = llm_layers
                     planner_source = "deepseek_llm_planner"
@@ -189,16 +199,18 @@ class ShinkaiHarness:
                     run_id=run.id,
                     data={
                         "name": "deepseek_frontier_planner",
-                        "ok": True,
+                        "ok": bool(llm_layers),
                         "summary": (
                             "DeepSeek proposed frontiers."
                             if llm_layers
-                            else "DeepSeek returned no frontiers; using deterministic fallback."
+                            else f"DeepSeek output rejected: {reject_reason}"
                         ),
                         "preview": {
-                            "frontiers": len(planner_payload.get("frontiers", [])),
+                            "raw_frontier_count": raw_frontier_count,
+                            "validated_layer_count": validated_layer_count,
                             "usage": usage,
                             "source_used": planner_source,
+                            "reject_reason": reject_reason,
                         },
                     },
                 )
@@ -213,6 +225,7 @@ class ShinkaiHarness:
                     },
                 )
             except DeepSeekError as exc:
+                reject_reason = f"deepseek_error: {exc}"
                 yield AgentEvent(
                     type="tool_result",
                     run_id=run.id,
@@ -220,13 +233,49 @@ class ShinkaiHarness:
                         "name": "deepseek_frontier_planner",
                         "ok": False,
                         "error": str(exc),
-                        "fallback": "deterministic_supply_chain_layers",
+                        "fallback": (
+                            "deterministic_supply_chain_layers" if not force_llm else "fail"
+                        ),
                     },
                 )
 
         if not planned_layers:
+            if force_llm:
+                yield AgentEvent(
+                    type="planner_proposals",
+                    run_id=run.id,
+                    data={
+                        "source": "force_llm_fail",
+                        "raw_frontier_count": raw_frontier_count,
+                        "validated_layer_count": 0,
+                        "sample_layers": [],
+                        "reject_reason": reject_reason or "no_api_key",
+                        "discovery_mode": discovery_mode,
+                        "force_llm_planner": True,
+                    },
+                )
+                raise RuntimeError(
+                    "force_llm_planner is set but planner did not produce valid layers: "
+                    f"{reject_reason or 'no API key'}"
+                )
             planned_layers = list(AI_SUPPLY_CHAIN_LAYERS)
-            planner_source = "deterministic_fallback"
+            planner_source = (
+                "fallback_after_reject" if reject_reason else "deterministic_fallback"
+            )
+
+        yield AgentEvent(
+            type="planner_proposals",
+            run_id=run.id,
+            data={
+                "source": planner_source,
+                "raw_frontier_count": raw_frontier_count,
+                "validated_layer_count": validated_layer_count,
+                "sample_layers": [layer.name for layer in planned_layers[:3]],
+                "reject_reason": reject_reason,
+                "discovery_mode": discovery_mode,
+                "force_llm_planner": force_llm,
+            },
+        )
 
         yield AgentEvent(
             type="role_step_completed",
@@ -1432,108 +1481,138 @@ class ShinkaiHarness:
                 },
             )
 
-    async def _plan_with_deepseek(
-        self,
-        run: Run,
-        base_layers: list[SupplyChainLayer],
-    ) -> dict:
+    async def _plan_with_deepseek(self, run: Run) -> dict:
         client = DeepSeekClient(
             api_key=settings.deepseek_api_key or "",
             base_url=settings.deepseek_base_url,
             model=settings.llm_model,
         )
-        base_context = [
-            {
-                "name": layer.name,
-                "seed_giants": layer.seed_giants,
-                "bottleneck": layer.bottleneck,
-                "companies": layer.companies,
-                "next_frontier": layer.next_frontier,
-            }
-            for layer in base_layers
-        ]
+        theme = str(run.anchor or "").strip() or "AI infrastructure"
+        objective = str(
+            run.scope.get(
+                "objective",
+                "discover under-covered second-order suppliers in this theme",
+            )
+        ).strip()
         system = (
-            "You are shinkai's autonomous investment research planner. "
-            "Your job is to expand from mega-cap AI consensus companies into "
-            "deeper AI supply-chain layers, identify bottlenecks, surface "
-            "under-covered candidate companies, and specify review/optimization "
-            "rules. Return strict JSON only."
+            "You are shinkai's autonomous investment research planner. Given a "
+            "user-supplied investment theme, propose 3-5 *concrete supply-chain "
+            "layers* that sit one or two steps removed from the obvious mega-cap "
+            "winners. For each layer, identify the structural bottleneck and "
+            "3-5 candidate US-listed second-order suppliers that may be "
+            "under-covered by sell-side. Return strict JSON only — no commentary."
         )
         user = (
-            "Objective:\n"
-            f"{run.scope.get('objective', 'discover AI supply-chain key companies')}\n\n"
-            "Existing deterministic layers:\n"
-            f"{base_context}\n\n"
-            "Return JSON with this shape:\n"
+            f"Theme: {theme}\n"
+            f"Objective: {objective}\n\n"
+            "Output JSON with this exact shape:\n"
             "{\n"
             '  "frontiers": [\n'
             "    {\n"
-            '      "name": "layer name",\n'
-            '      "seed_giants": ["NVIDIA"],\n'
-            '      "bottleneck": "specific bottleneck claim",\n'
-            '      "evidence_stub": "what evidence should be fetched next",\n'
+            '      "name": "specific layer name, not the theme itself",\n'
+            '      "seed_giants": ["NVDA", "..." ],   // mega-caps that sit upstream\n'
+            '      "bottleneck": "one-sentence structural constraint",\n'
+            '      "evidence_stub": "what primary-source evidence would confirm this",\n'
             '      "companies": [\n'
-            '        {"ticker":"ABC","name":"Company","quality":0.6,"underwater":0.6}\n'
+            '        {"ticker":"AAAA","name":"Co name","quality":0.55,"underwater":0.62}\n'
             "      ],\n"
-            '      "next_frontier": "next deeper search direction"\n'
+            '      "next_frontier": "where deeper research should head next"\n'
             "    }\n"
             "  ],\n"
-            '  "review_policy": ["rule"],\n'
-            '  "optimization_policy_patch": "policy patch"\n'
+            '  "review_policy": ["concrete review rule"],\n'
+            '  "optimization_policy_patch": "one-line policy note"\n'
             "}\n\n"
-            "Constraints: avoid obvious mega-cap-only answers; prefer concrete "
-            "second-order suppliers; mark uncertain candidates with lower scores; "
-            "do not invent more than 3 companies per frontier."
+            "Hard constraints (your output will be rejected if violated):\n"
+            "- 3 to 6 frontiers, no more.\n"
+            "- Each frontier MUST have a non-empty bottleneck and next_frontier.\n"
+            "- Each frontier MUST contain at least 3 companies.\n"
+            "- Tickers MUST be US-listed and look like real symbols "
+            "(1-5 uppercase letters, optional trailing digit).\n"
+            "- DO NOT propose layers that are themselves megacaps "
+            "(no \"NVIDIA accelerators\", \"Microsoft cloud\", etc.). "
+            "Layers must describe sub-suppliers, components, or constrained "
+            "capacity — not end products.\n"
+            "- quality/underwater are 0..1; underwater higher means less "
+            "sell-side coverage."
         )
-        return await client.chat_json(system=system, user=user, temperature=0.25)
+        return await client.chat_json(system=system, user=user, temperature=0.4)
 
-    def _layers_from_planner_payload(self, payload: dict) -> list[SupplyChainLayer]:
-        layers: list[SupplyChainLayer] = []
+    def _validate_planner_payload(
+        self, payload: dict
+    ) -> tuple[list[SupplyChainLayer], str | None]:
+        """Validate the LLM planner output and return ``(layers, reject_reason)``.
+
+        ``reject_reason`` is ``None`` on success. On failure, ``layers`` is
+        empty and ``reject_reason`` describes why so the caller can decide
+        whether to fall back to ``AI_SUPPLY_CHAIN_LAYERS`` or fail the run
+        (``force_llm_planner``).
+        """
         frontiers = payload.get("frontiers", [])
         if not isinstance(frontiers, list):
-            return layers
-        for item in frontiers[:4]:
+            return [], "frontiers is not a list"
+        if len(frontiers) < 3:
+            return [], f"need at least 3 frontiers, got {len(frontiers)}"
+
+        layers: list[SupplyChainLayer] = []
+        for item in frontiers[:6]:
             if not isinstance(item, dict):
                 continue
-            companies = item.get("companies", [])
-            if not isinstance(companies, list):
-                companies = []
-            normalized_companies = []
-            for company in companies[:3]:
+            name = str(item.get("name") or "").strip()
+            bottleneck = str(item.get("bottleneck") or "").strip()
+            next_frontier = str(item.get("next_frontier") or "").strip()
+            if not (name and bottleneck and next_frontier):
+                continue
+            evidence_stub = str(item.get("evidence_stub") or "").strip()
+            if not evidence_stub:
+                evidence_stub = f"Validate {name} bottleneck via primary sources."
+
+            companies_raw = item.get("companies", [])
+            if not isinstance(companies_raw, list):
+                companies_raw = []
+            normalized: list[dict[str, object]] = []
+            for company in companies_raw[:5]:
                 if not isinstance(company, dict):
                     continue
                 ticker = str(company.get("ticker") or "").strip().upper()
-                name = str(company.get("name") or ticker).strip()
-                if not ticker or not name:
+                cname = str(company.get("name") or ticker).strip()
+                if not TICKER_PATTERN.match(ticker) or not cname:
                     continue
-                normalized_companies.append(
+                normalized.append(
                     {
                         "ticker": ticker,
-                        "name": name,
+                        "name": cname,
                         "quality": _bounded_float(company.get("quality"), default=0.55),
-                        "underwater": _bounded_float(company.get("underwater"), default=0.55),
+                        "underwater": _bounded_float(
+                            company.get("underwater"), default=0.55
+                        ),
                     }
                 )
-            if not normalized_companies:
+            if len(normalized) < 3:
                 continue
-            seed_giants = item.get("seed_giants")
-            if not isinstance(seed_giants, list):
-                seed_giants = ["NVIDIA", "Microsoft"]
+
+            seed_giants_raw = item.get("seed_giants", [])
+            seed_giants = (
+                [str(seed) for seed in seed_giants_raw[:6]]
+                if isinstance(seed_giants_raw, list) and seed_giants_raw
+                else ["NVIDIA"]
+            )
             layers.append(
                 SupplyChainLayer(
-                    name=str(item.get("name") or "DeepSeek frontier").strip(),
-                    seed_giants=[str(seed) for seed in seed_giants[:6]],
-                    bottleneck=str(item.get("bottleneck") or "").strip(),
-                    evidence_stub=str(item.get("evidence_stub") or "").strip(),
-                    companies=normalized_companies,
-                    next_frontier=str(item.get("next_frontier") or "").strip(),
+                    name=name,
+                    seed_giants=seed_giants,
+                    bottleneck=bottleneck,
+                    evidence_stub=evidence_stub,
+                    companies=normalized,
+                    next_frontier=next_frontier,
                 )
             )
-        return [
-            layer
-            for layer in layers
-            if layer.name and layer.bottleneck and layer.evidence_stub and layer.next_frontier
-        ]
+
+        if len(layers) < 3:
+            return [], (
+                f"only {len(layers)} layer(s) survived validation "
+                "(need 3+ with 3+ valid tickers each)"
+            )
+        return layers, None
 
     async def _run_web_search(self, query: str) -> ToolResult:
         tool = default_tool_registry.get("web_search")

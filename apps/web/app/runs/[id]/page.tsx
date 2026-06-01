@@ -7,6 +7,7 @@ import { CockpitTab } from "../../../components/portal/CockpitTab";
 import { DossierTab } from "../../../components/portal/DossierTab";
 import { EvalTab } from "../../../components/portal/EvalTab";
 import { GraphTab } from "../../../components/portal/GraphTab";
+import { PlannerBadge } from "../../../components/portal/PlannerBadge";
 import { PortalShell } from "../../../components/portal/PortalShell";
 import type { Locale } from "../../../lib/i18n";
 import {
@@ -261,6 +262,10 @@ export default function RunDetailPage() {
         </Link>
       }
     >
+      <div className="run-meta-row">
+        <PlannerBadge events={events} locale={locale} />
+      </div>
+
       <nav className="run-tabs" aria-label={isZh ? "运行视图" : "Run views"}>
         {TABS.map((tab) => (
           <button
