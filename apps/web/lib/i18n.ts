@@ -82,6 +82,8 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       run_recovered: "运行恢复",
       plan: "计划生成",
       planner_proposals: "规划方案",
+      critic_persona_critique: "评审意见",
+      critic_aggregated: "评审汇总",
       tool_call: "工具调用",
       tool_result: "工具返回",
       frontier_selected: "前沿选择",

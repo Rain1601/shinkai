@@ -94,6 +94,36 @@ def promote_contradicting(
     return point
 
 
+CRITIC_PENALTY_DELTA = 0.08
+
+
+def apply_critic_penalty(
+    hypothesis: Hypothesis,
+    *,
+    dossier_id: str,
+) -> ConfidencePoint:
+    """Apply a critic-aggregated reject penalty to confidence.
+
+    Smaller than a human correction since critics are V0 deterministic rules,
+    not yet calibrated LLM evaluators. The delta is recorded with method
+    ``critic_aggregated_v0`` so a future LLM-backed critic can be distinguished
+    in the trajectory.
+    """
+    prev = hypothesis.confidence
+    new_conf = max(0.0, min(1.0, prev - CRITIC_PENALTY_DELTA))
+    delta = round(new_conf - prev, 4)
+    hypothesis.confidence = new_conf
+    point = ConfidencePoint(
+        confidence=new_conf,
+        delta=delta,
+        evidence_id=f"critic_{dossier_id}",
+        kind="contradict",
+        method="critic_aggregated_v0",
+    )
+    hypothesis.confidence_history.append(point)
+    return point
+
+
 def apply_human_correction(
     hypothesis: Hypothesis,
     *,

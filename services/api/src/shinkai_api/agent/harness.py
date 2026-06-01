@@ -8,10 +8,12 @@ from urllib.parse import urlparse
 
 from shinkai_api.agent.frontier import FrontierItem, FrontierQueue
 from shinkai_api.agent.hypothesis import (
+    apply_critic_penalty,
     apply_human_correction,
     promote_contradicting,
     promote_supporting,
 )
+from shinkai_api.agent.personas import aggregate_critiques, evaluate_dossier
 from shinkai_api.core.config import settings
 from shinkai_api.graph import Edge, GraphDelta, Node, default_graph_store, edge_id, node_id
 from shinkai_api.llm import DeepSeekClient, DeepSeekError
@@ -342,6 +344,7 @@ class ShinkaiHarness:
 
         live_sources = bool(run.scope.get("allow_live_sources", False))
         checkpoints_enabled = bool(run.scope.get("checkpoints_enabled", False))
+        critics_enabled = bool(run.scope.get("critics_enabled", False))
         checkpoint_raised_already = False
         consumed_injection_ids = await self._seed_consumed_injection_ids(run.id)
         filter_policy_patches: list[str] = list(run.scope.get("filter_policy_patches", []))
@@ -1136,6 +1139,78 @@ class ShinkaiHarness:
                             "catalysts": dossier_record.catalysts,
                         },
                     )
+                    if critics_enabled:
+                        critic_input = {
+                            "ticker": dossier_record.ticker,
+                            "quality_score": quality,
+                            "underwater_score": underwater,
+                        }
+                        primary_source_count = sum(
+                            1 for src in evidence.sources if src.tier == "primary"
+                        )
+                        critiques = evaluate_dossier(
+                            critic_input,
+                            supporting_evidence_count=len(evidence.evidence_records),
+                            contradicting_evidence_count=len(
+                                evidence.contradicting_evidence_records
+                            ),
+                            primary_source_count=primary_source_count,
+                        )
+                        for critique in critiques:
+                            yield AgentEvent(
+                                type="critic_persona_critique",
+                                run_id=run.id,
+                                data={
+                                    "dossier_id": dossier_record.dossier_id,
+                                    "ticker": dossier_record.ticker,
+                                    "persona": critique.persona,
+                                    "verdict": critique.verdict,
+                                    "rationale": critique.rationale,
+                                    "metadata": critique.metadata,
+                                },
+                            )
+                        aggregated = aggregate_critiques(critiques)
+                        applied_penalty = 0.0
+                        if aggregated["final"] == "reject":
+                            hypothesis = await default_research_store.get_hypothesis(
+                                hypothesis_id
+                            )
+                            if hypothesis is not None:
+                                point = apply_critic_penalty(
+                                    hypothesis,
+                                    dossier_id=dossier_record.dossier_id,
+                                )
+                                await default_research_store.upsert_hypothesis(
+                                    hypothesis
+                                )
+                                applied_penalty = point.delta
+                                yield AgentEvent(
+                                    type="hypothesis_confidence_updated",
+                                    run_id=run.id,
+                                    data={
+                                        "hypothesis_id": hypothesis_id,
+                                        "prev_confidence": round(
+                                            point.confidence - point.delta, 4
+                                        ),
+                                        "new_confidence": point.confidence,
+                                        "delta": point.delta,
+                                        "evidence_id": point.evidence_id,
+                                        "kind": "critic_penalty",
+                                        "method": point.method,
+                                    },
+                                )
+                        yield AgentEvent(
+                            type="critic_aggregated",
+                            run_id=run.id,
+                            data={
+                                "dossier_id": dossier_record.dossier_id,
+                                "ticker": dossier_record.ticker,
+                                "final": aggregated["final"],
+                                "vote_summary": aggregated["vote_summary"],
+                                "hypothesis_id": hypothesis_id,
+                                "applied_penalty": applied_penalty,
+                            },
+                        )
                 if decision == "queue_mode_a":
                     yield AgentEvent(
                         type="research_task_created",

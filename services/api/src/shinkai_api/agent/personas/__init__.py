@@ -6,16 +6,28 @@ runner; wiring this through the harness is gated on the LLM router (#29) being
 fully connected to a capable backend.
 """
 
+from shinkai_api.agent.personas.evaluators import (
+    evaluate_auditor,
+    evaluate_buffett,
+    evaluate_dossier,
+    evaluate_short_seller,
+)
 from shinkai_api.agent.personas.runner import (
     CriticVerdict,
     PersonaCritique,
+    aggregate_critiques,
     build_critique,
 )
 
 __all__ = [
     "CriticVerdict",
     "PersonaCritique",
+    "aggregate_critiques",
     "build_critique",
+    "evaluate_auditor",
+    "evaluate_buffett",
+    "evaluate_dossier",
+    "evaluate_short_seller",
     "BUFFETT_PROMPT",
     "SHORT_SELLER_PROMPT",
     "AUDITOR_PROMPT",

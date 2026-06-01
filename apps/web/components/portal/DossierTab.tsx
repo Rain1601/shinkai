@@ -1,6 +1,7 @@
 import type { Locale } from "../../lib/i18n";
 import { localizeDecision, localizeText } from "../../lib/i18n";
 import { ActionPanel } from "./ActionPanel";
+import { CriticVerdicts } from "./CriticVerdicts";
 import { JudgmentPanel } from "./JudgmentPanel";
 
 type RunEvent = {
@@ -54,6 +55,7 @@ export function DossierTab({
           {dossiers.map((event, index) => {
             const data = event.data ?? {};
             const ticker = String(data.ticker ?? "");
+            const dossierId = String(data.dossier_id ?? "");
             const decision = localizeDecision(data.decision, locale);
             const rationale = localizeText(data.decision_rationale ?? "", locale);
             const layer = localizeText(data.layer ?? "", locale);
@@ -90,6 +92,13 @@ export function DossierTab({
                       ))}
                     </ul>
                   </div>
+                ) : null}
+                {dossierId ? (
+                  <CriticVerdicts
+                    dossierId={dossierId}
+                    events={events}
+                    locale={locale}
+                  />
                 ) : null}
               </article>
             );

@@ -49,6 +49,8 @@ EventType = Literal[
     "company_dossier_created",
     "question_opened",
     "critic_warning",
+    "critic_persona_critique",
+    "critic_aggregated",
     "checkpoint_raised",
     "checkpoint_released",
     "human_injection",

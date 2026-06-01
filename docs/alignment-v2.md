@@ -27,7 +27,7 @@
 | 前端 cockpit IA(/runs/[id] 4 tab) | ✅ Built (路径 A G3) | Cockpit/Dossier/Graph/Eval tab,HypothesisCard + FrontierQueueCard + InjectionHistory + EventStream |
 | 4 层 eval(L1 形态 / L2 critic / L3 预测 / L4 真实回报) | ⚠ L1 only | `eval/runner.py` 是形态/统计检查,L2-L4 未建 |
 | 4 层 memory(Working / Episodic / Semantic / Procedural) | ❌ Not built | 仅 per-run state |
-| Critic 三 persona(Buffett/short-seller/auditor) | ⚠ Scaffolded | prompts + aggregator 在 `agent/personas/`,未挂到 harness |
+| Critic 三 persona(Buffett/short-seller/auditor) | ✅ Built (deterministic V0) | `scope.critics_enabled=true` 触发,L2 闭环已挂上 hypothesis confidence penalty;LLM-backed critics 留 V1 |
 | LLMRouter(DeepSeek + Claude via AIHubMix) | ⚠ Scaffolded | `llm/router.py` 框架就位,未挂到 harness |
 | Postgres-first persistence + JSON fallback | ✅ Built | 投影表写已加事务,fallback 改为 sticky |
 | 自我迭代 spiral(child runs) | ✅ Built | `_maybe_spawn_next_spiral` |

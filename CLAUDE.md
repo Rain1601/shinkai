@@ -73,6 +73,23 @@ Every state change in the system is expressed as an `AgentEvent` (`schemas/event
 
 `ShinkaiHarness` (`agent/harness.py`) is the planner/reviewer/optimizer loop. For Mode B it walks the planned `SupplyChainLayer`s (proposed by DeepSeek when available, or `AI_SUPPLY_CHAIN_LAYERS` as fallback) through a `FrontierQueue` (`agent/frontier.py`), emitting `frontier_selected` / `candidate_scored` / `claim_created` / `judgment_created` / `hypothesis_created` events and writing into the graph + research stores. It calls `DeepSeekClient` (`llm/deepseek.py`) for planning; **when `SHINKAI_DEEPSEEK_API_KEY` is unset, DeepSeek errors, or its output fails validation, it falls back to deterministic layer expansion** — this is what keeps tests stable and what the smoke script relies on. Don't remove the deterministic path.
 
+### Critic personas (L2)
+
+`scope.critics_enabled: true` runs three deterministic critic personas
+(`agent/personas/evaluators.py` — Buffett, short-seller, auditor) against every
+`company_dossier_created` event. Each critique is emitted as
+`critic_persona_critique` and the trio is aggregated via
+`aggregate_critiques` (any `reject` ⇒ reject) into `critic_aggregated`. An
+aggregated `reject` applies a `-0.08` confidence penalty to the layer's
+hypothesis (`method: critic_aggregated_v0`, recorded in
+`confidence_history`). Defaults off so the smoke run stays cheap and
+predictable.
+
+V0 evaluators are deterministic rules over `quality_score` /
+`underwater_score` / primary-source count, not LLM calls. The
+`BUFFETT_PROMPT` / `SHORT_SELLER_PROMPT` / `AUDITOR_PROMPT` templates are
+preserved for the V1 swap to LLM-backed critics.
+
 ### Discovery mode matrix
 
 `scope.discovery_mode` and `scope.force_llm_planner` decide where the layer list comes from:
