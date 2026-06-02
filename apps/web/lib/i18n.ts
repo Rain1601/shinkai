@@ -98,6 +98,7 @@ export function localizeEventType(type: unknown, locale: Locale): string {
       hypothesis_falsified: "假设证伪",
       hypothesis_superseded: "假设替换",
       candidate_created: "候选创建",
+      candidate_rejected_by_validator: "候选被验证器否决",
       candidate_scored: "候选评分",
       review_completed: "复盘完成",
       optimization_decision: "优化决策",

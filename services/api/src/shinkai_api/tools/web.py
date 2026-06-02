@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 from typing import Any
 
+from shinkai_api.core.config import settings
 from shinkai_api.tools.base import Tool, ToolResult
 
 
@@ -28,14 +31,34 @@ class WebSearchTool(Tool):
         max_results = int(kwargs.get("max_results") or 3)
         if not query:
             return ToolResult(ok=False, error="query is required")
+        # Prefer Tavily when the key is configured — it gives clean structured
+        # results without the scraping fragility of duckduckgo's HTML page.
+        backend = "duckduckgo"
         try:
-            results = await asyncio.to_thread(_duckduckgo_html_search, query, max_results)
+            if settings.tavily_api_key:
+                backend = "tavily"
+                results = await asyncio.to_thread(
+                    _tavily_search,
+                    query,
+                    max_results,
+                    settings.tavily_api_key,
+                    settings.tavily_base_url,
+                )
+            else:
+                results = await asyncio.to_thread(
+                    _duckduckgo_html_search, query, max_results
+                )
         except Exception as exc:  # noqa: BLE001
-            return ToolResult(ok=False, error=str(exc), summary="web search failed")
+            return ToolResult(
+                ok=False,
+                error=str(exc),
+                summary=f"web search failed ({backend})",
+                data={"backend": backend, "query": query},
+            )
         return ToolResult(
             ok=bool(results),
             summary=f"Found {len(results)} web result(s) for: {query}",
-            data={"query": query, "results": results},
+            data={"query": query, "results": results, "backend": backend},
             error=None if results else "no results",
         )
 
@@ -101,6 +124,60 @@ class _DuckDuckGoParser(HTMLParser):
             self._title_parts.append(data)
         if self._in_snippet:
             self._snippet_parts.append(data)
+
+
+def _tavily_search(
+    query: str,
+    max_results: int,
+    api_key: str,
+    base_url: str,
+) -> list[dict[str, str]]:
+    """Call Tavily search API and normalise to our ``results`` shape.
+
+    Tavily docs: https://docs.tavily.com/docs/rest-api/api-reference
+    We use ``search_depth=basic`` (faster, cheaper) and skip raw HTML.
+    """
+    payload = {
+        "api_key": api_key,
+        "query": query,
+        "search_depth": "basic",
+        "max_results": max(1, min(max_results, 10)),
+        "include_answer": False,
+        "include_images": False,
+        "include_raw_content": False,
+    }
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        f"{base_url.rstrip('/')}/search",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "shinkai-research-agent/0.1",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Tavily HTTP {exc.code}: {detail[:200]}") from exc
+    data = json.loads(raw)
+    raw_results = data.get("results") or []
+    out: list[dict[str, str]] = []
+    for item in raw_results[:max_results]:
+        if not isinstance(item, dict):
+            continue
+        out.append(
+            {
+                "title": _clean_text(str(item.get("title") or "")),
+                "url": str(item.get("url") or ""),
+                "snippet": _clean_text(str(item.get("content") or "")),
+                "score": str(item.get("score") or ""),
+            }
+        )
+    return [item for item in out if item["url"]]
 
 
 def _duckduckgo_html_search(query: str, max_results: int) -> list[dict[str, str]]:

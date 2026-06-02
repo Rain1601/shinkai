@@ -583,7 +583,49 @@ class ShinkaiHarness:
             candidate_records: list[CandidateCompany] = []
             dossier_records: list[CompanyDossier] = []
             task_records: list[ResearchTask] = []
+            rejected_by_validator: list[str] = []
             for company in layer.companies:
+                ticker = str(company["ticker"])
+                per_company_evidence_ids = list(evidence_ids)
+                # Real network calls (validator → yfinance/SEC, sec_filings
+                # → SEC EDGAR) are only made when the run opted into live
+                # sources. Tests run with ``allow_live_sources=False`` and
+                # keep the deterministic candidate set intact.
+                if live_sources:
+                    validation = await self._validate_ticker_safely(ticker)
+                    if validation and not validation.get(
+                        "industry_eligible", True
+                    ):
+                        rejected_by_validator.append(ticker)
+                        yield AgentEvent(
+                            type="candidate_rejected_by_validator",
+                            run_id=run.id,
+                            data={
+                                "loop_index": loop_index,
+                                "ticker": ticker,
+                                "name": validation.get("name")
+                                or str(company["name"]),
+                                "proposed_layer": layer.name,
+                                "actual_sector": validation.get("sector") or "",
+                                "actual_industry": validation.get("industry") or "",
+                                "reject_reason": validation.get("reject_reason")
+                                or "ineligible_industry",
+                                "found_via": validation.get("found_via") or "",
+                            },
+                        )
+                        continue
+
+                    sec_records = await self._sec_filings_evidence(
+                        ticker, run.id, layer.name
+                    )
+                    if sec_records:
+                        new_sources, new_evidence = sec_records
+                        evidence.sources.extend(new_sources)
+                        evidence.evidence_records.extend(new_evidence)
+                        per_company_evidence_ids.extend(
+                            record.evidence_id for record in new_evidence
+                        )
+
                 quality = float(company["quality"])
                 underwater = float(company["underwater"])
                 score = round((quality * 0.55) + (underwater * 0.45), 3)
@@ -642,8 +684,8 @@ class ShinkaiHarness:
                         status=claim_status,
                         verification=claim_verification,
                         confidence=score,
-                        supporting_evidence_ids=evidence_ids,
-                        evidence_ids=evidence_ids,
+                        supporting_evidence_ids=per_company_evidence_ids,
+                        evidence_ids=per_company_evidence_ids,
                         contradicting_evidence_ids=contradicting_evidence_ids,
                         stale_evidence_ids=_stale_evidence_ids(
                             evidence,
@@ -1698,6 +1740,99 @@ class ShinkaiHarness:
     async def _run_web_extract(self, url: str) -> ToolResult:
         tool = default_tool_registry.get("web_extract")
         return await tool.run(url=url)
+
+    async def _validate_ticker_safely(self, ticker: str) -> dict | None:
+        """Resolve a ticker via the validator tool. Returns the payload dict
+        or None when the tool is not registered. Never raises.
+        """
+        try:
+            tool = default_tool_registry.get("ticker_validate")
+        except KeyError:
+            return None
+        try:
+            result = await tool.run(ticker=ticker)
+        except Exception:  # noqa: BLE001
+            return None
+        if not isinstance(result.data, dict):
+            return None
+        return result.data
+
+    async def _sec_filings_evidence(
+        self,
+        ticker: str,
+        run_id: str,
+        layer_name: str,
+    ) -> tuple[list[SourceRef], list[Evidence]] | None:
+        """Pull recent 10-K / 10-Q filings for ``ticker`` and convert them to
+        primary-tier SourceRef + Evidence records ready to be merged into the
+        layer's evidence pool. Returns None on any failure so the harness can
+        continue with synthetic / web evidence alone.
+        """
+        try:
+            tool = default_tool_registry.get("sec_filings")
+        except KeyError:
+            return None
+        try:
+            result = await tool.run(ticker=ticker, limit=4)
+        except Exception:  # noqa: BLE001
+            return None
+        if not result.ok or not isinstance(result.data, dict):
+            return None
+        filings = result.data.get("filings") or []
+        if not filings:
+            return None
+        company_name = str(result.data.get("company_name") or ticker)
+        sources: list[SourceRef] = []
+        evidence_records: list[Evidence] = []
+        for filing in filings:
+            if not isinstance(filing, dict):
+                continue
+            accession = str(filing.get("accession") or "")
+            form = str(filing.get("form") or "")
+            url = str(filing.get("primary_document_url") or "")
+            filed_at = str(filing.get("filed_at") or "")
+            description = str(filing.get("primary_document_description") or "")
+            if not (url and accession):
+                continue
+            source_id = _stable_id("source", "sec", ticker, accession)
+            evidence_id = _stable_id("evidence", run_id, "sec", ticker, accession)
+            source = SourceRef(
+                source_id=source_id,
+                type="sec",
+                tier="primary",
+                url=url,
+                title=f"{company_name} · {form} ({filed_at})",
+                publisher="SEC EDGAR",
+                primary_source_flag=True,
+                reliability=0.9,
+                metadata={
+                    "run_id": run_id,
+                    "ticker": ticker,
+                    "form": form,
+                    "accession": accession,
+                },
+            )
+            evidence_record = Evidence(
+                evidence_id=evidence_id,
+                source_id=source_id,
+                run_id=run_id,
+                kind="filing_fact",
+                text=description or f"{form} filed {filed_at}",
+                url=url,
+                summary=f"{form} filing for {company_name} on {filed_at}",
+                citation_url=url,
+                citation_label=f"{ticker} {form} {filed_at}",
+                confidence=0.7,
+                metadata={
+                    "layer": layer_name,
+                    "ticker": ticker,
+                    "form": form,
+                    "filed_at": filed_at,
+                },
+            )
+            sources.append(source)
+            evidence_records.append(evidence_record)
+        return (sources, evidence_records) if evidence_records else None
 
     async def _persist_research_records(
         self,

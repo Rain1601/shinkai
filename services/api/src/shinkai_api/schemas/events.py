@@ -33,6 +33,7 @@ EventType = Literal[
     "hypothesis_falsified",
     "hypothesis_superseded",
     "candidate_created",
+    "candidate_rejected_by_validator",
     "candidate_scored",
     "review_completed",
     "optimization_decision",

@@ -108,7 +108,18 @@ Setting `scope.force_llm_planner: true` on top of `auto` raises the same fail-fa
 
 ### Tools
 
-`tools/` holds the executable tool surface that the harness can invoke (`web_search`, `web_extract`, etc.). They go through `default_tool_registry` and return `ToolResult`. A run carries a `scope.allow_live_sources` flag — when `false`, tools must serve from cached/stubbed data. Tests and the smoke run set this to `false`; live calls are reserved for explicitly opted-in runs.
+`tools/` holds the executable tool surface that the harness can invoke. All tools go through `default_tool_registry` and return `ToolResult`.
+
+| Tool | Backend | Notes |
+| --- | --- | --- |
+| `web_search` | Tavily when `SHINKAI_TAVILY_API_KEY` is set; otherwise DuckDuckGo HTML scrape | Tavily backend returns structured JSON with title/url/snippet/score |
+| `web_extract` | direct HTTP + HTML parsing | extracts a compact text excerpt from a URL |
+| `ticker_validate` | yfinance + SEC EDGAR `company_tickers.json` fallback | resolves a ticker to sector / industry / business summary and returns `industry_eligible` after the hard filter against `INELIGIBLE_SECTORS` (Healthcare, Real Estate, Financial Services, Utilities, Consumer Defensive, Communication Services) and `INELIGIBLE_INDUSTRIES` (Resorts & Casinos, Lodging, etc.) — catches LLM hallucinations like "ATYR Pharma for HBM" or "BOYD Gaming for liquid cooling" |
+| `sec_filings` | SEC EDGAR submissions endpoint (free, requires `User-Agent` header) | pulls recent 10-K / 10-Q filings and returns metadata + primary document URLs ready to become `SourceRef(tier="primary")` |
+
+A run carries a `scope.allow_live_sources` flag — when `false`, tools must serve from cached/stubbed data. Tests and the smoke run set this to `false`; live calls are reserved for explicitly opted-in runs.
+
+SEC EDGAR requires a real User-Agent (`shinkai-research-agent rain@shinkai.local` by default in `tools/ticker_validator.py::SEC_USER_AGENT`). Rate limit is 10 req/s, no API key needed.
 
 ### Persistence — Postgres-first with JSON fallback
 

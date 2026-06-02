@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     deepseek_api_key: str | None = None
     deepseek_base_url: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-chat"
+    tavily_api_key: str | None = None
+    tavily_base_url: str = "https://api.tavily.com"
     persistence_enabled: bool = True
     database_url: str | None = None
     persistence_json_fallback: bool = True

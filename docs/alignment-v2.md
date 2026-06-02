@@ -36,6 +36,9 @@
 | Actions inbox `/actions` | ✅ Built (2026-06-02) | triggers / critics(persona prompt 可展开) / memory layers / patch inbox |
 | Live `/live` | ✅ Built (2026-06-02) | 自动选最近 active run,无 active 时显示最近完成 |
 | History `/runs?view=time\|theme` | ✅ Built (2026-06-02) | `/runs` 改名 History,按主题 / 按时间二选一;`/themes` 重定向 |
+| Web search backend (Tavily) | ✅ Built (2026-06-02) | `SHINKAI_TAVILY_API_KEY` 切到 Tavily 真返回;`evidence_score` 从 0 → 1.0 |
+| Ticker validator(yfinance + SEC fallback) | ✅ Built (2026-06-02) | 行业黑名单硬过滤 ATYR Pharma / BOYD Gaming 类幻觉候选 |
+| SEC EDGAR 一手 filings | ✅ Built (2026-06-02) | 每个 validated candidate 拉 10-K/10-Q,Evidence tier=primary,reliability 0.9 |
 | iOS 原生 SwiftUI | ❌ Not built | 完全没动 |
 
 **主要 leap 还未跨过**:
