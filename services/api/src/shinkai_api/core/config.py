@@ -8,6 +8,16 @@ class Settings(BaseSettings):
     auth_required: bool = False
     admin_token: str | None = None
     subscriber_tokens: list[str] = []
+    # Shared HMAC secret used to verify JWTs minted by the web layer's
+    # NextAuth callback. The same secret must be present in the web env
+    # (NEXTAUTH_SECRET) and on the API service. When empty, only the
+    # legacy admin_token path is accepted.
+    session_jwt_secret: str | None = None
+    session_jwt_algorithm: str = "HS256"
+    # Comma-separated whitelist of owner emails / OAuth identities. Anyone
+    # signing in with an email on this list is granted the admin role;
+    # everyone else (including unauthenticated viewers) is read-only.
+    owner_emails: list[str] = []
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
