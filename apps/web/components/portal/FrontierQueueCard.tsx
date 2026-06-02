@@ -21,10 +21,10 @@ type FrontierQueueCardProps = {
 };
 
 const SOURCE_COLORS: Record<string, string> = {
-  planner: "#4FA89B",
-  deterministic_planner: "#4FA89B",
-  reviewer: "#A0B5BD",
-  human_injection: "#B85C57",
+  planner: "#58A0BC",
+  deterministic_planner: "#58A0BC",
+  reviewer: "#B5BAC0",
+  human_injection: "#C46B62",
 };
 
 function sourceLabel(source: string, isZh: boolean): string {

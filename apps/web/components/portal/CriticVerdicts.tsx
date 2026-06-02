@@ -12,9 +12,9 @@ type CriticVerdictsProps = {
 };
 
 const VERDICT_COLORS: Record<string, string> = {
-  endorse: "#7AAA98",
-  concerns: "#A0B5BD",
-  reject: "#B85C57",
+  endorse: "#94B0A0",
+  concerns: "#B5BAC0",
+  reject: "#C46B62",
 };
 
 const VERDICT_BG: Record<string, string> = {

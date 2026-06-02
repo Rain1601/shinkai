@@ -36,14 +36,14 @@ type HypothesisCardProps = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 
 const KIND_COLORS: Record<ConfidencePoint["kind"], string> = {
-  support: "#7AAA98",
-  contradict: "#B85C57",
-  human_correction: "#A0B5BD",
+  support: "#94B0A0",
+  contradict: "#C46B62",
+  human_correction: "#B5BAC0",
 };
 
-const SPARK_LINE_AXIS = "rgba(232,226,210,0.10)";
-const SPARK_LINE_GUIDE = "rgba(232,226,210,0.05)";
-const SPARK_LINE_CURVE = "#4FA89B";
+const SPARK_LINE_AXIS = "rgba(226,227,224,0.10)";
+const SPARK_LINE_GUIDE = "rgba(226,227,224,0.05)";
+const SPARK_LINE_CURVE = "#58A0BC";
 
 function Sparkline({ points }: { points: ConfidencePoint[] }) {
   const width = 300;

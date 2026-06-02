@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>shinkai · 深海配色 v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=JetBrains+Mono:wght@300;400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --display: "Fraunces", "Songti SC", serif;
+        --body: "Newsreader", "Songti SC", serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: #050a12;
+        color: #dde2ea;
+        font-family: var(--body);
+        font-size: 15px;
+        line-height: 1.55;
+        font-feature-settings: "kern", "liga";
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .frame {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 56px 48px 96px;
+      }
+
+      .frame header {
+        padding-bottom: 24px;
+        margin-bottom: 36px;
+        border-bottom: 1px solid rgba(221, 226, 234, 0.12);
+      }
+
+      .frame h1 {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        font-size: 44px;
+        line-height: 1.05;
+        letter-spacing: -0.025em;
+        margin: 0;
+      }
+
+      .frame .subtitle {
+        margin: 12px 0 0;
+        font-family: var(--body);
+        color: rgba(221, 226, 234, 0.72);
+        font-size: 15px;
+        line-height: 1.65;
+        max-width: 64ch;
+      }
+
+      .frame .meta {
+        margin: 18px 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(221, 226, 234, 0.5);
+      }
+
+      .palette-grid {
+        display: grid;
+        gap: 22px;
+        grid-template-columns: 1fr;
+      }
+
+      @media (min-width: 1080px) {
+        .palette-grid { grid-template-columns: 1fr 1fr; }
+      }
+
+      .palette {
+        padding: 28px 30px 30px;
+        border: 1px solid;
+        display: grid;
+        gap: 18px;
+      }
+
+      .palette-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+      }
+
+      .palette-head h2 {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        font-size: 28px;
+        letter-spacing: -0.018em;
+        margin: 0;
+        line-height: 1.1;
+      }
+
+      .palette-head .code {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.55;
+      }
+
+      .palette-mood {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        opacity: 0.6;
+      }
+
+      .palette-tagline {
+        font-family: var(--body);
+        font-style: italic;
+        font-size: 13.5px;
+        line-height: 1.6;
+        opacity: 0.82;
+        margin: 0;
+        max-width: 52ch;
+      }
+
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+        gap: 1px;
+      }
+
+      .swatch {
+        padding: 14px 10px 12px;
+        display: grid;
+        gap: 2px;
+        font-family: var(--mono);
+      }
+
+      .swatch .label {
+        font-size: 8.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.72;
+      }
+
+      .swatch .hex {
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+      }
+
+      .swatch.dark { color: #e6ecf2; }
+      .swatch.light { color: #06101c; }
+
+      .preview {
+        padding: 22px 22px 24px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .preview .eyebrow {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        opacity: 0.55;
+      }
+
+      .preview h3 {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 22px;
+        margin: 0;
+        letter-spacing: -0.008em;
+      }
+
+      .preview .body {
+        font-family: var(--body);
+        font-size: 14px;
+        line-height: 1.6;
+        opacity: 0.86;
+      }
+
+      .preview .conf {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .preview .conf .label {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.55;
+      }
+
+      .preview .conf strong {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        font-size: 36px;
+        line-height: 1;
+        letter-spacing: -0.025em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .preview .pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        border: 1px solid;
+        align-self: flex-start;
+      }
+
+      .preview .legend {
+        display: flex;
+        gap: 14px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.7;
+      }
+
+      .preview .legend i {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+      }
+
+      .mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--display);
+        font-style: italic;
+        font-size: 14px;
+        letter-spacing: -0.005em;
+      }
+
+      .mark svg { display: block; }
+
+      footer {
+        margin-top: 64px;
+        padding-top: 28px;
+        border-top: 1px solid rgba(221, 226, 234, 0.10);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.5;
+      }
+
+      /* ───── Palette G · HADAL ───── */
+      .pal-g {
+        background: #061523;
+        border-color: rgba(221, 226, 234, 0.10);
+      }
+      .pal-g .swatches { background: rgba(221, 226, 234, 0.08); border: 1px solid rgba(221, 226, 234, 0.08); }
+      .pal-g .preview { border: 1px solid rgba(221, 226, 234, 0.10); background: #0d2030; }
+      .pal-g .pill { color: #5da8b5; border-color: rgba(93, 168, 181, 0.5); }
+      .pal-g .conf strong { color: #5da8b5; }
+
+      /* ───── Palette H · MIDNIGHT TIDE ───── */
+      .pal-h {
+        background: #0a132a;
+        border-color: rgba(217, 220, 232, 0.10);
+        color: #d9dce8;
+      }
+      .pal-h .swatches { background: rgba(217, 220, 232, 0.08); border: 1px solid rgba(217, 220, 232, 0.08); }
+      .pal-h .preview { border: 1px solid rgba(217, 220, 232, 0.10); background: #131e3a; }
+      .pal-h .pill { color: #7a9bd0; border-color: rgba(122, 155, 208, 0.5); }
+      .pal-h .conf strong { color: #7a9bd0; }
+
+      /* ───── Palette I · SIREN ───── */
+      .pal-i {
+        background: #0c0f26;
+        border-color: rgba(220, 221, 232, 0.10);
+        color: #dcdde8;
+      }
+      .pal-i .swatches { background: rgba(220, 221, 232, 0.08); border: 1px solid rgba(220, 221, 232, 0.08); }
+      .pal-i .preview { border: 1px solid rgba(220, 221, 232, 0.10); background: #161a30; }
+      .pal-i .pill { color: #9a86c8; border-color: rgba(154, 134, 200, 0.5); }
+      .pal-i .conf strong { color: #9a86c8; }
+
+      /* ───── Palette J · AQUA NOX ───── */
+      .pal-j {
+        background: #0a1e28;
+        border-color: rgba(222, 232, 229, 0.10);
+        color: #dee8e5;
+      }
+      .pal-j .swatches { background: rgba(222, 232, 229, 0.08); border: 1px solid rgba(222, 232, 229, 0.08); }
+      .pal-j .preview { border: 1px solid rgba(222, 232, 229, 0.10); background: #11293a; }
+      .pal-j .pill { color: #5bc4cb; border-color: rgba(91, 196, 203, 0.5); }
+      .pal-j .conf strong { color: #5bc4cb; }
+
+      /* ───── Palette K · DEEP CURRENT ───── */
+      .pal-k {
+        background: #0a1730;
+        border-color: rgba(224, 228, 235, 0.10);
+        color: #e0e4eb;
+      }
+      .pal-k .swatches { background: rgba(224, 228, 235, 0.08); border: 1px solid rgba(224, 228, 235, 0.08); }
+      .pal-k .preview { border: 1px solid rgba(224, 228, 235, 0.10); background: #112141; }
+      .pal-k .pill { color: #6fa8d6; border-color: rgba(111, 168, 214, 0.5); }
+      .pal-k .conf strong { color: #6fa8d6; }
+
+      /* ───── Palette L · PEARL & WEIGHT ───── */
+      .pal-l {
+        background: #050b14;
+        border-color: rgba(226, 227, 224, 0.10);
+        color: #e2e3e0;
+      }
+      .pal-l .swatches { background: rgba(226, 227, 224, 0.08); border: 1px solid rgba(226, 227, 224, 0.08); }
+      .pal-l .preview { border: 1px solid rgba(226, 227, 224, 0.12); background: #0d141f; }
+      .pal-l .pill { color: #58a0bc; border-color: rgba(88, 160, 188, 0.5); }
+      .pal-l .conf strong { color: #58a0bc; }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <header>
+        <h1>shinkai · 深海配色 <span style="opacity:.55">v2 / ocean</span></h1>
+        <p class="subtitle">
+          6 个新方向,全是<strong>蓝/靛/紫</strong>系底色 — 真正像 200m–11000m 之间的海。
+          深邃在底色饱和度,神秘在强调色温度。每个都共享:近黑底、冷珍珠文字、单一强调色、
+          hairline 分隔、无渐变、无阴影、无 Anthropic 黄铜。
+        </p>
+        <div class="meta">
+          <span>★ 全蓝色系底</span>
+          <span>★ 6 种海层深度</span>
+          <span>★ 强调色:Aqua / Sapphire / Violet / Turquoise / Marine / Steel-Teal</span>
+        </div>
+      </header>
+
+      <div class="palette-grid">
+
+        <!-- ════════════════ G · HADAL ════════════════ -->
+        <section class="palette pal-g">
+          <div class="palette-head">
+            <h2>G · Hadal</h2>
+            <span class="code">·07</span>
+          </div>
+          <div class="palette-mood">8000–11000m · 阳光绝迹带</div>
+          <p class="palette-tagline">
+            最深的"超深渊带"底色 (#061523) — 蓝带一丝铁灰,文字是冷色珍珠。
+            强调色 #5DA8B5 像极少数仍能感受到的远古阳光,极克制、极冷静。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#061523"><span class="label">canvas</span><span class="hex">#061523</span></div>
+            <div class="swatch dark" style="background:#0d2030"><span class="label">surface</span><span class="hex">#0D2030</span></div>
+            <div class="swatch dark" style="background:#152a3d"><span class="label">surface-1</span><span class="hex">#152A3D</span></div>
+            <div class="swatch light" style="background:#dce2e6"><span class="label">text</span><span class="hex">#DCE2E6</span></div>
+            <div class="swatch light" style="background:#5da8b5"><span class="label">accent</span><span class="hex">#5DA8B5</span></div>
+            <div class="swatch light" style="background:#88b2a8"><span class="label">support</span><span class="hex">#88B2A8</span></div>
+            <div class="swatch light" style="background:#c46b62"><span class="label">contra</span><span class="hex">#C46B62</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#88b2a8"></i>support 6</span>
+              <span><i style="background:#c46b62"></i>contra 1</span>
+              <span><i style="background:#dce2e6"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════ H · MIDNIGHT TIDE ════════════════ -->
+        <section class="palette pal-h">
+          <div class="palette-head">
+            <h2>H · Midnight Tide</h2>
+            <span class="code">·08</span>
+          </div>
+          <div class="palette-mood">海面 · 月光下的洋流</div>
+          <p class="palette-tagline">
+            饱和深靛 (#0A132A),像无月夜的远洋。强调色 #7A9BD0 是月光洒在水面的蓝白,
+            既温柔又有"远处有什么在动"的暗示 — 神秘但不诡异。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#0a132a"><span class="label">canvas</span><span class="hex">#0A132A</span></div>
+            <div class="swatch dark" style="background:#131e3a"><span class="label">surface</span><span class="hex">#131E3A</span></div>
+            <div class="swatch dark" style="background:#1c2a4a"><span class="label">surface-1</span><span class="hex">#1C2A4A</span></div>
+            <div class="swatch light" style="background:#d9dce8"><span class="label">text</span><span class="hex">#D9DCE8</span></div>
+            <div class="swatch light" style="background:#7a9bd0"><span class="label">accent</span><span class="hex">#7A9BD0</span></div>
+            <div class="swatch light" style="background:#94b0a0"><span class="label">support</span><span class="hex">#94B0A0</span></div>
+            <div class="swatch light" style="background:#b85c57"><span class="label">contra</span><span class="hex">#B85C57</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#94b0a0"></i>support 6</span>
+              <span><i style="background:#b85c57"></i>contra 1</span>
+              <span><i style="background:#d9dce8"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════ I · SIREN ════════════════ -->
+        <section class="palette pal-i">
+          <div class="palette-head">
+            <h2>I · Siren</h2>
+            <span class="code">·09</span>
+          </div>
+          <div class="palette-mood">3000m · 水母发光带</div>
+          <p class="palette-tagline">
+            深靛偏紫 (#0C0F26) + 水母紫光 #9A86C8。这是 6 个里最"神秘"的 —
+            紫色暗示了"有意识的生物",不像别的方案那么客观仪器化,像有什么在看你。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#0c0f26"><span class="label">canvas</span><span class="hex">#0C0F26</span></div>
+            <div class="swatch dark" style="background:#161a30"><span class="label">surface</span><span class="hex">#161A30</span></div>
+            <div class="swatch dark" style="background:#21263e"><span class="label">surface-1</span><span class="hex">#21263E</span></div>
+            <div class="swatch light" style="background:#dcdde8"><span class="label">text</span><span class="hex">#DCDDE8</span></div>
+            <div class="swatch light" style="background:#9a86c8"><span class="label">accent</span><span class="hex">#9A86C8</span></div>
+            <div class="swatch light" style="background:#88b2a8"><span class="label">support</span><span class="hex">#88B2A8</span></div>
+            <div class="swatch light" style="background:#c46b62"><span class="label">contra</span><span class="hex">#C46B62</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#88b2a8"></i>support 6</span>
+              <span><i style="background:#c46b62"></i>contra 1</span>
+              <span><i style="background:#dcdde8"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════ J · AQUA NOX ════════════════ -->
+        <section class="palette pal-j">
+          <div class="palette-head">
+            <h2>J · Aqua Nox</h2>
+            <span class="code">·10</span>
+          </div>
+          <div class="palette-mood">500m · 夜潜带</div>
+          <p class="palette-tagline">
+            深青蓝底 (#0A1E28),像热带海域的夜潜灯光散开。强调色 #5BC4CB 是典型的"潜水仪表"绿松石,
+            最"海洋"的一个,也是 6 个里最有日间感的(虽然仍是夜)。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#0a1e28"><span class="label">canvas</span><span class="hex">#0A1E28</span></div>
+            <div class="swatch dark" style="background:#11293a"><span class="label">surface</span><span class="hex">#11293A</span></div>
+            <div class="swatch dark" style="background:#1a3447"><span class="label">surface-1</span><span class="hex">#1A3447</span></div>
+            <div class="swatch light" style="background:#dee8e5"><span class="label">text</span><span class="hex">#DEE8E5</span></div>
+            <div class="swatch light" style="background:#5bc4cb"><span class="label">accent</span><span class="hex">#5BC4CB</span></div>
+            <div class="swatch light" style="background:#88c9a1"><span class="label">support</span><span class="hex">#88C9A1</span></div>
+            <div class="swatch light" style="background:#d67a6e"><span class="label">contra</span><span class="hex">#D67A6E</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#88c9a1"></i>support 6</span>
+              <span><i style="background:#d67a6e"></i>contra 1</span>
+              <span><i style="background:#dee8e5"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════ K · DEEP CURRENT ════════════════ -->
+        <section class="palette pal-k">
+          <div class="palette-head">
+            <h2>K · Deep Current</h2>
+            <span class="code">·11</span>
+          </div>
+          <div class="palette-mood">远洋 · 暗流带</div>
+          <p class="palette-tagline">
+            纯海军蓝底 (#0A1730),没有任何绿/紫倾向,就是"水"的颜色。
+            强调色 #6FA8D6 是清晨海面那种清澈的蓝,理性、有秩序,适合"研究"叙事。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#0a1730"><span class="label">canvas</span><span class="hex">#0A1730</span></div>
+            <div class="swatch dark" style="background:#112141"><span class="label">surface</span><span class="hex">#112141</span></div>
+            <div class="swatch dark" style="background:#192e54"><span class="label">surface-1</span><span class="hex">#192E54</span></div>
+            <div class="swatch light" style="background:#e0e4eb"><span class="label">text</span><span class="hex">#E0E4EB</span></div>
+            <div class="swatch light" style="background:#6fa8d6"><span class="label">accent</span><span class="hex">#6FA8D6</span></div>
+            <div class="swatch light" style="background:#94b0a0"><span class="label">support</span><span class="hex">#94B0A0</span></div>
+            <div class="swatch light" style="background:#c46b62"><span class="label">contra</span><span class="hex">#C46B62</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#94b0a0"></i>support 6</span>
+              <span><i style="background:#c46b62"></i>contra 1</span>
+              <span><i style="background:#e0e4eb"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════ L · PEARL & WEIGHT ════════════════ -->
+        <section class="palette pal-l">
+          <div class="palette-head">
+            <h2>L · Pearl & Weight</h2>
+            <span class="code">·12</span>
+          </div>
+          <div class="palette-mood">压力极限 · 静</div>
+          <p class="palette-tagline">
+            6 个里最像 Anthropic 的极简变种 —— 近纯黑带最微靛色 (#050B14),
+            文字几乎是中性珍珠 (#E2E3E0),强调 #58A0BC 是冷钢蓝,
+            像潜水器舷窗外唯一的光。重量、克制、安静,最接近"深邃" + "Anthropic 哲学"。
+          </p>
+          <div class="swatches">
+            <div class="swatch dark" style="background:#050b14"><span class="label">canvas</span><span class="hex">#050B14</span></div>
+            <div class="swatch dark" style="background:#0d141f"><span class="label">surface</span><span class="hex">#0D141F</span></div>
+            <div class="swatch dark" style="background:#171f2b"><span class="label">surface-1</span><span class="hex">#171F2B</span></div>
+            <div class="swatch light" style="background:#e2e3e0"><span class="label">text</span><span class="hex">#E2E3E0</span></div>
+            <div class="swatch light" style="background:#58a0bc"><span class="label">accent</span><span class="hex">#58A0BC</span></div>
+            <div class="swatch light" style="background:#94b0a0"><span class="label">support</span><span class="hex">#94B0A0</span></div>
+            <div class="swatch light" style="background:#c46b62"><span class="label">contra</span><span class="hex">#C46B62</span></div>
+          </div>
+          <div class="preview">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="eyebrow">current hypothesis · #h_pwr_001</span>
+              <span class="pill">active</span>
+            </div>
+            <h3>Power and electrical infrastructure</h3>
+            <p class="body">AI 数据中心扩张越来越受并网、开关设备、UPS 容量、备用发电与功率密度约束。</p>
+            <div class="conf"><span class="label">confidence</span><strong>0.72</strong></div>
+            <div class="legend">
+              <span><i style="background:#94b0a0"></i>support 6</span>
+              <span><i style="background:#c46b62"></i>contra 1</span>
+              <span><i style="background:#e2e3e0"></i>human 0</span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <footer>
+        告诉我编号(G–L)或混搭(比如"L 的底 + I 的紫强调色")。选完我把 globals.css 整套替到位。
+      </footer>
+    </div>
+  </body>
+</html>

@@ -10,37 +10,42 @@
 :root {
   color-scheme: dark;
 
-  /* ── canvas (warm dark espresso, soft on eyes) ───────────────────────── */
-  --abyss: #1a1612;
-  --abyss-1: #1f1b17;
-  --abyss-2: #25201c;
-  --abyss-3: #2a2520;
+  /* ── palette · L · Pearl & Weight ───────────────────────────────────────
+     Near-pure black with the faintest indigo undertone — submersible
+     porthole at the pressure limit. Neutral pearl text. A single muted
+     steel-blue accent is the only point of light. */
+
+  /* ── canvas ──────────────────────────────────────────────────────────── */
+  --abyss: #050b14;
+  --abyss-1: #0d141f;
+  --abyss-2: #171f2b;
+  --abyss-3: #1f2734;
 
   /* ── ink (text) ──────────────────────────────────────────────────────── */
-  --pearl: #e8e2d2;
-  --pearl-soft: #c4bdaa;
-  --pearl-mute: #8c8678;
-  --pearl-dim: #5a564c;
-  --pearl-faint: #3a3833;
+  --pearl: #e2e3e0;
+  --pearl-soft: #bcbeba;
+  --pearl-mute: #7e8082;
+  --pearl-dim: #4e5054;
+  --pearl-faint: #2f3135;
 
-  /* ── single accent: deep-sea bioluminescence ─────────────────────────── */
-  --teal: #4fa89b;
-  --teal-soft: rgba(79, 168, 155, 0.10);
-  --teal-line: rgba(79, 168, 155, 0.32);
-  --teal-glow: rgba(79, 168, 155, 0.18);
+  /* ── single accent: steel cyan-blue (depth porthole light) ───────────── */
+  --teal: #58a0bc;
+  --teal-soft: rgba(88, 160, 188, 0.10);
+  --teal-line: rgba(88, 160, 188, 0.34);
+  --teal-glow: rgba(88, 160, 188, 0.18);
 
   /* ── semantic accents (desaturated, used sparingly on data viz) ──────── */
-  --support: #7aaa98;
-  --contradict: #b85c57;
-  --human: #a0b5bd;
-  --warn: #a0b5bd;
-  --danger: #b85c57;
-  --falsified: #b85c57;
+  --support: #94b0a0;
+  --contradict: #c46b62;
+  --human: #b5bac0;
+  --warn: #b5bac0;
+  --danger: #c46b62;
+  --falsified: #c46b62;
 
-  /* ── hairlines (the bones of the system) ─────────────────────────────── */
-  --hair: rgba(232, 226, 210, 0.08);
-  --hair-strong: rgba(232, 226, 210, 0.16);
-  --hair-bright: rgba(232, 226, 210, 0.24);
+  /* ── hairlines (cool pearl, slightly more opacity so still visible) ──── */
+  --hair: rgba(226, 227, 224, 0.08);
+  --hair-strong: rgba(226, 227, 224, 0.16);
+  --hair-bright: rgba(226, 227, 224, 0.24);
 
   /* ── typography ──────────────────────────────────────────────────────── */
   --display: var(--font-display), "Songti SC", "STSong",
