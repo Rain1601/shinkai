@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
 import { CheckpointBanner } from "./CheckpointBanner";
+import { ShinkaiMark } from "./ShinkaiMark";
 
 type PortalShellProps = {
   title: string;
@@ -39,18 +40,18 @@ const navItems: Array<{
   label: string;
   icon: LucideIcon;
 }> = [
-  { id: "agent", href: "/agent", label: "Agent", icon: Compass },
-  { id: "live", href: "/live", label: "Live", icon: Sparkles },
+  { id: "agent", href: "/agent", label: "Overview", icon: Compass },
+  { id: "live", href: "/live", label: "Current", icon: Sparkles },
   { id: "actions", href: "/actions", label: "Actions", icon: Settings },
   { id: "history", href: "/runs", label: "History", icon: Activity },
   { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
 ];
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
-  agent: "Agent",
-  live: "实时",
+  agent: "总览",
+  live: "当下工作",
   actions: "能力",
-  history: "历史",
+  history: "历史记录",
   results: "产出",
   themes: "主题",
   a2a: "A2A",
@@ -85,10 +86,10 @@ export function PortalShell({
       <aside className="portal-sidebar">
         <Link className="portal-logo" href="/">
           <span className="portal-logo-mark" aria-hidden="true">
-            <Compass size={18} strokeWidth={1.8} />
+            <ShinkaiMark size={18} strokeWidth={1.5} />
           </span>
-          <span className="portal-logo-text">Shinkai</span>
-          <small>{isZh ? "Agent 运行框架" : "Agent Harness"}</small>
+          <span className="portal-logo-text">shinkai</span>
+          <small>{isZh ? "深海 · 投研引擎" : "Deep · Research Engine"}</small>
         </Link>
         <nav className="portal-nav" aria-label={isZh ? "工作区" : "Workspace"}>
           {navItems.map((item) => {
