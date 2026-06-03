@@ -114,7 +114,7 @@ export function PortalShell({
             <ShinkaiMark size={18} strokeWidth={1.5} />
           </span>
           <span className="portal-logo-text">shinkai</span>
-          <small>{isZh ? "深海 · 投研引擎" : "Deep · Research Engine"}</small>
+          <small>{isZh ? "深海 · 投研引擎" : "Deep Research"}</small>
         </Link>
         <nav className="portal-nav" aria-label={isZh ? "工作区" : "Workspace"}>
           {navItems.map((item) => {
