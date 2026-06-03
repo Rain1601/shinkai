@@ -98,12 +98,12 @@ type ReasoningTreeViewProps = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
 const KIND_COLORS: Record<string, string> = {
-  support: "#94B0A0",
-  contradict: "#C46B62",
-  human_correction: "#B5BAC0",
+  support: "var(--support)",
+  contradict: "var(--contradict)",
+  human_correction: "var(--human)",
 };
-const SPARK_AXIS = "rgba(226,227,224,0.10)";
-const SPARK_CURVE = "#58A0BC";
+const SPARK_AXIS = "var(--hair-strong)";
+const SPARK_CURVE = "var(--teal)";
 
 function Sparkline({ points }: { points: ConfidencePoint[] }) {
   const width = 280;

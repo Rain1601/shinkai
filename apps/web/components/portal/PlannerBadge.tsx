@@ -11,10 +11,10 @@ type PlannerBadgeProps = {
 };
 
 const SOURCE_STYLES: Record<string, { bg: string; color: string }> = {
-  deepseek_llm_planner: { bg: "transparent", color: "#58A0BC" },
-  fallback_after_reject: { bg: "transparent", color: "#B5BAC0" },
-  deterministic_fallback: { bg: "transparent", color: "#7E8082" },
-  force_llm_fail: { bg: "transparent", color: "#C46B62" },
+  deepseek_llm_planner: { bg: "transparent", color: "var(--teal)" },
+  fallback_after_reject: { bg: "transparent", color: "var(--human)" },
+  deterministic_fallback: { bg: "transparent", color: "var(--pearl-mute)" },
+  force_llm_fail: { bg: "transparent", color: "var(--contradict)" },
 };
 
 function sourceLabel(source: string, isZh: boolean): string {
