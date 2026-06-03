@@ -2407,6 +2407,53 @@ select {
   align-items: start;
 }
 
+/* ── /agent single-viewport layout ──────────────────────────────────────────
+   On wide screens, lock the overview to viewport height so the long Active
+   Work list (often 50-100 runs) scrolls inside its own panel instead of
+   pushing the page down to ten screens of vertical scroll. */
+@media (min-width: 1080px) {
+  .agent-overview-row {
+    align-items: stretch;
+    max-height: calc(100vh - 520px);
+    min-height: 380px;
+    overflow: hidden;
+  }
+
+  .agent-overview-row > .surface {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .agent-overview-row > .surface > .panel-heading,
+  .agent-overview-row > .surface > .capability-config-intro,
+  .agent-overview-row > .surface > .active-work-idle {
+    flex-shrink: 0;
+  }
+
+  .agent-overview-row > .surface > .active-work-list,
+  .agent-overview-row > .surface > .capability-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hair-strong) transparent;
+  }
+
+  .agent-overview-row > .surface > .active-work-list::-webkit-scrollbar,
+  .agent-overview-row > .surface > .capability-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .agent-overview-row > .surface > .active-work-list::-webkit-scrollbar-thumb,
+  .agent-overview-row > .surface > .capability-list::-webkit-scrollbar-thumb {
+    background: var(--hair-strong);
+  }
+}
+
 .agent-identity {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(220px, auto);
