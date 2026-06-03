@@ -486,7 +486,7 @@ select {
   min-height: 100vh;
   background: var(--abyss);
   padding-left: var(--sidebar-w-collapsed);
-  transition: padding-left 180ms var(--ease-snap);
+  transition: padding-left 240ms var(--ease-snap);
 }
 
 .portal[data-sidebar-pinned="true"] {
@@ -504,7 +504,7 @@ select {
   background: var(--abyss-1);
   border-right: 1px solid var(--hair-strong);
   overflow: hidden;
-  transition: width 180ms var(--ease-snap);
+  transition: width 240ms var(--ease-snap);
   z-index: 40;
 }
 
@@ -567,7 +567,7 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: opacity 140ms var(--ease-snap);
+  transition: opacity 180ms var(--ease-snap);
 }
 
 .portal-logo small {
@@ -584,7 +584,7 @@ select {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: opacity 140ms var(--ease-snap);
+  transition: opacity 180ms var(--ease-snap);
 }
 
 .portal-sidebar:hover .portal-logo-text,
@@ -617,7 +617,7 @@ select {
   text-transform: uppercase;
   white-space: nowrap;
   counter-increment: navcounter;
-  transition: color 140ms var(--ease-snap);
+  transition: color 180ms var(--ease-snap);
 }
 
 .portal-nav-item::before {
@@ -627,7 +627,7 @@ select {
   letter-spacing: 0.18em;
   color: var(--pearl-faint);
   font-variant-numeric: tabular-nums;
-  transition: color 140ms var(--ease-snap);
+  transition: color 180ms var(--ease-snap);
 }
 
 .portal-sidebar:hover .portal-nav-item::before,
@@ -645,12 +645,12 @@ select {
   color: var(--pearl-mute);
   opacity: 0.75;
   flex-shrink: 0;
-  transition: color 140ms var(--ease-snap), opacity 140ms var(--ease-snap);
+  transition: color 180ms var(--ease-snap), opacity 180ms var(--ease-snap);
 }
 
 .portal-nav-label {
   opacity: 0;
-  transition: opacity 140ms var(--ease-snap);
+  transition: opacity 180ms var(--ease-snap);
 }
 
 .portal-sidebar:hover .portal-nav-label,
