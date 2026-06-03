@@ -4,11 +4,13 @@ import Link from "next/link";
 import {
   Activity,
   Compass,
+  Moon,
   PanelLeftClose,
   Pin,
   Radio,
   Settings,
   Sparkles,
+  Sun,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -16,6 +18,16 @@ import type { LucideIcon } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
 import { CheckpointBanner } from "./CheckpointBanner";
 import { ShinkaiMark } from "./ShinkaiMark";
+
+type Theme = "day" | "night";
+
+function resolveInitialTheme(): Theme {
+  if (typeof window === "undefined") return "night";
+  const stored = window.localStorage.getItem("shinkai.theme");
+  if (stored === "day" || stored === "night") return stored;
+  if (window.matchMedia?.("(prefers-color-scheme: light)").matches) return "day";
+  return "night";
+}
 
 type PortalShellProps = {
   title: string;
@@ -67,16 +79,29 @@ export function PortalShell({
   onLocaleChange,
 }: PortalShellProps) {
   const [pinned, setPinned] = useState(false);
+  const [theme, setTheme] = useState<Theme>("night");
   const isZh = locale === "zh";
 
   useEffect(() => {
     setPinned(window.localStorage.getItem("shinkai.sidebar.pinned") === "true");
+    const next = resolveInitialTheme();
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
   }, []);
 
   function togglePinned() {
     setPinned((current) => {
       const next = !current;
       window.localStorage.setItem("shinkai.sidebar.pinned", String(next));
+      return next;
+    });
+  }
+
+  function toggleTheme() {
+    setTheme((current) => {
+      const next: Theme = current === "night" ? "day" : "night";
+      window.localStorage.setItem("shinkai.theme", next);
+      document.documentElement.dataset.theme = next;
       return next;
     });
   }
@@ -110,6 +135,37 @@ export function PortalShell({
           })}
         </nav>
         <div className="portal-sidebar-footer">
+          <button
+            type="button"
+            className="sidebar-theme-button"
+            onClick={toggleTheme}
+            aria-label={
+              theme === "night"
+                ? isZh
+                  ? "切换到白天模式"
+                  : "Switch to day mode"
+                : isZh
+                  ? "切换到夜间模式"
+                  : "Switch to night mode"
+            }
+          >
+            <span className="portal-nav-icon" aria-hidden="true">
+              {theme === "night" ? (
+                <Sun size={16} strokeWidth={1.8} />
+              ) : (
+                <Moon size={16} strokeWidth={1.8} />
+              )}
+            </span>
+            <span className="portal-nav-label">
+              {theme === "night"
+                ? isZh
+                  ? "白天"
+                  : "Day"
+                : isZh
+                  ? "夜间"
+                  : "Night"}
+            </span>
+          </button>
           {onLocaleChange ? (
             <div
               className="sidebar-language"

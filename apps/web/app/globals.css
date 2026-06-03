@@ -47,7 +47,7 @@
   --hair-strong: rgba(226, 227, 224, 0.16);
   --hair-bright: rgba(226, 227, 224, 0.24);
 
-  /* ── typography ──────────────────────────────────────────────────────── */
+  /* ── typography (theme-independent) ──────────────────────────────────── */
   --display: var(--font-display), "Songti SC", "STSong",
     "Source Han Serif SC", "Iowan Old Style", Georgia, serif;
   --body: var(--font-body), "Songti SC", "STSong", "Source Han Serif SC",
@@ -64,6 +64,44 @@
 
   /* ── motion ──────────────────────────────────────────────────────────── */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   palette · D2 · Foam Mist (day mode)
+   Mirror of L: cool pale blue-grey background, deep navy text, same
+   steel-cyan family accent (just one notch darker for legibility on
+   light surfaces). Applied via [data-theme="day"] on <html>.
+   ────────────────────────────────────────────────────────────────────────── */
+
+html[data-theme="day"] {
+  color-scheme: light;
+
+  --abyss: #e9eef0;
+  --abyss-1: #dee4e8;
+  --abyss-2: #d2d9de;
+  --abyss-3: #c6ced6;
+
+  --pearl: #0f1a2b;
+  --pearl-soft: #2a3a56;
+  --pearl-mute: #5c6a80;
+  --pearl-dim: #8c97aa;
+  --pearl-faint: #b5bcc8;
+
+  --teal: #3d7b98;
+  --teal-soft: rgba(61, 123, 152, 0.10);
+  --teal-line: rgba(61, 123, 152, 0.36);
+  --teal-glow: rgba(61, 123, 152, 0.18);
+
+  --support: #5b8a77;
+  --contradict: #a04e47;
+  --human: #7b85a0;
+  --warn: #7b85a0;
+  --danger: #a04e47;
+  --falsified: #a04e47;
+
+  --hair: rgba(15, 26, 43, 0.10);
+  --hair-strong: rgba(15, 26, 43, 0.18);
+  --hair-bright: rgba(15, 26, 43, 0.28);
 }
 
 * {
@@ -462,11 +500,16 @@ select {
   width: var(--sidebar-w-collapsed);
   display: flex;
   flex-direction: column;
-  background: var(--abyss);
+  background: var(--abyss-1);
   border-right: 1px solid var(--hair-strong);
   overflow: hidden;
   transition: width 320ms var(--ease);
   z-index: 40;
+}
+
+.portal-sidebar:hover,
+.portal-sidebar:focus-within {
+  border-right-color: var(--hair-bright);
 }
 
 .portal-sidebar:hover,
@@ -735,6 +778,33 @@ select {
 
 .sidebar-pin-button:hover {
   color: var(--pearl);
+}
+
+.sidebar-theme-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 22px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--pearl-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 220ms var(--ease);
+}
+
+.sidebar-theme-button:hover {
+  color: var(--pearl);
+}
+
+.sidebar-theme-button .portal-nav-icon {
+  color: var(--teal);
+  opacity: 1;
 }
 
 /* ── main column ────────────────────────────────────────────────────────── */
