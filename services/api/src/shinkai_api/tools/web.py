@@ -2,15 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import html
-import json
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from html.parser import HTMLParser
 from typing import Any
 
-from shinkai_api.core.config import settings
+from market_utils.core.errors import (
+    MarketUtilsError,
+    NotConfigured,
+    QuotaExceeded,
+    SearchTimeout,
+)
+from market_utils.search import SearchEngine
+
 from shinkai_api.tools.base import Tool, ToolResult
 
 
@@ -22,6 +27,16 @@ class WebSearchTool(Tool):
         "properties": {
             "query": {"type": "string"},
             "max_results": {"type": "integer", "default": 3},
+            "strategy": {
+                "type": "string",
+                "enum": ["auto", "google", "tavily", "duckduckgo"],
+                "default": "auto",
+            },
+            "topic": {
+                "type": "string",
+                "enum": ["news"],
+            },
+            "date_restrict": {"type": "string"},
         },
         "required": ["query"],
     }
@@ -29,32 +44,63 @@ class WebSearchTool(Tool):
     async def run(self, **kwargs: Any) -> ToolResult:
         query = str(kwargs.get("query") or "").strip()
         max_results = int(kwargs.get("max_results") or 3)
+        strategy = str(kwargs.get("strategy") or "auto")
+        topic = kwargs.get("topic") or None
+        date_restrict = kwargs.get("date_restrict") or None
         if not query:
             return ToolResult(ok=False, error="query is required")
-        # Prefer Tavily when the key is configured — it gives clean structured
-        # results without the scraping fragility of duckduckgo's HTML page.
-        backend = "duckduckgo"
+
         try:
-            if settings.tavily_api_key:
-                backend = "tavily"
-                results = await asyncio.to_thread(
-                    _tavily_search,
-                    query,
-                    max_results,
-                    settings.tavily_api_key,
-                    settings.tavily_base_url,
-                )
-            else:
-                results = await asyncio.to_thread(
-                    _duckduckgo_html_search, query, max_results
-                )
-        except Exception as exc:  # noqa: BLE001
+            engine = SearchEngine.from_env(strategy=strategy)  # type: ignore[arg-type]
+            raw_results = await engine.search(
+                query,
+                max_results=max_results,
+                date_restrict=date_restrict,
+                topic=topic,
+            )
+        except NotConfigured as exc:
             return ToolResult(
                 ok=False,
                 error=str(exc),
-                summary=f"web search failed ({backend})",
-                data={"backend": backend, "query": query},
+                summary=f"web search backend not configured ({strategy})",
+                data={"backend": strategy, "query": query},
             )
+        except QuotaExceeded as exc:
+            return ToolResult(
+                ok=False,
+                error=str(exc),
+                summary=f"web search quota exceeded ({strategy})",
+                data={"backend": strategy, "query": query},
+            )
+        except SearchTimeout as exc:
+            return ToolResult(
+                ok=False,
+                error=str(exc),
+                summary=f"web search timed out ({strategy})",
+                data={"backend": strategy, "query": query},
+            )
+        except MarketUtilsError as exc:
+            return ToolResult(
+                ok=False,
+                error=str(exc),
+                summary=f"web search failed ({strategy})",
+                data={"backend": strategy, "query": query},
+            )
+
+        # Normalise to the shape the harness has always seen — keeps
+        # downstream evidence-building untouched.
+        results = [
+            {
+                "title": r.title,
+                "url": r.url,
+                "snippet": r.snippet,
+                "source": r.source,
+                "published_at": r.published_at,
+                "score": (str(r.score) if r.score is not None else ""),
+            }
+            for r in raw_results
+        ]
+        backend = engine.strategy_name
         return ToolResult(
             ok=bool(results),
             summary=f"Found {len(results)} web result(s) for: {query}",
@@ -81,129 +127,6 @@ class WebExtractTool(Tool):
         except Exception as exc:  # noqa: BLE001
             return ToolResult(ok=False, error=str(exc), summary="web extract failed")
         return ToolResult(ok=True, summary=extracted["title"], data=extracted)
-
-
-class _DuckDuckGoParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.results: list[dict[str, str]] = []
-        self._in_link = False
-        self._in_snippet = False
-        self._current_url = ""
-        self._title_parts: list[str] = []
-        self._snippet_parts: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attrs_dict = dict(attrs)
-        css_class = attrs_dict.get("class") or ""
-        if tag == "a" and "result__a" in css_class:
-            self._in_link = True
-            self._current_url = _decode_duckduckgo_url(attrs_dict.get("href") or "")
-            self._title_parts = []
-            self._snippet_parts = []
-        if tag in {"a", "div"} and "result__snippet" in css_class:
-            self._in_snippet = True
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "a" and self._in_link:
-            self._in_link = False
-            title = html.unescape(" ".join(self._title_parts)).strip()
-            if title and self._current_url:
-                self.results.append(
-                    {
-                        "title": _clean_text(title),
-                        "url": self._current_url,
-                        "snippet": _clean_text(" ".join(self._snippet_parts)),
-                    }
-                )
-        if tag in {"a", "div"} and self._in_snippet:
-            self._in_snippet = False
-
-    def handle_data(self, data: str) -> None:
-        if self._in_link:
-            self._title_parts.append(data)
-        if self._in_snippet:
-            self._snippet_parts.append(data)
-
-
-def _tavily_search(
-    query: str,
-    max_results: int,
-    api_key: str,
-    base_url: str,
-) -> list[dict[str, str]]:
-    """Call Tavily search API and normalise to our ``results`` shape.
-
-    Tavily docs: https://docs.tavily.com/docs/rest-api/api-reference
-    We use ``search_depth=basic`` (faster, cheaper) and skip raw HTML.
-    """
-    payload = {
-        "api_key": api_key,
-        "query": query,
-        "search_depth": "basic",
-        "max_results": max(1, min(max_results, 10)),
-        "include_answer": False,
-        "include_images": False,
-        "include_raw_content": False,
-    }
-    body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        f"{base_url.rstrip('/')}/search",
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "shinkai-research-agent/0.1",
-        },
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Tavily HTTP {exc.code}: {detail[:200]}") from exc
-    data = json.loads(raw)
-    raw_results = data.get("results") or []
-    out: list[dict[str, str]] = []
-    for item in raw_results[:max_results]:
-        if not isinstance(item, dict):
-            continue
-        out.append(
-            {
-                "title": _clean_text(str(item.get("title") or "")),
-                "url": str(item.get("url") or ""),
-                "snippet": _clean_text(str(item.get("content") or "")),
-                "score": str(item.get("score") or ""),
-            }
-        )
-    return [item for item in out if item["url"]]
-
-
-def _duckduckgo_html_search(query: str, max_results: int) -> list[dict[str, str]]:
-    params = urllib.parse.urlencode({"q": query})
-    request = urllib.request.Request(
-        f"https://duckduckgo.com/html/?{params}",
-        headers={
-            "User-Agent": "Mozilla/5.0 shinkai-research-bot/0.1",
-            "Accept": "text/html",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=8) as response:
-        body = response.read().decode("utf-8", errors="replace")
-    parser = _DuckDuckGoParser()
-    parser.feed(body)
-    deduped: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for result in parser.results:
-        url = result["url"]
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        deduped.append(result)
-        if len(deduped) >= max_results:
-            break
-    return deduped
 
 
 def _extract_url(url: str) -> dict[str, str]:
@@ -240,15 +163,3 @@ def _extract_title(raw: str) -> str:
 
 def _clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
-
-
-def _decode_duckduckgo_url(url: str) -> str:
-    if not url:
-        return ""
-    parsed = urllib.parse.urlparse(url)
-    query = urllib.parse.parse_qs(parsed.query)
-    if "uddg" in query and query["uddg"]:
-        return query["uddg"][0]
-    if url.startswith("//"):
-        return f"https:{url}"
-    return url

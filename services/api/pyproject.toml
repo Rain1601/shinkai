@@ -11,7 +11,15 @@ dependencies = [
   "uvicorn[standard]>=0.30.0",
   "yfinance>=1.4.1",
   "pyjwt>=2.13.0",
+  "market-utils[google,tavily]",
 ]
+
+# market-utils is consumed from a private GitHub repo. Auth on dev
+# machines goes through the existing gh-CLI HTTPS credential helper; on
+# CI/servers, set GITHUB_TOKEN with repo:read scope, or swap to the SSH
+# form: { git = "ssh://git@github.com/Rain1601/market-utils.git", rev = "main" }
+[tool.uv.sources]
+market-utils = { git = "https://github.com/Rain1601/market-utils.git", rev = "main" }
 
 [dependency-groups]
 dev = [

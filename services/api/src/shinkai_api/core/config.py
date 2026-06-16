@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     tavily_api_key: str | None = None
     tavily_base_url: str = "https://api.tavily.com"
+    google_search_api_key: str | None = None
+    google_search_engine_id: str | None = None
     persistence_enabled: bool = True
     database_url: str | None = None
     persistence_json_fallback: bool = True
