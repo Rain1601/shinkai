@@ -53,7 +53,7 @@ const navItems: Array<{
   icon: LucideIcon;
 }> = [
   { id: "agent", href: "/agent", label: "Overview", icon: Compass },
-  { id: "live", href: "/live", label: "Current", icon: Sparkles },
+  { id: "live", href: "/live", label: "Workspace", icon: Sparkles },
   { id: "actions", href: "/actions", label: "Actions", icon: Settings },
   { id: "history", href: "/runs", label: "History", icon: Activity },
   { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
@@ -61,7 +61,7 @@ const navItems: Array<{
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
   agent: "总览",
-  live: "当下工作",
+  live: "工作台",
   actions: "能力",
   history: "历史记录",
   results: "产出",
