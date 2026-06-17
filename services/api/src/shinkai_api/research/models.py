@@ -164,14 +164,26 @@ def classify_source_tier(
     return "tertiary"
 
 
-def source_reliability_score(tier: SourceTier, extracted: bool = False) -> float:
+def source_reliability_score(
+    tier: SourceTier, extracted: bool = False, is_aggregator: bool = False
+) -> float:
+    """Score a source on [0, 1]. ``is_aggregator`` discounts the score by a
+    constant factor — stocktitan / marketbeat / seekingalpha republish SEC
+    data and other people's reporting without adding original signal, so a
+    tertiary aggregator should not vote with the same weight as a tertiary
+    industry blog. Primary/secondary aggregators are rare in practice but
+    the discount still applies if flagged."""
     base = {
         "primary": 0.9,
         "secondary": 0.72,
         "tertiary": 0.56,
         "agent_inference": 0.2,
     }[tier]
-    return min(1.0, base + (0.05 if extracted and tier != "agent_inference" else 0.0))
+    bonus = 0.05 if extracted and tier != "agent_inference" else 0.0
+    score = min(1.0, base + bonus)
+    if is_aggregator and tier != "agent_inference":
+        score *= 0.7
+    return score
 
 
 class SourceRef(BaseModel):

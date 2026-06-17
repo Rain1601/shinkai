@@ -158,6 +158,23 @@ def test_source_tier_secondary_whitelist_extended() -> None:
     )
 
 
+def test_aggregator_discounts_reliability_below_clean_tertiary() -> None:
+    clean_tertiary = source_reliability_score("tertiary")
+    agg_tertiary = source_reliability_score("tertiary", is_aggregator=True)
+    # An aggregator (stocktitan / marketbeat / seekingalpha) must score below
+    # a regular tertiary blog — they republish without adding signal.
+    assert agg_tertiary < clean_tertiary
+    # ...and below the agent_inference floor would be silly — keep it above.
+    assert agg_tertiary > source_reliability_score("agent_inference")
+    # Multiplier applies to all real tiers, not agent_inference.
+    assert source_reliability_score("primary", is_aggregator=True) < source_reliability_score(
+        "primary"
+    )
+    assert source_reliability_score(
+        "agent_inference", is_aggregator=True
+    ) == source_reliability_score("agent_inference")
+
+
 def test_source_tier_aggregator_short_circuit() -> None:
     # Yahoo Finance is an aggregator, not a primary newsroom, despite the
     # "news.yahoo.com" subdomain that would otherwise trip _PRIMARY_URL_HINTS.

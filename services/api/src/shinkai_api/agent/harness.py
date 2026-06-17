@@ -1944,6 +1944,7 @@ class ShinkaiHarness:
             result_excerpt = excerpt if index == 1 else result_snippet or result_title
             tier = classify_source_tier("web", result_url, _publisher_from_url(result_url))
             extracted = index == 1 and bool(extracted_excerpt)
+            is_aggregator = bool(result.get("is_aggregator"))
             source = SourceRef(
                 source_id=_stable_id("source", result_url or result_title, layer.name),
                 type="web",
@@ -1951,14 +1952,17 @@ class ShinkaiHarness:
                 url=result_url,
                 title=result_title,
                 publisher=_publisher_from_url(result_url),
-                primary_source_flag=tier == "primary",
-                reliability=source_reliability_score(tier, extracted=extracted),
+                primary_source_flag=tier == "primary" and not is_aggregator,
+                reliability=source_reliability_score(
+                    tier, extracted=extracted, is_aggregator=is_aggregator
+                ),
                 metadata={
                     "run_id": run_id,
                     "layer": layer.name,
                     "query": query,
                     "rank": index,
                     "source_backed": True,
+                    "is_aggregator": is_aggregator,
                 },
             )
             record = Evidence(
@@ -2027,6 +2031,7 @@ class ShinkaiHarness:
                 continue
             publisher = _publisher_from_url(result_url)
             tier = classify_source_tier("web", result_url, publisher)
+            is_aggregator = bool(result.get("is_aggregator"))
             source = SourceRef(
                 source_id=_stable_id("source", "refute", result_url or result_title, layer.name),
                 type="web",
@@ -2034,14 +2039,15 @@ class ShinkaiHarness:
                 url=result_url,
                 title=result_title,
                 publisher=publisher,
-                primary_source_flag=tier == "primary",
-                reliability=source_reliability_score(tier),
+                primary_source_flag=tier == "primary" and not is_aggregator,
+                reliability=source_reliability_score(tier, is_aggregator=is_aggregator),
                 metadata={
                     "run_id": run_id,
                     "layer": layer.name,
                     "query": query,
                     "rank": index,
                     "polarity": "contradict",
+                    "is_aggregator": is_aggregator,
                 },
             )
             record = Evidence(
