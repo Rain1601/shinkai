@@ -20,6 +20,16 @@ from shinkai_api.core.config import bridge_env_to_market_utils, settings
 from shinkai_api.tools.base import Tool, ToolResult
 from shinkai_api.tools.source_filters import is_aggregator_source, is_noise_source
 
+# Order in which we try search backends when the caller asks for "auto", or
+# when the requested backend fails transiently. Mirrors market-utils' own
+# preference list so behaviour stays predictable across the stack.
+_FALLBACK_CHAIN: tuple[str, ...] = ("vertex_grounding", "tavily", "google", "duckduckgo")
+
+# Single-retry backoff for QuotaExceeded on the primary strategy. Vertex
+# returns 429 in bursts — one short sleep clears most of them; if it doesn't,
+# we fall back rather than spending more time waiting.
+_PRIMARY_QUOTA_BACKOFF_SECONDS = 1.0
+
 
 class WebSearchTool(Tool):
     name = "web_search"
@@ -57,41 +67,53 @@ class WebSearchTool(Tool):
 
         bridge_env_to_market_utils()
 
-        try:
-            engine = SearchEngine.from_env(strategy=strategy)  # type: ignore[arg-type]
-            raw_results = await engine.search(
-                query,
-                max_results=max_results,
-                date_restrict=date_restrict,
-                topic=topic,
-            )
-        except NotConfigured as exc:
+        attempt_order = _build_attempt_order(strategy)
+        attempts: list[dict[str, str]] = []
+        raw_results: list[Any] = []
+        engine_name = ""
+        for index, candidate in enumerate(attempt_order):
+            try:
+                engine_name, raw_results = await _run_strategy(
+                    candidate, query, max_results, date_restrict, topic
+                )
+                break
+            except QuotaExceeded as exc:
+                # Burst 429 on the primary clears with a short sleep often
+                # enough to be worth one retry before falling back.
+                if index == 0:
+                    await asyncio.sleep(_PRIMARY_QUOTA_BACKOFF_SECONDS)
+                    try:
+                        engine_name, raw_results = await _run_strategy(
+                            candidate, query, max_results, date_restrict, topic
+                        )
+                        break
+                    except (
+                        QuotaExceeded,
+                        NotConfigured,
+                        SearchTimeout,
+                        MarketUtilsError,
+                    ) as exc2:
+                        attempts.append(
+                            {"strategy": candidate, "error": f"retry_failed: {exc2}"}
+                        )
+                        continue
+                attempts.append({"strategy": candidate, "error": f"quota_exceeded: {exc}"})
+                continue
+            except NotConfigured as exc:
+                attempts.append({"strategy": candidate, "error": f"not_configured: {exc}"})
+                continue
+            except SearchTimeout as exc:
+                attempts.append({"strategy": candidate, "error": f"timeout: {exc}"})
+                continue
+            except MarketUtilsError as exc:
+                attempts.append({"strategy": candidate, "error": f"backend_error: {exc}"})
+                continue
+        else:
             return ToolResult(
                 ok=False,
-                error=str(exc),
-                summary=f"web search backend not configured ({strategy})",
-                data={"backend": strategy, "query": query},
-            )
-        except QuotaExceeded as exc:
-            return ToolResult(
-                ok=False,
-                error=str(exc),
-                summary=f"web search quota exceeded ({strategy})",
-                data={"backend": strategy, "query": query},
-            )
-        except SearchTimeout as exc:
-            return ToolResult(
-                ok=False,
-                error=str(exc),
-                summary=f"web search timed out ({strategy})",
-                data={"backend": strategy, "query": query},
-            )
-        except MarketUtilsError as exc:
-            return ToolResult(
-                ok=False,
-                error=str(exc),
-                summary=f"web search failed ({strategy})",
-                data={"backend": strategy, "query": query},
+                error="all configured search backends failed",
+                summary=f"web search exhausted {len(attempts)} backend(s) for: {query}",
+                data={"query": query, "attempts": attempts},
             )
 
         results: list[dict[str, Any]] = []
@@ -124,11 +146,41 @@ class WebSearchTool(Tool):
             data={
                 "query": query,
                 "results": results,
-                "backend": engine.strategy_name,
+                "backend": engine_name,
                 "noise_dropped": noise_dropped,
+                "attempts": attempts,
             },
             error=None if results else "no results",
         )
+
+
+def _build_attempt_order(strategy: str) -> list[str]:
+    """Return the ordered list of backends to try.
+
+    - "auto" → the default fallback chain in order
+    - explicit strategy → [strategy, then chain members excluding it]
+    """
+    if strategy == "auto":
+        return list(_FALLBACK_CHAIN)
+    fallback_tail = [s for s in _FALLBACK_CHAIN if s != strategy]
+    return [strategy, *fallback_tail]
+
+
+async def _run_strategy(
+    strategy: str,
+    query: str,
+    max_results: int,
+    date_restrict: str | None,
+    topic: str | None,
+) -> tuple[str, list[Any]]:
+    engine = SearchEngine.from_env(strategy=strategy)  # type: ignore[arg-type]
+    raw = await engine.search(
+        query,
+        max_results=max_results,
+        date_restrict=date_restrict,
+        topic=topic,
+    )
+    return engine.strategy_name, raw
 
 
 class WebExtractTool(Tool):
