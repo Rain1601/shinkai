@@ -39,12 +39,57 @@ printf '%s' '<strong-admin-token>' | gcloud secrets versions add shinkai-admin-t
 
 gcloud secrets create deepseek-api-key --replication-policy=automatic
 printf '%s' '<deepseek-api-key>' | gcloud secrets versions add deepseek-api-key --data-file=-
+
 ```
 
 Cloud Run receives them as:
 
 - `SHINKAI_ADMIN_TOKEN`
 - `SHINKAI_DEEPSEEK_API_KEY`
+
+### Web search (Vertex AI Grounding)
+
+The default deployment uses Vertex AI Gemini + Google Search Grounding
+(`SHINKAI_WEB_SEARCH_STRATEGY=vertex_grounding`) since the legacy Custom Search
+JSON API is closed to new GCP customers.
+
+Make sure the Cloud Run **runtime** service account has the following roles on
+your GCP project:
+
+```bash
+PROJECT_ID="<your-project>"
+RUNTIME_SA="$(gcloud iam service-accounts list \
+  --filter='displayName:Default compute service account' \
+  --format='value(email)' --project=$PROJECT_ID)"
+# Or use a dedicated runtime SA you created for shinkai-api.
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$RUNTIME_SA" \
+  --role="roles/aiplatform.user"
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$RUNTIME_SA" \
+  --role="roles/serviceusage.serviceUsageConsumer"
+```
+
+No service account JSON file is needed on Cloud Run — Application Default
+Credentials are picked up from the runtime SA automatically. Locally, point
+`SHINKAI_GOOGLE_APPLICATION_CREDENTIALS` at a SA JSON file.
+
+### Web search (legacy CSE — grandfathered customers only)
+
+If your project was created before Custom Search JSON API was closed, you can
+still use the old strategy:
+
+```bash
+gcloud secrets create google-search-api-key --replication-policy=automatic
+printf '%s' '<google-cse-api-key>' | gcloud secrets versions add google-search-api-key --data-file=-
+
+gcloud secrets create google-search-engine-id --replication-policy=automatic
+printf '%s' '<google-cse-cx>' | gcloud secrets versions add google-search-engine-id --data-file=-
+```
+
+Then set `SHINKAI_WEB_SEARCH_STRATEGY=google` and bind the two secrets in the
+Cloud Run env.
 
 For durable backend state, provision a Postgres-compatible database such as Cloud SQL for
 PostgreSQL and set `SHINKAI_DATABASE_URL` on the API service. When

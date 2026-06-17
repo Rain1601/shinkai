@@ -16,6 +16,7 @@ from market_utils.core.errors import (
 )
 from market_utils.search import SearchEngine
 
+from shinkai_api.core.config import bridge_env_to_market_utils, settings
 from shinkai_api.tools.base import Tool, ToolResult
 
 
@@ -29,13 +30,16 @@ class WebSearchTool(Tool):
             "max_results": {"type": "integer", "default": 3},
             "strategy": {
                 "type": "string",
-                "enum": ["auto", "google", "tavily", "duckduckgo"],
+                "enum": [
+                    "auto",
+                    "vertex_grounding",
+                    "google",
+                    "tavily",
+                    "duckduckgo",
+                ],
                 "default": "auto",
             },
-            "topic": {
-                "type": "string",
-                "enum": ["news"],
-            },
+            "topic": {"type": "string", "enum": ["news"]},
             "date_restrict": {"type": "string"},
         },
         "required": ["query"],
@@ -44,11 +48,13 @@ class WebSearchTool(Tool):
     async def run(self, **kwargs: Any) -> ToolResult:
         query = str(kwargs.get("query") or "").strip()
         max_results = int(kwargs.get("max_results") or 3)
-        strategy = str(kwargs.get("strategy") or "auto")
+        strategy = str(kwargs.get("strategy") or settings.web_search_strategy or "auto")
         topic = kwargs.get("topic") or None
         date_restrict = kwargs.get("date_restrict") or None
         if not query:
             return ToolResult(ok=False, error="query is required")
+
+        bridge_env_to_market_utils()
 
         try:
             engine = SearchEngine.from_env(strategy=strategy)  # type: ignore[arg-type]
@@ -87,8 +93,6 @@ class WebSearchTool(Tool):
                 data={"backend": strategy, "query": query},
             )
 
-        # Normalise to the shape the harness has always seen — keeps
-        # downstream evidence-building untouched.
         results = [
             {
                 "title": r.title,
@@ -100,11 +104,10 @@ class WebSearchTool(Tool):
             }
             for r in raw_results
         ]
-        backend = engine.strategy_name
         return ToolResult(
             ok=bool(results),
             summary=f"Found {len(results)} web result(s) for: {query}",
-            data={"query": query, "results": results, "backend": backend},
+            data={"query": query, "results": results, "backend": engine.strategy_name},
             error=None if results else "no results",
         )
 

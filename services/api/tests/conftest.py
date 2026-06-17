@@ -16,7 +16,24 @@ def isolated_state(monkeypatch, tmp_path):
     # accidentally start making real Tavily / DeepSeek requests just because
     # the dev .env happens to have them set. Individual tests that need a
     # backed call should monkeypatch the key back on explicitly.
+    monkeypatch.setattr(settings, "deepseek_api_key", None)
     monkeypatch.setattr(settings, "tavily_api_key", None)
+    monkeypatch.setattr(settings, "google_search_api_key", None)
+    monkeypatch.setattr(settings, "google_search_engine_id", None)
+    monkeypatch.setattr(settings, "web_search_strategy", "auto")
+    for key in (
+        "TAVILY_API_KEY",
+        "TAVILY_BASE_URL",
+        "GOOGLE_SEARCH_API_KEY",
+        "GOOGLE_SEARCH_ENGINE_ID",
+        "GOOGLE_CUSTOM_SEARCH_API_KEY",
+        "GOOGLE_CUSTOM_SEARCH_ENGINE_ID",
+        "MARKET_UTILS_TAVILY_API_KEY",
+        "MARKET_UTILS_GOOGLE_API_KEY",
+        "MARKET_UTILS_GOOGLE_ENGINE_ID",
+        "SHINKAI_DEEPSEEK_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
 
     from shinkai_api.actions.store import default_actions_store
     from shinkai_api.graph.store import default_graph_store

@@ -70,6 +70,38 @@ make api
 
 Without the key, the harness falls back to deterministic supply-chain layers.
 
+## Web Search Runtime
+
+The `web_search` tool supports four backends via `SHINKAI_WEB_SEARCH_STRATEGY`,
+all routed through the [`market-utils`](https://github.com/Rain1601/market-utils)
+package:
+
+1. **`vertex_grounding`** — Vertex AI Gemini + Google Search Grounding. This is
+   the supported successor to the legacy Custom Search JSON API (which Google
+   closed to new GCP projects in 2025). Recommended for any GCP project created
+   after that cutoff.
+2. **`tavily`** — Tavily search API (fast, cheap, good for news).
+3. **`google`** — Legacy Google Custom Search JSON API. Only works on
+   grandfathered customers/projects.
+4. **`duckduckgo`** — Free fallback, no key required.
+
+To use Vertex Grounding (recommended for new deployments):
+
+```bash
+# Service account JSON with roles/aiplatform.user + roles/serviceusage.serviceUsageConsumer
+export SHINKAI_GOOGLE_APPLICATION_CREDENTIALS="/path/to/sa.json"
+export SHINKAI_GOOGLE_CLOUD_PROJECT="your-gcp-project"
+export SHINKAI_GOOGLE_CLOUD_LOCATION="us-central1"
+export SHINKAI_VERTEX_MODEL="gemini-2.5-flash"
+export SHINKAI_WEB_SEARCH_STRATEGY="vertex_grounding"
+make api
+```
+
+When `allow_live_sources=true`, the harness will call `web_search` and
+`web_extract`. With `SHINKAI_WEB_SEARCH_STRATEGY=auto`, Shinkai picks the first
+configured backend in this order: `vertex_grounding` → `tavily` → `google`
+→ `duckduckgo`.
+
 ## Local State
 
 `make dev` writes run/event/graph state to `.shinkai/state.json`. Override it with:

@@ -11,7 +11,7 @@ dependencies = [
   "uvicorn[standard]>=0.30.0",
   "yfinance>=1.4.1",
   "pyjwt>=2.13.0",
-  "market-utils[google,tavily]",
+  "market-utils[google,tavily,vertex]",
 ]
 
 # market-utils is consumed from a private GitHub repo. Auth on dev

@@ -1,3 +1,5 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,8 +36,20 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     tavily_api_key: str | None = None
     tavily_base_url: str = "https://api.tavily.com"
+    # Legacy Google Custom Search JSON API — closed to new GCP projects;
+    # kept for grandfathered customers.
     google_search_api_key: str | None = None
     google_search_engine_id: str | None = None
+    # Vertex AI Grounding (Gemini + google_search tool) — the supported
+    # successor to CSE.
+    google_cloud_project: str | None = None
+    google_cloud_location: str = "us-central1"
+    google_application_credentials: str | None = None
+    vertex_model: str = "gemini-2.5-flash"
+    # Which web-search backend the WebSearchTool defaults to. "auto" lets
+    # market-utils pick the first configured one in its preference order
+    # (vertex_grounding → tavily → google → duckduckgo).
+    web_search_strategy: str = "auto"
     persistence_enabled: bool = True
     database_url: str | None = None
     persistence_json_fallback: bool = True
@@ -45,3 +59,37 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def bridge_env_to_market_utils() -> None:
+    """Mirror SHINKAI-prefixed search settings to market-utils env names."""
+
+    if settings.tavily_api_key and not os.environ.get("TAVILY_API_KEY"):
+        os.environ["TAVILY_API_KEY"] = settings.tavily_api_key
+    if settings.tavily_base_url:
+        os.environ.setdefault("TAVILY_BASE_URL", settings.tavily_base_url)
+
+    google_key = settings.google_search_api_key or os.environ.get(
+        "SHINKAI_GOOGLE_SEARCH_API_KEY"
+    )
+    google_cx = settings.google_search_engine_id or os.environ.get(
+        "SHINKAI_GOOGLE_SEARCH_ENGINE_ID"
+    )
+    if google_key and not os.environ.get("GOOGLE_SEARCH_API_KEY"):
+        os.environ["GOOGLE_SEARCH_API_KEY"] = google_key
+    if google_cx and not os.environ.get("GOOGLE_SEARCH_ENGINE_ID"):
+        os.environ["GOOGLE_SEARCH_ENGINE_ID"] = google_cx
+
+    # Vertex Grounding — project + ADC credentials + model + region
+    if settings.google_cloud_project and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+        os.environ["GOOGLE_CLOUD_PROJECT"] = settings.google_cloud_project
+    if settings.google_cloud_location:
+        os.environ.setdefault("GOOGLE_CLOUD_LOCATION", settings.google_cloud_location)
+    if settings.google_application_credentials and not os.environ.get(
+        "GOOGLE_APPLICATION_CREDENTIALS"
+    ):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+            settings.google_application_credentials
+        )
+    if settings.vertex_model:
+        os.environ.setdefault("MARKET_UTILS_VERTEX_MODEL", settings.vertex_model)

@@ -1,5 +1,3 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,37 +15,12 @@ from shinkai_api.api import (
     runs,
     themes,
 )
-from shinkai_api.core.config import settings
+from shinkai_api.core.config import bridge_env_to_market_utils, settings
 from shinkai_api.runs.executor import default_run_executor
 
 
-def _bridge_env_to_market_utils() -> None:
-    """Mirror SHINKAI_-prefixed search keys to the names market-utils expects.
-
-    market-utils reads ``TAVILY_API_KEY`` / ``GOOGLE_SEARCH_API_KEY`` etc.
-    directly from os.environ. shinkai loads its config via pydantic-settings
-    with the ``SHINKAI_`` prefix. Bridge them once at boot so the package
-    can find keys without us re-implementing settings loading.
-    """
-    if settings.tavily_api_key and not os.environ.get("TAVILY_API_KEY"):
-        os.environ["TAVILY_API_KEY"] = settings.tavily_api_key
-    if settings.tavily_base_url:
-        os.environ.setdefault("TAVILY_BASE_URL", settings.tavily_base_url)
-
-    google_key = getattr(settings, "google_search_api_key", None) or os.environ.get(
-        "SHINKAI_GOOGLE_SEARCH_API_KEY"
-    )
-    google_cx = getattr(settings, "google_search_engine_id", None) or os.environ.get(
-        "SHINKAI_GOOGLE_SEARCH_ENGINE_ID"
-    )
-    if google_key and not os.environ.get("GOOGLE_SEARCH_API_KEY"):
-        os.environ["GOOGLE_SEARCH_API_KEY"] = google_key
-    if google_cx and not os.environ.get("GOOGLE_SEARCH_ENGINE_ID"):
-        os.environ["GOOGLE_SEARCH_ENGINE_ID"] = google_cx
-
-
 def create_app() -> FastAPI:
-    _bridge_env_to_market_utils()
+    bridge_env_to_market_utils()
     app = FastAPI(
         title="Shinkai API",
         version="1.0.0",

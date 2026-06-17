@@ -139,6 +139,10 @@ jobs:
             SHINKAI_ENV=production
             SHINKAI_AUTH_REQUIRED=true
             SHINKAI_CORS_ORIGIN_REGEX=https://.*\.run\.app
+            SHINKAI_WEB_SEARCH_STRATEGY=vertex_grounding
+            SHINKAI_GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            SHINKAI_GOOGLE_CLOUD_LOCATION=${{ env.REGION }}
+            SHINKAI_VERTEX_MODEL=gemini-2.5-flash
             SHINKAI_STATE_PATH=/tmp/shinkai-state.json
           secrets: |-
             SHINKAI_ADMIN_TOKEN=shinkai-admin-token:latest
