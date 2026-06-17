@@ -93,3 +93,14 @@ def bridge_env_to_market_utils() -> None:
         )
     if settings.vertex_model:
         os.environ.setdefault("MARKET_UTILS_VERTEX_MODEL", settings.vertex_model)
+
+    # Forward NOISE_DOMAINS to Vertex's exclude_domains so Google drops them
+    # before grounding, not after we waste a slot on them. Imported lazily to
+    # avoid a tools → core circular import.
+    if not os.environ.get("MARKET_UTILS_VERTEX_EXCLUDE_DOMAINS"):
+        from shinkai_api.tools.source_filters import NOISE_DOMAINS
+
+        if NOISE_DOMAINS:
+            os.environ["MARKET_UTILS_VERTEX_EXCLUDE_DOMAINS"] = ",".join(
+                sorted(NOISE_DOMAINS)
+            )

@@ -478,7 +478,7 @@ wheels = [
 [[package]]
 name = "market-utils"
 version = "0.1.0"
-source = { git = "https://github.com/Rain1601/market-utils.git?rev=main#61233349caed02ed743063332e541a06d2cab397" }
+source = { git = "https://github.com/Rain1601/market-utils.git?rev=main#aa438c98d8c2d16bf0791b1b64915349e81bf306" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
