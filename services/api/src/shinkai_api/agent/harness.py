@@ -2362,9 +2362,25 @@ def _looks_contradictory(text: str) -> bool:
 
 
 def _first_result_url(result: ToolResult) -> str:
+    """Pick the URL to send through web_extract.
+
+    Prefers the first non-aggregator result so we don't waste an extract
+    call on stocktitan / marketbeat / seekingalpha rewrites. Falls back to
+    results[0] when every result is flagged as aggregator (still better to
+    extract something than nothing). Noise sources never appear here —
+    they are dropped earlier in WebSearchTool.
+    """
     results = result.data.get("results", [])
     if not result.ok or not isinstance(results, list) or not results:
         return ""
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("is_aggregator"):
+            continue
+        url = str(entry.get("url") or "").strip()
+        if url:
+            return url
     first = results[0]
     if not isinstance(first, dict):
         return ""
