@@ -77,6 +77,68 @@ def classify_claim_status(
     return "unsupported"
 
 
+# Corporate-primary subdomain prefixes and path fragments. Matched only after
+# the secondary publisher whitelist below, so news.bloomberg.com (hypothetical)
+# still gets secondary not primary.
+_PRIMARY_URL_HINTS: tuple[str, ...] = (
+    "sec.gov",
+    "investor.",
+    "investors.",
+    "ir.",
+    "news.",
+    "newsroom.",
+    "press.",
+    "media.",
+    "/investor-relations/",
+    "/investors/",
+    "/press-releases/",
+    "/press-release/",
+    "/news-releases/",
+    "/newsroom/",
+    "/press/",
+)
+
+# Trusted second-tier publishers: major financial press + specialty trade press.
+# Bare domain stems — match against publisher string OR url host. Used both to
+# classify direct hits AND to short-circuit the corporate-primary check so
+# "press.<publisher>" doesn't slip into primary.
+_SECONDARY_PUBLISHER_HINTS: tuple[str, ...] = (
+    # Major financial press
+    "reuters",
+    "bloomberg",
+    "wsj.com",
+    "ft.com",
+    "nytimes",
+    "cnbc",
+    "barrons",
+    "marketwatch",
+    "economist",
+    "nikkei",
+    "caixin",
+    "caixinglobal",
+    "scmp",
+    # Specialty trade / industry research
+    "semianalysis",
+    "semiengineering",
+    "digitimes",
+    "trendforce",
+    "idc.com",
+    "gartner.com",
+    "anandtech",
+    "tomshardware",
+)
+
+# Aggregators / portals that have news.* or press.* subdomains but are NOT
+# corporate primary. Forces them down to tertiary even though their URL would
+# otherwise trip the _PRIMARY_URL_HINTS check.
+_TERTIARY_AGGREGATOR_HINTS: tuple[str, ...] = (
+    "yahoo",
+    "msn.com",
+    "aol.com",
+    "google.com/finance",
+)
+
+
 def classify_source_tier(
     source_type: SourceType,
     url: str = "",
@@ -84,15 +146,20 @@ def classify_source_tier(
 ) -> SourceTier:
     url_lower = url.lower()
     publisher_lower = publisher.lower()
+    haystack = f"{publisher_lower} {url_lower}"
     if source_type == "manual":
         return "agent_inference"
     if source_type in {"sec", "filing", "transcript", "ir", "dataset"}:
         return "primary"
-    if "sec.gov" in url_lower or "investor" in url_lower or "ir." in url_lower:
+    if "sec.gov" in url_lower:
+        return "primary"
+    if any(name in haystack for name in _SECONDARY_PUBLISHER_HINTS):
+        return "secondary"
+    if any(name in haystack for name in _TERTIARY_AGGREGATOR_HINTS):
+        return "tertiary"
+    if any(hint in url_lower for hint in _PRIMARY_URL_HINTS):
         return "primary"
     if source_type in {"news", "research_report"}:
-        return "secondary"
-    if any(name in publisher_lower for name in ["reuters", "bloomberg", "wsj", "ft.com"]):
         return "secondary"
     return "tertiary"
 

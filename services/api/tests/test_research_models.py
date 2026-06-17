@@ -111,6 +111,71 @@ def test_source_tier_and_reliability_helpers() -> None:
     )
 
 
+def test_source_tier_corporate_newsroom_is_primary() -> None:
+    # Corporate newsroom subdomains — the SK Hynix-style case that surfaced
+    # during the 2026-06-17 Vertex Grounding quality eval.
+    assert (
+        classify_source_tier("web", "https://news.skhynix.com/2026-market-outlook/", "news.skhynix.com")
+        == "primary"
+    )
+    assert (
+        classify_source_tier("web", "https://newsroom.intel.com/foo", "newsroom.intel.com")
+        == "primary"
+    )
+    assert (
+        classify_source_tier("web", "https://press.nvidia.com/release/x", "press.nvidia.com")
+        == "primary"
+    )
+    assert (
+        classify_source_tier("web", "https://ontoinnovation.com/news-releases/x", "ontoinnovation.com")
+        == "primary"
+    )
+    assert (
+        classify_source_tier("web", "https://camtek.com/investor-relations/", "camtek.com")
+        == "primary"
+    )
+
+
+def test_source_tier_secondary_whitelist_extended() -> None:
+    # Major financial press besides Reuters/Bloomberg/WSJ/FT.
+    assert (
+        classify_source_tier("web", "https://www.cnbc.com/2026/06/x", "cnbc.com") == "secondary"
+    )
+    assert (
+        classify_source_tier("web", "https://asia.nikkei.com/x", "Nikkei Asia") == "secondary"
+    )
+    assert (
+        classify_source_tier("web", "https://www.caixinglobal.com/x", "Caixin Global") == "secondary"
+    )
+    # Specialty industry trade press.
+    assert (
+        classify_source_tier(
+            "web", "https://semianalysis.com/p/hbm-supply", "SemiAnalysis"
+        )
+        == "secondary"
+    )
+    assert (
+        classify_source_tier("web", "https://www.digitimes.com/news/x", "Digitimes") == "secondary"
+    )
+    assert (
+        classify_source_tier("web", "https://www.trendforce.com/press/x", "TrendForce")
+        == "secondary"
+    )
+
+
+def test_source_tier_aggregator_short_circuit() -> None:
+    # Yahoo Finance is an aggregator, not a primary newsroom, despite the
+    # "news.yahoo.com" subdomain that would otherwise trip _PRIMARY_URL_HINTS.
+    assert (
+        classify_source_tier("web", "https://news.yahoo.com/some-story", "news.yahoo.com")
+        == "tertiary"
+    )
+    assert (
+        classify_source_tier("web", "https://finance.yahoo.com/quote/NVDA", "finance.yahoo.com")
+        == "tertiary"
+    )
+
+
 def test_claim_assessment_requires_source_quality_and_tracks_stale_sources() -> None:
     now = 2_000_000_000.0
     primary = SourceRef(
