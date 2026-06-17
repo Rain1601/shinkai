@@ -114,10 +114,8 @@ def test_source_tier_and_reliability_helpers() -> None:
 def test_source_tier_corporate_newsroom_is_primary() -> None:
     # Corporate newsroom subdomains — the SK Hynix-style case that surfaced
     # during the 2026-06-17 Vertex Grounding quality eval.
-    assert (
-        classify_source_tier("web", "https://news.skhynix.com/2026-market-outlook/", "news.skhynix.com")
-        == "primary"
-    )
+    skhynix_url = "https://news.skhynix.com/2026-market-outlook/"
+    assert classify_source_tier("web", skhynix_url, "news.skhynix.com") == "primary"
     assert (
         classify_source_tier("web", "https://newsroom.intel.com/foo", "newsroom.intel.com")
         == "primary"
@@ -126,10 +124,8 @@ def test_source_tier_corporate_newsroom_is_primary() -> None:
         classify_source_tier("web", "https://press.nvidia.com/release/x", "press.nvidia.com")
         == "primary"
     )
-    assert (
-        classify_source_tier("web", "https://ontoinnovation.com/news-releases/x", "ontoinnovation.com")
-        == "primary"
-    )
+    onto_url = "https://ontoinnovation.com/news-releases/x"
+    assert classify_source_tier("web", onto_url, "ontoinnovation.com") == "primary"
     assert (
         classify_source_tier("web", "https://camtek.com/investor-relations/", "camtek.com")
         == "primary"
@@ -144,9 +140,8 @@ def test_source_tier_secondary_whitelist_extended() -> None:
     assert (
         classify_source_tier("web", "https://asia.nikkei.com/x", "Nikkei Asia") == "secondary"
     )
-    assert (
-        classify_source_tier("web", "https://www.caixinglobal.com/x", "Caixin Global") == "secondary"
-    )
+    caixin_url = "https://www.caixinglobal.com/x"
+    assert classify_source_tier("web", caixin_url, "Caixin Global") == "secondary"
     # Specialty industry trade press.
     assert (
         classify_source_tier(
