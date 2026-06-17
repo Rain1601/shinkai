@@ -1,56 +1,69 @@
 # Vertex AI 搜索范围控制 — 能力边界 & shinkai 选型
 
-> **TL;DR** — Grounding with Google Search(我们现在用的)**不支持**任何结构化搜索范围控制;真正能控制范围的是 **Agent Search**(原名 Vertex AI Search),两者是不同产品、不同 API、不同计费,不要混淆。本文档锁定 2026-06-17 的官方文档口径,作为后续做 SEC 一手资料检索的设计前提。
+> **TL;DR**(2026-06-18 修订)— Grounding with Google Search 现在**支持 `exclude_domains` 黑名单**(2026 年新增),但**仍然没有原生 allowlist**;真正的 allowlist 走 **Agent Search**(原名 Vertex AI Search)。关键修正:**Agent Search basic indexing 不需要域名验证**,可以指向 WSJ / Bloomberg / Reuters 这种第三方域 — 之前文档说"第三方域走不通"是错的。
 
-## 1. 两个产品的根本区别
+## 修订记录
 
-| | **Grounding with Google Search** | **Agent Search**(原 Vertex AI Search) |
-|---|---|---|
-| 我们用没用 | ✅ 已用于 `web_search` 工具 | ❌ 还没接 |
-| 后端 | 公开 web,Google 自己跑搜索 | 自建 data store(网站 / GCS / BigQuery / etc.) |
-| API | Gemini `generateContent` 里的 `tools: [{google_search: {}}]` | Discovery Engine API(`TargetSite`、`Document`) |
-| 范围控制 | ❌ **零配置字段** | ✅ INCLUDE / EXCLUDE URL 模式 |
-| 时效控制 | ⚠️ 只能 prompt 软引导 | ✅ 可按 metadata 过滤(publication_date 等) |
-| 域名验证 | 不需要 | ⚠️ Advanced indexing 需要 GSC 域名验证 |
-| 计费 | ~$0.04 / search | 存储 + 查询双向计费 |
-| 适用场景 | 通用 web 趋势、新闻发现 | 自己拥有 / 可验证的语料(SEC、内部 PDF) |
+- **2026-06-17 v1**:初版,基于"grounding 完全无范围控制 + Agent Search 第三方域需验证"两个错误假设。
+- **2026-06-18 v2**:纠正两处:
+  - grounding 新增 `exclude_domains` 字段(Python SDK `GoogleSearch(exclude_domains=[...])`)
+  - Agent Search basic indexing 走第三方域**不需要 GSC 验证**;只有 advanced indexing 需要
+- 同时新增第三方 grounding 后端(Exa、Parallel)的说明。
 
-## 2. Grounding with Google Search — 没办法控制范围
+## 1. 三种搜索后端对比
 
-官方文档(`ai.google.dev/gemini-api/docs/google-search` + `docs.cloud.google.com/vertex-ai/.../grounding-with-google-search`)实证:
+| | **Grounding · Google Search** | **Agent Search · basic indexing** | **Agent Search · advanced indexing** |
+|---|---|---|---|
+| 我们用没用 | ✅ `web_search` 工具 | 计划中(本次新增) | 计划中(SEC 一手) |
+| 后端 | 公开 web,Google 自跑 | 你给的 URL 模式列表,Google 抓 | 同左 + AI 摘要 / 跟进 |
+| **域名 allowlist** | ❌ 仍无 | ✅ 最多 50 个 URL pattern | ✅ 同左 |
+| **域名 blacklist** | ✅ `exclude_domains` ← **新** | ✅ EXCLUDE TargetSite | ✅ 同左 |
+| 拥有域名要求 | 无 | **无** ← 关键纠正 | 需 GSC 验证 |
+| AI 摘要 / 跟进 | grounding 自带 | ❌ 无 | ✅ 有 |
+| 计费 | ~$0.04 / search | 存储 + 查询 | 存储 + 查询(更贵) |
+| 适用场景 | 通用 web,加黑名单剔噪 | **WSJ / Bloomberg / Reuters 这种第三方质量站** | 自有 / 可验证语料(自家产品、SEC.gov 这种公共域) |
+
+> 此外 Google 还新出了 **Grounding with Exa** 和 **Grounding with Parallel** 两个替代 grounding 后端,都带 `EXCLUDE_DOMAINS`。shinkai 暂不考虑,记一笔作为备选。
+
+## 2. Grounding with Google Search — 有 `exclude_domains`,无 allowlist
+
+### 2.1 新增的 `exclude_domains` 字段
+
+2026 年 Vertex AI 的 google_search 工具新增了 `exclude_domains: list[str]` 配置:
+
+```python
+# Python google-genai SDK
+Tool(google_search=GoogleSearch(exclude_domains=["holdingschannel.com", "kucoin.com"]))
+```
 
 ```json
+// REST body
 {
   "contents": [{"role": "user", "parts": [{"text": "..."}]}],
-  "tools": [{"google_search": {}}]
+  "tools": [{"google_search": {"exclude_domains": ["holdingschannel.com", "kucoin.com"]}}]
 }
 ```
 
-`google_search` 工具的 body 就是空对象 `{}`。**没有**任何下列字段:
+**Google 在搜索前就跳过这些域名**,不是事后过滤,所以完全不消耗 grounding 分位。
 
-- ❌ `siteSearch` / `allowed_domains` / `blocked_domains`
-- ❌ `dateRestrict` / `timeRange`
+仍然没有的字段(社区在催 allowlist,Google 暂未加):
+
+- ❌ `siteSearch` / `allowed_domains` / `include_domains`
+- ❌ `dateRestrict` / `timeRange`(只能 prompt)
 - ❌ `language` / `country` / `region`
-- ❌ `safeSearch`(注:CSE 之前有,grounding 没有)
+- ❌ `safeSearch`
 
-Gemini 自己决定怎么搜、用哪些 region、读哪些站点 — 调用方完全不可控。
+### 2.2 软引导仍然有用(锦上添花)
 
-### 2.1 唯一的"软"范围引导
+`exclude_domains` 是结构化的,但要"偏向 SEC / Bloomberg / Reuters"还是只能软引导:
 
-shinkai 现在用的就是软引导:
+- **prompt 端**:harness 的 `_evidence_query` / `_contradiction_query` 已经加了 `_SOURCE_QUALITY_HINT`(commit `ae5ae49`)
+- **`date_restrict`**(`d7` / `m6` / `y2`):仍然是 prompt 自然语言塞入
+- **Python 端 noise filter + dedup + aggregator 降权**:`tools/source_filters.py`(`6295520`)+ `source_reliability_score(is_aggregator=...)`(`25ec039`)
 
-- **`date_restrict`**(`d7` / `m6` / `y2`):`market_utils/search/vertex_grounding.py::_date_restrict_phrase` 把它翻译成自然语言塞 prompt(`"from the past 7 days"`),Gemini "尽量"遵守
-- **`topic="news"`**:同样只是 prompt 里加 `" news items"`
-- **`region`**:参数还在签名上,但实现里直接 `del region`,Gemini 自己定
+### 2.3 `site:` 操作符不能用
 
-### 2.2 如果要加"软"域名引导(轻量级方案)
-
-不改 `market-utils`、不引入新产品,**两步可落地**:
-
-1. **Prompt 端引导** — `_pass1_search` 的 prompt 拼一行:`"Prefer results from these publishers: sec.gov, bloomberg.com, reuters.com, ft.com, wsj.com."`
-2. **Python 端 whitelist 兜底** — `_pass2_structure` 返回后,用 `_domain_of(url)` 做白名单/黑名单过滤,Gemini "叛逃"的结果直接丢
-
-代价几乎为零;不能 100% 保证(Gemini 偶尔会塞 SeekingAlpha 之类),所以 whitelist 兜底是必须的。
+实测把 `site:wsj.com OR site:bloomberg.com` 塞进 query 给 Vertex grounding → **0 结果**。Gemini 的 `google_search` 工具不像浏览器 Google 那样吃这个语法,直接判空。
 
 ## 3. Agent Search — 真正的范围控制
 
@@ -91,9 +104,9 @@ Console 里对应字段名是 **"Sites to include"** / **"Sites to exclude"**。
 - ✅ **通配符**:`example.com/docs/*` 合法
 - ⚠️ **EXCLUDE 优先于 INCLUDE**:`include example.com/docs/*` + `exclude example.com` → 索引为空(EXCLUDE 杀掉了所有)。规划时把 EXCLUDE 写小、INCLUDE 写大。
 - ⚠️ **不要带 `http://` / `https://` 前缀**,API 会报错
-- ⚠️ **Advanced indexing 需要域名验证**(走 Google Search Console 那套 TXT / Meta tag 流程):你要拥有 / 能管理这个域才能开。
-- ⚠️ **Basic indexing 不需要域名验证**,但功能受限(没有 metadata boost、generative answer 等)
-- ⚠️ 结果:**第三方域(bloomberg.com、reuters.com)走不了 Agent Search**,因为我们不拥有这些域 — 这是这条路线的硬上限。
+- ✅ **Basic indexing 不需要域名验证** ← **关键事实(2026-06-18 纠正)**:可以指向 wsj.com / bloomberg.com / reuters.com 等任何第三方域,但需要在 console 里**显式关掉 Advanced indexing**。功能差异是少了 AI 摘要 / follow-up — shinkai 本来就在 harness 那边做摘要,这些 grounding 自带的功能不重要。
+- ⚠️ **Advanced indexing 才需要域名验证**(GSC 的 TXT / Meta tag):走 advanced 时你要拥有 / 能管理这个域。
+- ✅ **第三方域 allowlist 是这条路线的核心价值**:WSJ / Bloomberg / Reuters / CNBC / FT 这种最高质量站,Mode A 公司深研的"硬目标"。最多 **50 个 URL pattern / data store**。
 
 ### 3.3 范围之外的过滤
 
@@ -103,35 +116,54 @@ INCLUDE/EXCLUDE 是入索引前的粗筛。查询时还可以:
 - **boost**:按 freshness / metadata 加权,不丢结果但调排序
 - **结构化字段**:对 BigQuery / 自定义 schema data store 可以 SQL-like where
 
-## 4. shinkai 的实际选型矩阵
+## 4. shinkai 的实际选型矩阵(2026-06-18 修订)
 
-| 场景 | 后端 | 范围控制方式 |
-|---|---|---|
-| Mode B 公共面发现(theme → 公司) | `google_search` grounding | Prompt 引导 + Python whitelist(SEC / 主流财经) |
-| 新闻 / 趋势刷新 | `google_search` grounding | `date_restrict` + topic="news" |
-| **SEC 10-K / 10-Q 一手资料** | **Agent Search**(`sec.gov/*`) | INCLUDE = `sec.gov/Archives/edgar/data/*`,EXCLUDE = `sec.gov/cgi-bin/*` |
-| 分析师 PDF / 内部研究文档 | Agent Search(GCS unstructured) | 用文件夹组织,metadata 加 source/date |
-| 第三方付费数据(Bloomberg API 等) | 走对应 vendor SDK | 不要硬塞 Agent Search |
+| 场景 | 后端 | 范围控制方式 | 状态 |
+|---|---|---|---|
+| Mode B 公共面发现(theme → 公司) | `google_search` grounding | **`exclude_domains=NOISE_DOMAINS`** + prompt 引导 + Python aggregator 降权 | 部分上(R1+R2+source_filters),exclude_domains 待接 |
+| 新闻 / 趋势刷新(theme ingestion) | `google_search` grounding | 同上 + `date_restrict` | 同上 |
+| **Mode A 公司深研 — 高质量第三方报道** | **Agent Search basic indexing** | INCLUDE `wsj.com/* bloomberg.com/* reuters.com/* cnbc.com/* ft.com/*` | **新增能力,本次实施** |
+| **SEC 10-K / 10-Q 一手资料** | **Agent Search basic indexing** | INCLUDE `sec.gov/Archives/edgar/data/*` 或直接走 EDGAR API | 仍未上,Mode A 启动时再做 |
+| 分析师 PDF / 内部研究文档 | Agent Search GCS unstructured | 用文件夹组织,metadata 加 source/date | 还远 |
 
-**第一性原则**:Agent Search 适合你**拥有 / 能拿到原始字节**的语料;`google_search` grounding 适合**只能读公开 web**的语料。第三方域(bloomberg.com 等)只能走 grounding 软引导 + whitelist 兜底,这是产品边界,不是配置问题。
+**第一性原则修订版**:`google_search` grounding 适合**广撒网 + 黑名单剔噪音**;Agent Search basic indexing 适合**白名单锁定高质量源**(无论你是否拥有那些域)。两条路线在 shinkai 是互补,不是替代关系。
 
-## 5. 后续如果要接 Agent Search
+## 5. 实施路径
 
-实施路径(等到 Mode A 需要硬控 SEC 范围时再做,V0 不上):
+### 5.1 grounding 加 `exclude_domains`(Step 2-3,小)
 
-1. 在 `shinkai-research` 项目里启用 Discovery Engine API
+- `market-utils` 的 `VertexGroundingSettings` 加 `exclude_domains: list[str]`
+- `VertexGroundingStrategy._pass1_search` 透传到 body `tools[0].google_search.exclude_domains`
+- shinkai 端 `bridge_env_to_market_utils` 把 `NOISE_DOMAINS` 透传过去
+- 同时保留 `tools/web.py` 的 Python 端 noise filter(兜底,防 `.net` vs `.com` 漏)
+
+### 5.2 Agent Search premium data store(Step 4-5,中)
+
+一次性 setup(`scripts/provision-premium-data-store.py`,需 admin 手动跑):
+
+1. 启用 Discovery Engine API
 2. SA 加 `roles/discoveryengine.editor`
-3. 新建 website data store,collection 名 `sec-primary`,INCLUDE `sec.gov/Archives/edgar/data/*`
-4. 走 GSC 验证 `sec.gov`(注:这个我们没法验证,SEC 不会给我们域名权限)
-5. → **改走 Basic indexing**(无验证,功能受限),或
-6. → **直接用 EDGAR submissions endpoint 抓 10-K JSON,自己 ingest 进 unstructured data store**(更可控,推荐)
+3. 新建 website data store `premium-news`
+4. **关闭 Advanced indexing**(关键 — 否则 wsj.com 这种第三方域要求验证)
+5. TargetSite INCLUDE:`wsj.com/*` `bloomberg.com/*` `reuters.com/*` `cnbc.com/*` `ft.com/*` `nytimes.com/*` `economist.com/*`(7-10 个起步,留扩展空间到 50)
+6. 记下 `data_store_id`,写进 `SHINKAI_AGENT_SEARCH_DATA_STORE_ID`
 
-`tools/ticker_validator.py::SEC_USER_AGENT` 已经具备走 EDGAR 的能力,Agent Search 集成本质上是"在 EDGAR 抓取之上加一层 indexed full-text retrieval",和现在的 `sec_filings` 工具是补集,不是替代。
+代码侧:
 
-## 6. Sources(官方文档,2026-06-17)
+- `market-utils` 新 strategy `AgentSearchStrategy`
+- `shinkai_api/tools/web.py` 暴露 `strategy="agent_search_premium"`
+- harness Mode A 走深研时切到这条路径(后续单独 commit)
 
-- [Grounding with Google Search — Vertex AI](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/grounding/grounding-with-google-search)
-- [Grounding with Google Search — Gemini API](https://ai.google.dev/gemini-api/docs/google-search) — 实证 `google_search` 配置为空对象
+### 5.3 SEC 一手资料(后续,不在本次实施)
+
+`sec.gov` 走 Agent Search basic indexing 不需要验证(SEC 不会给我们 GSC 权限,但 basic 不需要),或者继续用现有 `sec_filings` 工具走 EDGAR API。两条路都可行,等 Mode A 真正接触 SEC 文档时再决定。
+
+## 6. Sources
+
+- [google_search tool with exclude_domains — Vertex AI SDK sample](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/samples/googlegenaisdk-tools-google-search-with-txt) — 2026 新增字段,实证 `GoogleSearch(exclude_domains=[...])` 形状
+- [Grounding with Google Search — Gemini API](https://ai.google.dev/gemini-api/docs/google-search) — google_search 主页
+- [Migrate from CSE Site Restricted to Agent Search](https://docs.cloud.google.com/generative-ai-app-builder/docs/migrate-from-cse) — 旧 CSE 的官方迁移路径,**确认 basic indexing 不需要验证**
 - [Create a search data store — Agent Search](https://docs.cloud.google.com/generative-ai-app-builder/docs/create-data-store-es) — `TargetSite` API 形状
-- [Turn on advanced website indexing — Agent Search](https://docs.cloud.google.com/generative-ai-app-builder/docs/turn-on-advanced-indexing) — 域名验证要求
-- [Site search from Vertex AI — overview](https://cloud.google.com/use-cases/site-search)
+- [Turn on advanced website indexing — Agent Search](https://docs.cloud.google.com/generative-ai-app-builder/docs/turn-on-advanced-indexing) — advanced indexing 的域名验证要求
+- [Grounding with Exa web search (alt backend)](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/grounding/grounding-with-exa) — 替代 grounding 后端,带 EXCLUDE_DOMAINS
+- [Grounding with Parallel web search (alt backend)](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/grounding/grounding-with-parallel) — 另一个替代,同上
