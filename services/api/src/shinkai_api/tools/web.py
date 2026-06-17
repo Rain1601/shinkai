@@ -18,6 +18,7 @@ from market_utils.search import SearchEngine
 
 from shinkai_api.core.config import bridge_env_to_market_utils, settings
 from shinkai_api.tools.base import Tool, ToolResult
+from shinkai_api.tools.source_filters import is_aggregator_source, is_noise_source
 
 
 class WebSearchTool(Tool):
@@ -93,21 +94,39 @@ class WebSearchTool(Tool):
                 data={"backend": strategy, "query": query},
             )
 
-        results = [
-            {
-                "title": r.title,
-                "url": r.url,
-                "snippet": r.snippet,
-                "source": r.source,
-                "published_at": r.published_at,
-                "score": (str(r.score) if r.score is not None else ""),
-            }
-            for r in raw_results
-        ]
+        results: list[dict[str, Any]] = []
+        seen_urls: set[str] = set()
+        noise_dropped = 0
+        for r in raw_results:
+            url_l = (r.url or "").strip().lower()
+            if not url_l or url_l in seen_urls:
+                # Vertex Grounding pass-2 occasionally returns the same SEO
+                # page multiple times — drop exact-URL duplicates.
+                continue
+            if is_noise_source(r.url, r.source or ""):
+                noise_dropped += 1
+                continue
+            seen_urls.add(url_l)
+            results.append(
+                {
+                    "title": r.title,
+                    "url": r.url,
+                    "snippet": r.snippet,
+                    "source": r.source,
+                    "published_at": r.published_at,
+                    "score": (str(r.score) if r.score is not None else ""),
+                    "is_aggregator": is_aggregator_source(r.url, r.source or ""),
+                }
+            )
         return ToolResult(
             ok=bool(results),
             summary=f"Found {len(results)} web result(s) for: {query}",
-            data={"query": query, "results": results, "backend": engine.strategy_name},
+            data={
+                "query": query,
+                "results": results,
+                "backend": engine.strategy_name,
+                "noise_dropped": noise_dropped,
+            },
             error=None if results else "no results",
         )
 
