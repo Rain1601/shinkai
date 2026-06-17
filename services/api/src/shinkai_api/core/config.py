@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     google_cloud_location: str = "us-central1"
     google_application_credentials: str | None = None
     vertex_model: str = "gemini-2.5-flash"
+    # Agent Search (Discovery Engine) premium-publisher data store. Used by
+    # the WebSearchTool when callers explicitly request strategy="agent_search"
+    # — typically Mode A deep research where we want results from WSJ /
+    # Bloomberg / Reuters / CNBC / FT instead of public web noise. The data
+    # store is provisioned once via scripts/provision-premium-data-store.py.
+    agent_search_project: str | None = None
+    agent_search_location: str = "global"
+    agent_search_data_store_id: str | None = None
+    agent_search_serving_config: str = "default_search"
     # Which web-search backend the WebSearchTool defaults to. "auto" lets
     # market-utils pick the first configured one in its preference order
     # (vertex_grounding → tavily → google → duckduckgo).
@@ -104,3 +113,25 @@ def bridge_env_to_market_utils() -> None:
             os.environ["MARKET_UTILS_VERTEX_EXCLUDE_DOMAINS"] = ",".join(
                 sorted(NOISE_DOMAINS)
             )
+
+    # Agent Search premium publisher allowlist — only forwarded when the
+    # caller's set the data store. The project falls back to the general
+    # google_cloud_project if a dedicated one isn't given.
+    agent_project = settings.agent_search_project or settings.google_cloud_project
+    if agent_project and not os.environ.get("MARKET_UTILS_AGENT_SEARCH_PROJECT"):
+        os.environ["MARKET_UTILS_AGENT_SEARCH_PROJECT"] = agent_project
+    if settings.agent_search_location:
+        os.environ.setdefault(
+            "MARKET_UTILS_AGENT_SEARCH_LOCATION", settings.agent_search_location
+        )
+    if settings.agent_search_data_store_id and not os.environ.get(
+        "MARKET_UTILS_AGENT_SEARCH_DATA_STORE"
+    ):
+        os.environ["MARKET_UTILS_AGENT_SEARCH_DATA_STORE"] = (
+            settings.agent_search_data_store_id
+        )
+    if settings.agent_search_serving_config:
+        os.environ.setdefault(
+            "MARKET_UTILS_AGENT_SEARCH_SERVING_CONFIG",
+            settings.agent_search_serving_config,
+        )

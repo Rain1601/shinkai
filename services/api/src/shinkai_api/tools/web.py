@@ -44,6 +44,7 @@ class WebSearchTool(Tool):
                 "enum": [
                     "auto",
                     "vertex_grounding",
+                    "agent_search",
                     "google",
                     "tavily",
                     "duckduckgo",

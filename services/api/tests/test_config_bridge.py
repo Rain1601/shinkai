@@ -33,3 +33,19 @@ def test_bridge_respects_existing_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MARKET_UTILS_VERTEX_EXCLUDE_DOMAINS", "custom-noise.com")
     bridge_env_to_market_utils()
     assert os.environ["MARKET_UTILS_VERTEX_EXCLUDE_DOMAINS"] == "custom-noise.com"
+
+
+def test_bridge_forwards_agent_search_when_data_store_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MARKET_UTILS_AGENT_SEARCH_PROJECT", raising=False)
+    monkeypatch.delenv("MARKET_UTILS_AGENT_SEARCH_DATA_STORE", raising=False)
+    monkeypatch.setenv("SHINKAI_AGENT_SEARCH_PROJECT", "premium-proj")
+    monkeypatch.setenv("SHINKAI_AGENT_SEARCH_DATA_STORE_ID", "premium-news")
+    # Force settings reload so env vars are picked up.
+    from shinkai_api.core import config as cfg
+
+    cfg.settings = cfg.Settings()
+    cfg.bridge_env_to_market_utils()
+    assert os.environ.get("MARKET_UTILS_AGENT_SEARCH_PROJECT") == "premium-proj"
+    assert os.environ.get("MARKET_UTILS_AGENT_SEARCH_DATA_STORE") == "premium-news"
