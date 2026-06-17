@@ -39,6 +39,18 @@ from shinkai_api.tools.base import ToolResult
 
 TICKER_PATTERN = re.compile(r"^[A-Z]{1,5}\d?$")
 
+# Soft source-quality steer appended to every Vertex Grounding query the
+# harness emits. Vertex's google_search tool has no native domain filter, so
+# this is the only knob we have to bias Gemini toward primary / trade press
+# instead of SEO farms. Conservative wording (`prefer`, not `only`) keeps
+# the search broad enough to still surface contradicting / off-narrative
+# results — the value-investing checklist needs both.
+_SOURCE_QUALITY_HINT = (
+    "(prefer SEC filings, company investor relations / press releases, "
+    "Bloomberg, Reuters, WSJ, Financial Times, SemiAnalysis, "
+    "SemiEngineering, Digitimes, TrendForce; avoid SEO rewrites)"
+)
+
 
 @dataclass(frozen=True)
 class SupplyChainLayer:
@@ -2146,13 +2158,17 @@ class ShinkaiHarness:
 
     def _evidence_query(self, layer: SupplyChainLayer) -> str:
         seeds = " ".join(layer.seed_giants[:3])
-        return f"{layer.name} AI data center supply chain bottleneck {seeds}"
+        return (
+            f"{layer.name} AI data center supply chain bottleneck {seeds} "
+            f"{_SOURCE_QUALITY_HINT}"
+        )
 
     def _contradiction_query(self, layer: SupplyChainLayer) -> str:
         seeds = " ".join(layer.seed_giants[:3])
         return (
             f"{layer.name} AI data center not a bottleneck demand decline "
-            f"margin pressure supply constraint refute {seeds}"
+            f"margin pressure supply constraint refute {seeds} "
+            f"{_SOURCE_QUALITY_HINT}"
         )
 
 
