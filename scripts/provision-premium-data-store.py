@@ -143,6 +143,42 @@ def _add_target_site(
     return resp.json()
 
 
+def _create_engine(
+    token: str,
+    project: str,
+    location: str,
+    engine_id: str,
+    data_store_id: str,
+    display_name: str,
+) -> dict[str, Any]:
+    """Create a Search Standard engine wrapping the data store.
+
+    Required so the runtime can query via :searchLite — Google requires
+    website data store queries go through an engine, not the data store
+    directly. SEARCH_TIER_STANDARD = free; Enterprise costs ~$6/1k queries.
+    """
+    url = (
+        f"https://discoveryengine.googleapis.com/v1/"
+        f"projects/{project}/locations/{location}/collections/default_collection/engines"
+        f"?engineId={engine_id}"
+    )
+    body = {
+        "displayName": display_name,
+        "dataStoreIds": [data_store_id],
+        "solutionType": "SOLUTION_TYPE_SEARCH",
+        "searchEngineConfig": {
+            "searchTier": "SEARCH_TIER_STANDARD",
+            "searchAddOns": [],
+        },
+    }
+    resp = httpx.post(url, json=body, headers=_headers(token, quota_project=project), timeout=60.0)
+    if resp.status_code == 409:
+        print(f"  engine {engine_id} already exists, skipping create", file=sys.stderr)
+        return {}
+    resp.raise_for_status()
+    return resp.json()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True, help="GCP project id")
@@ -150,6 +186,11 @@ def main() -> int:
         "--data-store-id",
         default="premium-news",
         help="Lowercase a-z0-9- only, max 63 chars",
+    )
+    parser.add_argument(
+        "--engine-id",
+        default="premium-news-engine",
+        help="Engine ID wrapping the data store; this is what runtime queries.",
     )
     parser.add_argument(
         "--location",
@@ -210,11 +251,27 @@ def main() -> int:
         )
         print(f"  - EXCLUDE {pat}  ({result.get('name', '?').split('/')[-1]})")
 
+    # Engine — wraps the data store so :searchLite works on Standard tier.
+    # Required even though "the data store is the corpus" — Google routes
+    # all queries through engines.
+    print()
+    print(f"Provisioning engine '{args.engine_id}'...")
+    engine = _create_engine(
+        token,
+        args.project,
+        args.location,
+        args.engine_id,
+        args.data_store_id,
+        args.display_name,
+    )
+    if engine:
+        print(f"  engine created: {engine.get('name', '?')}")
+
     print()
     print("Done. Add to your .env file:")
     print()
     print(f"  SHINKAI_AGENT_SEARCH_PROJECT={args.project}")
-    print(f"  SHINKAI_AGENT_SEARCH_DATA_STORE_ID={args.data_store_id}")
+    print(f"  SHINKAI_AGENT_SEARCH_ENGINE_ID={args.engine_id}")
     print(f"  SHINKAI_AGENT_SEARCH_LOCATION={args.location}")
     print()
     print("Indexing takes 1-4 hours before queries return results. Check the")
