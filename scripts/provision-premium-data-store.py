@@ -84,8 +84,16 @@ def _access_token() -> str:
     return creds.token
 
 
-def _headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+def _headers(token: str, *, quota_project: str) -> dict[str, str]:
+    # x-goog-user-project is required when authenticating with user ADC: the
+    # Discovery Engine API uses it to route quota / billing to YOUR project
+    # instead of Google's default. Without it you get a misleading 403
+    # "service disabled" error even when the API is actually enabled.
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "x-goog-user-project": quota_project,
+    }
 
 
 def _create_data_store(
@@ -102,7 +110,7 @@ def _create_data_store(
         "contentConfig": "PUBLIC_WEBSITE",
         "solutionTypes": ["SOLUTION_TYPE_SEARCH"],
     }
-    resp = httpx.post(url, json=body, headers=_headers(token), timeout=60.0)
+    resp = httpx.post(url, json=body, headers=_headers(token, quota_project=project), timeout=60.0)
     if resp.status_code == 409:
         print(f"  data store {data_store_id} already exists, skipping create", file=sys.stderr)
         return {}
@@ -130,7 +138,7 @@ def _add_target_site(
         # exactMatch=False allows wildcards and subpaths.
         "exactMatch": False,
     }
-    resp = httpx.post(url, json=body, headers=_headers(token), timeout=60.0)
+    resp = httpx.post(url, json=body, headers=_headers(token, quota_project=project), timeout=60.0)
     resp.raise_for_status()
     return resp.json()
 
