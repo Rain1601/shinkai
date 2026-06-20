@@ -1,0 +1,1190 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>shinkai · 深海配色 specimen gallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --display: "Fraunces", "Songti SC", serif;
+        --body: "Inter", system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+
+        /* gallery chrome — warm paper, never stark white */
+        --gal-canvas: #f6f2e8;
+        --gal-ink: #1d2126;
+        --gal-ink-mute: #5d6168;
+        --gal-ink-faint: #95988e;
+        --gal-line: #ddd6c7;
+        --gal-line-strong: #b8b1a1;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background: var(--gal-canvas);
+        color: var(--gal-ink);
+        font-family: var(--body);
+        font-size: 14.5px;
+        line-height: 1.55;
+        font-feature-settings: "kern", "liga", "ss01";
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      a { color: inherit; text-decoration: none; }
+      button { font: inherit; cursor: pointer; }
+
+      /* ── page chrome ─────────────────────────────────────── */
+      .gal-shell {
+        max-width: 1380px;
+        margin: 0 auto;
+        padding: 64px 56px 120px;
+      }
+
+      .gal-header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: end;
+        gap: 32px;
+        padding-bottom: 32px;
+        margin-bottom: 56px;
+        border-bottom: 1px solid var(--gal-line);
+      }
+
+      .gal-eyebrow {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--gal-ink-faint);
+        margin: 0 0 18px;
+      }
+
+      .gal-header h1 {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        font-size: 56px;
+        line-height: 1.02;
+        letter-spacing: -0.028em;
+        margin: 0;
+      }
+
+      .gal-header h1 em {
+        font-style: italic;
+        color: var(--gal-ink-mute);
+        font-weight: 300;
+      }
+
+      .gal-lede {
+        margin: 18px 0 0;
+        max-width: 58ch;
+        color: var(--gal-ink-mute);
+        font-size: 14.5px;
+        line-height: 1.6;
+      }
+
+      .gal-comfort {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-left: 2px solid var(--gal-line-strong);
+        background: rgba(0, 0, 0, 0.025);
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.02em;
+        color: var(--gal-ink-mute);
+        max-width: 64ch;
+      }
+
+      .gal-comfort strong {
+        color: var(--gal-ink);
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 10px;
+        margin-right: 8px;
+      }
+
+      .gal-meta {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--gal-ink-faint);
+        text-align: right;
+        line-height: 1.9;
+      }
+
+      .gal-meta strong {
+        color: var(--gal-ink);
+        font-weight: 500;
+      }
+
+      /* sticky palette index */
+      .gal-toc {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--gal-canvas);
+        padding: 14px 0;
+        margin: -14px 0 48px;
+        border-bottom: 1px solid var(--gal-line);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+        align-items: baseline;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .gal-toc-label {
+        color: var(--gal-ink-faint);
+        margin-right: 8px;
+      }
+
+      .gal-toc a {
+        color: var(--gal-ink-mute);
+        position: relative;
+        padding: 4px 0;
+        transition: color 160ms ease;
+      }
+
+      .gal-toc a::before {
+        content: attr(data-n);
+        margin-right: 8px;
+        color: var(--gal-ink-faint);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .gal-toc a:hover {
+        color: var(--gal-ink);
+      }
+
+      /* ── palette section ─────────────────────────────────── */
+      .pal-sec {
+        padding: 56px 0 72px;
+        border-bottom: 1px solid var(--gal-line);
+      }
+
+      .pal-sec:last-of-type { border-bottom: none; }
+
+      .pal-head {
+        display: grid;
+        grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
+        gap: 48px;
+        align-items: end;
+        margin-bottom: 36px;
+      }
+
+      .pal-num {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.32em;
+        color: var(--gal-ink-faint);
+        margin: 0 0 14px;
+      }
+
+      .pal-name {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 300;
+        font-size: 44px;
+        line-height: 1.04;
+        letter-spacing: -0.022em;
+        margin: 0;
+      }
+
+      .pal-name strong {
+        font-style: normal;
+        font-weight: 400;
+        color: var(--gal-ink-mute);
+        font-size: 0.5em;
+        letter-spacing: 0.06em;
+        margin-left: 14px;
+        vertical-align: 0.4em;
+      }
+
+      .pal-concept {
+        margin: 14px 0 0;
+        color: var(--gal-ink-mute);
+        font-size: 14.5px;
+        line-height: 1.6;
+        max-width: 48ch;
+      }
+
+      .pal-mood {
+        margin: 10px 0 0;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--gal-ink-faint);
+      }
+
+      .pal-mood span {
+        color: var(--gal-ink-mute);
+        margin-right: 14px;
+      }
+
+      /* hex strip */
+      .pal-strip {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0;
+        border: 1px solid var(--gal-line);
+      }
+
+      .pal-strip .swatch {
+        padding: 14px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border-right: 1px solid rgba(0, 0, 0, 0.08);
+        min-height: 76px;
+      }
+
+      .pal-strip .swatch:last-child { border-right: none; }
+
+      .pal-strip .swatch .lab {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.66;
+      }
+
+      .pal-strip .swatch .hex {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── specimen frames: day | night ────────────────────── */
+      .pal-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+      }
+
+      .specimen { display: flex; flex-direction: column; gap: 12px; }
+
+      .device {
+        border: 1px solid var(--gal-line);
+        background: var(--canvas, #fff);
+        color: var(--ink, #14181c);
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 156px 1fr;
+        min-height: 420px;
+        font-family: var(--body);
+        position: relative;
+      }
+
+      /* sidebar slice */
+      .dev-side {
+        background: var(--surface, var(--canvas));
+        border-right: 1px solid var(--line, rgba(0,0,0,0.08));
+        padding: 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .dev-logo {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 10px;
+        align-items: center;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .dev-logo .mark {
+        width: 22px; height: 22px;
+        border: 1px solid var(--accent, #888);
+        color: var(--accent, #888);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--display);
+        font-style: italic;
+        font-size: 14px;
+      }
+
+      .dev-logo strong {
+        display: block;
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 14px;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        line-height: 1.1;
+      }
+
+      .dev-logo small {
+        display: block;
+        font-family: var(--mono);
+        font-size: 7.5px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--ink-faint, var(--ink-mute));
+        margin-top: 2px;
+      }
+
+      .dev-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex: 1;
+      }
+
+      .dev-nav a {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 8px;
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--ink-mute);
+      }
+
+      .dev-nav a::before {
+        content: attr(data-n);
+        font-size: 8.5px;
+        color: var(--ink-faint, var(--ink-mute));
+        font-variant-numeric: tabular-nums;
+        opacity: 0.7;
+      }
+
+      .dev-nav a.active {
+        color: var(--ink);
+        background: var(--accent-soft, rgba(255,255,255,0.04));
+        border-left: 2px solid var(--accent);
+        padding-left: 6px;
+      }
+
+      .dev-foot {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        letter-spacing: 0.22em;
+        color: var(--ink-faint, var(--ink-mute));
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .dev-foot .dot {
+        display: inline-block;
+        width: 6px; height: 6px;
+        background: var(--accent);
+        margin-right: 6px;
+        vertical-align: 1px;
+      }
+
+      /* main */
+      .dev-main {
+        padding: 22px 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .dev-eyebrow {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .dev-main h3 {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 22px;
+        line-height: 1.15;
+        letter-spacing: -0.018em;
+        margin: 4px 0 0;
+        color: var(--ink);
+      }
+
+      .dev-sub {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--ink-mute);
+        max-width: 50ch;
+      }
+
+      .dev-kpis {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        border: 1px solid var(--line);
+        margin-top: 4px;
+      }
+
+      .kpi {
+        padding: 12px 14px;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .kpi:last-child { border-right: none; }
+
+      .kpi-num {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 22px;
+        line-height: 1;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .kpi-num.accent { color: var(--accent); }
+      .kpi-num.warn { color: var(--warn); }
+
+      .kpi-lab {
+        font-family: var(--mono);
+        font-size: 8px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-faint, var(--ink-mute));
+      }
+
+      .dev-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+        margin-top: 4px;
+      }
+
+      .dev-tbl thead th {
+        text-align: left;
+        font-family: var(--mono);
+        font-size: 8.5px;
+        font-weight: 400;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--ink-faint, var(--ink-mute));
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .dev-tbl tbody td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink);
+        vertical-align: middle;
+      }
+
+      .dev-tbl tbody tr:last-child td { border-bottom: none; }
+
+      .dev-tbl td.tick {
+        font-family: var(--mono);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+      }
+
+      .dev-tbl td.num {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+        color: var(--ink-mute);
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 7px;
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        border: 1px solid currentColor;
+      }
+
+      .chip.ok { color: var(--accent); }
+      .chip.warn { color: var(--warn); }
+      .chip.neut { color: var(--ink-mute); }
+
+      .btn {
+        border: 1px solid var(--accent);
+        background: transparent;
+        color: var(--accent);
+        padding: 5px 11px;
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        transition: background 140ms ease, color 140ms ease;
+      }
+
+      .btn:hover { background: var(--accent); color: var(--canvas); }
+
+      .btn.ghost {
+        border-color: var(--line);
+        color: var(--ink-mute);
+      }
+
+      .btn.ghost:hover {
+        border-color: var(--ink);
+        color: var(--ink);
+        background: transparent;
+      }
+
+      /* specimen plate */
+      .plate {
+        border: 1px solid var(--gal-line);
+        background: var(--gal-canvas);
+        padding: 10px 14px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 16px;
+        align-items: baseline;
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--gal-ink-faint);
+      }
+
+      .plate strong {
+        color: var(--gal-ink);
+        font-weight: 500;
+        letter-spacing: 0.22em;
+      }
+
+      .plate .hexes {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.04em;
+        text-transform: none;
+        color: var(--gal-ink-mute);
+      }
+
+      /* ── palette tokens (comfort-first revision) ─────────── */
+      /* design notes per palette:
+         · no pure #000 / #FFF anywhere
+         · night canvas in soft warm-charcoal range (#10..–#1A..)
+         · ink in bone (#CB..–#E6..), not pure white
+         · accents desaturated 15–25% from saturated reference
+         · day canvas in warm paper (#EE..–#F4..)              */
+
+      /* 1. HADAL — anglerfish bioluminescence (softened) */
+      [data-pal="hadal"][data-mode="night"] {
+        --canvas: #0d1318;
+        --surface: #161e25;
+        --line: #232e38;
+        --ink: #d8dfde;
+        --ink-mute: #8a9499;
+        --ink-faint: #555e66;
+        --accent: #6fc9bc;
+        --accent-soft: rgba(111, 201, 188, 0.07);
+        --warn: #e1ab55;
+      }
+      [data-pal="hadal"][data-mode="day"] {
+        --canvas: #f4f0e6;
+        --surface: #fbf7ed;
+        --line: #d8d2c4;
+        --ink: #1a2024;
+        --ink-mute: #5e646a;
+        --ink-faint: #9b998a;
+        --accent: #256f66;
+        --accent-soft: rgba(37, 111, 102, 0.08);
+        --warn: #a6611e;
+      }
+
+      /* 2. PELAGIC — water column drift (warmed + softened) */
+      [data-pal="pelagic"][data-mode="night"] {
+        --canvas: #11212f;
+        --surface: #1b2f43;
+        --line: #2c455e;
+        --ink: #d5dfe5;
+        --ink-mute: #8a9baa;
+        --ink-faint: #5c6e7c;
+        --accent: #7ab6ce;
+        --accent-soft: rgba(122, 182, 206, 0.08);
+        --warn: #e5d2a5;
+      }
+      [data-pal="pelagic"][data-mode="day"] {
+        --canvas: #eef1f2;
+        --surface: #f8fafb;
+        --line: #d3dce0;
+        --ink: #162635;
+        --ink-mute: #5e6d78;
+        --ink-faint: #94a0a9;
+        --accent: #36728c;
+        --accent-soft: rgba(54, 114, 140, 0.08);
+        --warn: #a87635;
+      }
+
+      /* 3. MANGANESE — warm sediment floor (most comfortable; minor tune) */
+      [data-pal="manganese"][data-mode="night"] {
+        --canvas: #1a1612;
+        --surface: #231d18;
+        --line: #352d25;
+        --ink: #e6decf;
+        --ink-mute: #988e7e;
+        --ink-faint: #615a4f;
+        --accent: #7aaaa5;
+        --accent-soft: rgba(122, 170, 165, 0.08);
+        --warn: #c58658;
+      }
+      [data-pal="manganese"][data-mode="day"] {
+        --canvas: #f0e9da;
+        --surface: #faf5ea;
+        --line: #d3c9b5;
+        --ink: #1f1a14;
+        --ink-mute: #6e6354;
+        --ink-faint: #9d907a;
+        --accent: #46716b;
+        --accent-soft: rgba(70, 113, 107, 0.08);
+        --warn: #a45926;
+      }
+
+      /* 4. SONAR HUD — submersible CRT (most heavily softened) */
+      [data-pal="sonar"][data-mode="night"] {
+        --canvas: #10171a;
+        --surface: #192123;
+        --line: #293432;
+        --ink: #cbd2cb;
+        --ink-mute: #828b86;
+        --ink-faint: #535c58;
+        --accent: #4fc591;
+        --accent-soft: rgba(79, 197, 145, 0.07);
+        --warn: #ecb35a;
+      }
+      [data-pal="sonar"][data-mode="day"] {
+        --canvas: #e8eae3;
+        --surface: #f4f6ee;
+        --line: #c7cec8;
+        --ink: #1a2724;
+        --ink-mute: #65706b;
+        --ink-faint: #959c97;
+        --accent: #287e5a;
+        --accent-soft: rgba(40, 126, 90, 0.08);
+        --warn: #a86e1a;
+      }
+
+      /* swatch label readability */
+      .pal-strip .swatch.dark { color: #f5f3ec; }
+      .pal-strip .swatch.dark .lab,
+      .pal-strip .swatch.dark .hex { color: #f5f3ec; }
+      .pal-strip .swatch.light { color: #14181c; }
+      .pal-strip .swatch.light .lab,
+      .pal-strip .swatch.light .hex { color: #14181c; }
+
+      /* ── responsive ──────────────────────────────────────── */
+      @media (max-width: 1020px) {
+        .gal-shell { padding: 48px 28px 96px; }
+        .gal-header { grid-template-columns: 1fr; align-items: start; }
+        .gal-meta { text-align: left; }
+        .pal-head { grid-template-columns: 1fr; gap: 28px; }
+        .pal-pair { grid-template-columns: 1fr; gap: 22px; }
+      }
+
+      @media (max-width: 640px) {
+        .gal-header h1 { font-size: 40px; }
+        .pal-name { font-size: 32px; }
+        .pal-strip { grid-template-columns: repeat(3, 1fr); }
+        .pal-strip .swatch:nth-child(3) { border-right: none; }
+        .pal-strip .swatch:nth-child(-n+3) { border-bottom: 1px solid rgba(0,0,0,0.08); }
+        .device { grid-template-columns: 1fr; }
+        .dev-side { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: none; border-bottom: 1px solid var(--line); }
+        .dev-nav { flex-direction: row; flex-wrap: wrap; flex: none; }
+        .dev-kpis { grid-template-columns: 1fr 1fr; }
+        .kpi:nth-child(2) { border-right: none; }
+        .kpi:nth-child(3) { border-top: 1px solid var(--line); grid-column: 1 / -1; }
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--gal-ink);
+        outline-offset: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="gal-shell">
+      <header class="gal-header">
+        <div>
+          <p class="gal-eyebrow">SHINKAI · PALETTE SPECIMEN GALLERY · 2026-06-20</p>
+          <h1>四套 <em>深海</em> 配色 · 白天与夜间标本对照</h1>
+          <p class="gal-lede">
+            每个配色都被钉在 shinkai 投研产品的真实片段上 —— sidebar、Mode B
+            候选表、KPI 卡、Pin 按钮 —— 而不是抽象色块。日 / 夜并排,看的是同一
+            个屏幕在两种光照下的实际质感。
+          </p>
+          <p class="gal-comfort">
+            <strong>COMFORT TUNING</strong>
+            背景不用纯黑 / 纯白(夜间起点 #10..,白天起点 #EE..);正文 ink 用 bone 而非 #FFF;
+            accent 全部 desaturate 15–25%,phosphor 退到 sea-glass。长时间盯也不刺眼。
+          </p>
+        </div>
+        <div class="gal-meta">
+          <div><strong>4 specimens</strong> · 8 frames</div>
+          <div>display · Fraunces italic</div>
+          <div>body · Inter</div>
+          <div>data · JetBrains Mono</div>
+        </div>
+      </header>
+
+      <nav class="gal-toc" aria-label="palettes">
+        <span class="gal-toc-label">specimens</span>
+        <a href="#hadal" data-n="01">Hadal Glow</a>
+        <a href="#pelagic" data-n="02">Pelagic Drift</a>
+        <a href="#manganese" data-n="03">Manganese Floor</a>
+        <a href="#sonar" data-n="04">Sonar HUD</a>
+      </nav>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SPECIMEN 01 · HADAL GLOW
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="pal-sec" id="hadal">
+        <div class="pal-head">
+          <div>
+            <p class="pal-num">SPECIMEN 01</p>
+            <h2 class="pal-name">Hadal Glow <strong>生物发光 · 6000m</strong></h2>
+            <p class="pal-concept">
+              深海底色上一抹活的青绿,像 anglerfish 的诱饵灯。把"深海冷感"做到
+              极致 —— accent 是屏幕里唯一的光源。
+            </p>
+            <p class="pal-mood"><span>cool</span><span>contrast: medium-high</span><span>accent: sea-glass</span></p>
+          </div>
+          <div class="pal-strip">
+            <div class="swatch dark" style="background:#0d1318"><span class="lab">canvas</span><span class="hex">#0D1318</span></div>
+            <div class="swatch dark" style="background:#161e25"><span class="lab">surface</span><span class="hex">#161E25</span></div>
+            <div class="swatch dark" style="background:#232e38"><span class="lab">line</span><span class="hex">#232E38</span></div>
+            <div class="swatch light" style="background:#d8dfde"><span class="lab">ink</span><span class="hex">#D8DFDE</span></div>
+            <div class="swatch light" style="background:#6fc9bc"><span class="lab">accent</span><span class="hex">#6FC9BC</span></div>
+            <div class="swatch light" style="background:#e1ab55"><span class="lab">warn</span><span class="hex">#E1AB55</span></div>
+          </div>
+        </div>
+
+        <div class="pal-pair">
+          <!-- DAY -->
+          <div class="specimen">
+            <div class="device" data-pal="hadal" data-mode="day">
+              <aside class="dev-side">
+                <div class="dev-logo">
+                  <span class="mark">∾</span>
+                  <div><strong>shinkai</strong><small>DEEP RESEARCH</small></div>
+                </div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>hadal</strong> · day</span>
+              <span></span>
+              <span class="hexes">#F4F0E6 · #256F66</span>
+            </div>
+          </div>
+
+          <!-- NIGHT -->
+          <div class="specimen">
+            <div class="device" data-pal="hadal" data-mode="night">
+              <aside class="dev-side">
+                <div class="dev-logo">
+                  <span class="mark">∾</span>
+                  <div><strong>shinkai</strong><small>DEEP RESEARCH</small></div>
+                </div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>hadal</strong> · night</span>
+              <span></span>
+              <span class="hexes">#0D1318 · #6FC9BC</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SPECIMEN 02 · PELAGIC DRIFT
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="pal-sec" id="pelagic">
+        <div class="pal-head">
+          <div>
+            <p class="pal-num">SPECIMEN 02</p>
+            <h2 class="pal-name">Pelagic Drift <strong>水柱 · 500m</strong></h2>
+            <p class="pal-concept">
+              透着光的中层水柱:普鲁士蓝为主,加一道 sun-shaft 的暖米作为
+              highlight —— 一个反常规的暖色出现在冷色海里。
+            </p>
+            <p class="pal-mood"><span>cool + warm hint</span><span>contrast: medium</span><span>accent: shaft cyan</span></p>
+          </div>
+          <div class="pal-strip">
+            <div class="swatch dark" style="background:#11212f"><span class="lab">canvas</span><span class="hex">#11212F</span></div>
+            <div class="swatch dark" style="background:#1b2f43"><span class="lab">surface</span><span class="hex">#1B2F43</span></div>
+            <div class="swatch dark" style="background:#2c455e"><span class="lab">line</span><span class="hex">#2C455E</span></div>
+            <div class="swatch light" style="background:#d5dfe5"><span class="lab">ink</span><span class="hex">#D5DFE5</span></div>
+            <div class="swatch light" style="background:#7ab6ce"><span class="lab">accent</span><span class="hex">#7AB6CE</span></div>
+            <div class="swatch light" style="background:#e5d2a5"><span class="lab">sun</span><span class="hex">#E5D2A5</span></div>
+          </div>
+        </div>
+
+        <div class="pal-pair">
+          <div class="specimen">
+            <div class="device" data-pal="pelagic" data-mode="day">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>pelagic</strong> · day</span>
+              <span></span>
+              <span class="hexes">#EEF1F2 · #36728C</span>
+            </div>
+          </div>
+
+          <div class="specimen">
+            <div class="device" data-pal="pelagic" data-mode="night">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>pelagic</strong> · night</span>
+              <span></span>
+              <span class="hexes">#11212F · #7AB6CE</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SPECIMEN 03 · MANGANESE FLOOR
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="pal-sec" id="manganese">
+        <div class="pal-head">
+          <div>
+            <p class="pal-num">SPECIMEN 03</p>
+            <h2 class="pal-name">Manganese Floor <strong>沉积 · 锰结核</strong></h2>
+            <p class="pal-concept">
+              暖色深海:warm-charcoal 底色 + 氧化铜 accent。违反"深海 = 冷"
+              的反射 —— 但更贴近实际海底沉积层的颜色,也最不累。
+            </p>
+            <p class="pal-mood"><span>warm</span><span>contrast: low-medium</span><span>accent: oxidized teal</span></p>
+          </div>
+          <div class="pal-strip">
+            <div class="swatch dark" style="background:#1a1612"><span class="lab">canvas</span><span class="hex">#1A1612</span></div>
+            <div class="swatch dark" style="background:#231d18"><span class="lab">surface</span><span class="hex">#231D18</span></div>
+            <div class="swatch dark" style="background:#352d25"><span class="lab">line</span><span class="hex">#352D25</span></div>
+            <div class="swatch light" style="background:#e6decf"><span class="lab">ink</span><span class="hex">#E6DECF</span></div>
+            <div class="swatch light" style="background:#7aaaa5"><span class="lab">accent</span><span class="hex">#7AAAA5</span></div>
+            <div class="swatch light" style="background:#c58658"><span class="lab">copper</span><span class="hex">#C58658</span></div>
+          </div>
+        </div>
+
+        <div class="pal-pair">
+          <div class="specimen">
+            <div class="device" data-pal="manganese" data-mode="day">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>manganese</strong> · day</span>
+              <span></span>
+              <span class="hexes">#F0E9DA · #46716B</span>
+            </div>
+          </div>
+
+          <div class="specimen">
+            <div class="device" data-pal="manganese" data-mode="night">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>manganese</strong> · night</span>
+              <span></span>
+              <span class="hexes">#1A1612 · #7AAAA5</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SPECIMEN 04 · SONAR HUD
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="pal-sec" id="sonar">
+        <div class="pal-head">
+          <div>
+            <p class="pal-num">SPECIMEN 04</p>
+            <h2 class="pal-name">Sonar HUD <strong>声纳 · 潜器仪表</strong></h2>
+            <p class="pal-concept">
+              潜水器 CRT 仪表盘:instrument-bone + matte phosphor + 警示琥珀。
+              accent 已退到 sea-glass 级别 —— 不是 Matrix 绿,看久也舒服。
+            </p>
+            <p class="pal-mood"><span>cool-neutral</span><span>contrast: low</span><span>accent: matte phosphor</span></p>
+          </div>
+          <div class="pal-strip">
+            <div class="swatch dark" style="background:#10171a"><span class="lab">canvas</span><span class="hex">#10171A</span></div>
+            <div class="swatch dark" style="background:#192123"><span class="lab">surface</span><span class="hex">#192123</span></div>
+            <div class="swatch dark" style="background:#293432"><span class="lab">line</span><span class="hex">#293432</span></div>
+            <div class="swatch light" style="background:#cbd2cb"><span class="lab">ink</span><span class="hex">#CBD2CB</span></div>
+            <div class="swatch light" style="background:#4fc591"><span class="lab">accent</span><span class="hex">#4FC591</span></div>
+            <div class="swatch light" style="background:#ecb35a"><span class="lab">warn</span><span class="hex">#ECB35A</span></div>
+          </div>
+        </div>
+
+        <div class="pal-pair">
+          <div class="specimen">
+            <div class="device" data-pal="sonar" data-mode="day">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>sonar</strong> · day</span>
+              <span></span>
+              <span class="hexes">#E8EAE3 · #287E5A</span>
+            </div>
+          </div>
+
+          <div class="specimen">
+            <div class="device" data-pal="sonar" data-mode="night">
+              <aside class="dev-side">
+                <div class="dev-logo"><span class="mark">∾</span><div><strong>shinkai</strong><small>DEEP RESEARCH</small></div></div>
+                <nav class="dev-nav">
+                  <a class="active" data-n="01">总览</a>
+                  <a data-n="02">工作台</a>
+                  <a data-n="03">能力</a>
+                  <a data-n="04">历史</a>
+                  <a data-n="05">A2A</a>
+                </nav>
+                <div class="dev-foot"><span><span class="dot"></span>LIVE</span><span>v0.4</span></div>
+              </aside>
+              <main class="dev-main">
+                <span class="dev-eyebrow">MODE B · 叙事发现</span>
+                <h3>AI 基建供应链 · 第 3 层候选</h3>
+                <p class="dev-sub">从 NVDA / TSMC 向下追溯到 HBM、CoWoS、液冷供应商。</p>
+                <div class="dev-kpis">
+                  <div class="kpi"><span class="kpi-num accent">12</span><span class="kpi-lab">candidates</span></div>
+                  <div class="kpi"><span class="kpi-num">53</span><span class="kpi-lab">graph nodes</span></div>
+                  <div class="kpi"><span class="kpi-num warn">2</span><span class="kpi-lab">to verify</span></div>
+                </div>
+                <table class="dev-tbl">
+                  <thead><tr><th>Ticker</th><th>Industry</th><th>Score</th><th>Confidence</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td class="tick">AEHR</td><td>Test handlers</td><td class="num">0.81</td><td><span class="chip ok">supported</span></td><td><button class="btn">Pin</button></td></tr>
+                    <tr><td class="tick">CAMT</td><td>Wafer inspection</td><td class="num">0.74</td><td><span class="chip warn">partial</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                    <tr><td class="tick">FORM</td><td>Probe cards</td><td class="num">0.68</td><td><span class="chip neut">to verify</span></td><td><button class="btn ghost">Pin</button></td></tr>
+                  </tbody>
+                </table>
+              </main>
+            </div>
+            <div class="plate">
+              <span><strong>sonar</strong> · night</span>
+              <span></span>
+              <span class="hexes">#10171A · #4FC591</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
