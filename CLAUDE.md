@@ -112,10 +112,21 @@ Setting `scope.force_llm_planner: true` on top of `auto` raises the same fail-fa
 
 | Tool | Backend | Notes |
 | --- | --- | --- |
-| `web_search` | Tavily when `SHINKAI_TAVILY_API_KEY` is set; otherwise DuckDuckGo HTML scrape | Tavily backend returns structured JSON with title/url/snippet/score |
+| `web_search` | `market-utils` `SearchEngine` — strategy selected by `SHINKAI_WEB_SEARCH_STRATEGY` | See "Web search strategies" below |
 | `web_extract` | direct HTTP + HTML parsing | extracts a compact text excerpt from a URL |
 | `ticker_validate` | yfinance + SEC EDGAR `company_tickers.json` fallback | resolves a ticker to sector / industry / business summary and returns `industry_eligible` after the hard filter against `INELIGIBLE_SECTORS` (Healthcare, Real Estate, Financial Services, Utilities, Consumer Defensive, Communication Services) and `INELIGIBLE_INDUSTRIES` (Resorts & Casinos, Lodging, etc.) — catches LLM hallucinations like "ATYR Pharma for HBM" or "BOYD Gaming for liquid cooling" |
 | `sec_filings` | SEC EDGAR submissions endpoint (free, requires `User-Agent` header) | pulls recent 10-K / 10-Q filings and returns metadata + primary document URLs ready to become `SourceRef(tier="primary")` |
+
+#### Web search strategies
+
+`web_search` is backed by the in-house `market-utils` `SearchEngine`. `SHINKAI_WEB_SEARCH_STRATEGY` picks the backend; with `auto` it tries `vertex_grounding` → `tavily` → `google` → `duckduckgo` in order of what's configured.
+
+- **`vertex_grounding`** (preferred for new GCP projects): Vertex AI Gemini + `google_search` tool, two-pass (ground → structure into `SearchResult` rows). Verified working end-to-end on 2026-06-17. Requires `SHINKAI_GOOGLE_CLOUD_PROJECT` plus ADC (`gcloud auth application-default login`) or `SHINKAI_GOOGLE_APPLICATION_CREDENTIALS` pointing at a SA JSON with `roles/aiplatform.user` + `roles/serviceusage.serviceUsageConsumer`. Optional `SHINKAI_GOOGLE_CLOUD_LOCATION` (default `us-central1`), `SHINKAI_VERTEX_MODEL` (default `gemini-2.5-flash`). ~$0.04 / search.
+- **`tavily`**: requires `SHINKAI_TAVILY_API_KEY`. Structured JSON with score.
+- **`google`**: legacy Custom Search JSON API — Google closed CSE to new customers in 2025, only works on grandfathered projects. Do not provision new keys here.
+- **`duckduckgo`**: free fallback, no key.
+
+A "premium publisher" strategy is also wired up (Agent Search with `searchLite`, Standard tier — see recent commits and `scripts/provision-premium-data-store.py`); noise domains are pushed to Vertex `exclude_domains` via the bridge.
 
 A run carries a `scope.allow_live_sources` flag — when `false`, tools must serve from cached/stubbed data. Tests and the smoke run set this to `false`; live calls are reserved for explicitly opted-in runs.
 
@@ -164,6 +175,9 @@ App Router under `apps/web/app/`. Cross-page UI lives in `components/portal/` (`
 | `SHINKAI_DATABASE_URL` | Switch to Postgres backing store |
 | `SHINKAI_PERSISTENCE_JSON_FALLBACK` | Default `true`; set `false` in prod to fail loudly on DB errors |
 | `SHINKAI_AUTH_REQUIRED` / `SHINKAI_ADMIN_TOKEN` / `SHINKAI_SUBSCRIBER_TOKENS` | Access control |
+| `SHINKAI_WEB_SEARCH_STRATEGY` | `auto` / `vertex_grounding` / `tavily` / `google` / `duckduckgo` |
+| `SHINKAI_GOOGLE_CLOUD_PROJECT` / `SHINKAI_GOOGLE_APPLICATION_CREDENTIALS` / `SHINKAI_GOOGLE_CLOUD_LOCATION` / `SHINKAI_VERTEX_MODEL` | Vertex Grounding config |
+| `SHINKAI_TAVILY_API_KEY` | Tavily backend for `web_search` |
 | `NEXT_PUBLIC_API_URL` | Web → API base URL (set by dev scripts) |
 
 ## Deployment
