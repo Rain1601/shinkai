@@ -1,54 +1,58 @@
 /* =========================================================================
-   shinkai · abyssal restraint · design system v3
+   shinkai · manganese floor · design system v4
    ─────────────────────────────────────────────────────────────────────────
-   Anthropic-school typographic restraint on a near-black canvas.
-   Single bioluminescent teal accent (#4FA89B). Hairlines instead of
-   boxes. No gradients. No glows. The page should feel like reading a
-   research notebook under low light at the bottom of the ocean.
+   Warm sediment-floor canvas (#1A1612) instead of cold abyssal black.
+   Single oxidized-teal accent (#7AAAA5) with a copper highlight for
+   warn / contradict. Counter-intuitive choice: the deep sea floor is
+   warm-charcoal, not blue-black — and warm tones are easier on the eyes
+   over long research sessions. Anthropic-school restraint: hairlines
+   instead of boxes, no gradients, no glows.
    ========================================================================= */
 
 :root {
   color-scheme: dark;
 
-  /* ── palette · L · Pearl & Weight ───────────────────────────────────────
-     Near-pure black with the faintest indigo undertone — submersible
-     porthole at the pressure limit. Neutral pearl text. A single muted
-     steel-blue accent is the only point of light. */
+  /* ── palette · Manganese (night) ────────────────────────────────────────
+     Warm sediment black with bone-tone ink and an oxidized-teal accent.
+     Copper highlight (used as warn / contradict) is the only true color
+     besides the accent. */
 
-  /* ── canvas: "suitable black" — not pure black. Carries a faint
-     deep-blue undertone so the canvas feels of-a-piece with the blue
-     accent rather than fighting it. ─────────────────────────────────── */
-  --abyss: #0a0c12;
-  --abyss-1: #13161f;
-  --abyss-2: #1c202c;
-  --abyss-3: #262b3a;
+  /* ── canvas: warm sediment black. Carries an iron-oxide undertone that
+     makes the page feel of-a-piece with the copper highlight rather than
+     fighting it. Surfaces step lighter (toward the bone ink). ────────── */
+  --abyss: #1a1612;
+  --abyss-1: #231d18;
+  --abyss-2: #2d2620;
+  --abyss-3: #3a3128;
 
-  /* ── ink (text): neutral cool-pearl. Reads as light and calm on the
-     deep-blue-black canvas. ─────────────────────────────────────────── */
-  --pearl: #e2e5e8;
-  --pearl-soft: #bcc0c5;
-  --pearl-mute: #7e8389;
-  --pearl-dim: #4d5158;
-  --pearl-faint: #2d3036;
+  /* ── ink (text): warm bone, not cool pearl. Lower contrast than #FFF
+     on near-black — comfortable for long reading sessions. ───────────── */
+  --pearl: #e6decf;
+  --pearl-soft: #c0b7a4;
+  --pearl-mute: #988e7e;
+  --pearl-dim: #6d6557;
+  --pearl-faint: #4a4339;
 
-  /* ── single accent: deep blue (the only color on the page) ──────────── */
-  --teal: #5e8ac4;
-  --teal-soft: rgba(94, 138, 196, 0.10);
-  --teal-line: rgba(94, 138, 196, 0.34);
-  --teal-glow: rgba(94, 138, 196, 0.18);
+  /* ── single accent: oxidized teal (the only color on the page besides
+     the copper highlight used for warn states) ───────────────────────── */
+  --teal: #7aaaa5;
+  --teal-soft: rgba(122, 170, 165, 0.10);
+  --teal-line: rgba(122, 170, 165, 0.34);
+  --teal-glow: rgba(122, 170, 165, 0.18);
 
-  /* ── semantic accents (desaturated, used sparingly on data viz) ──────── */
-  --support: #94b0a0;
-  --contradict: #c46b62;
-  --human: #b5bac0;
-  --warn: #b5bac0;
-  --danger: #c46b62;
-  --falsified: #c46b62;
+  /* ── semantic accents (desaturated, used sparingly on data viz)
+     Copper #C58658 doubles as warn; deeper copper-red for danger. ────── */
+  --support: #7aaaa5;
+  --contradict: #c58658;
+  --human: #b8aa8d;
+  --warn: #c58658;
+  --danger: #b8624a;
+  --falsified: #b8624a;
 
-  /* ── hairlines (cool pearl, slightly more opacity so still visible) ──── */
-  --hair: rgba(226, 227, 224, 0.08);
-  --hair-strong: rgba(226, 227, 224, 0.16);
-  --hair-bright: rgba(226, 227, 224, 0.24);
+  /* ── hairlines (warm bone at low opacity, matching the ink color) ───── */
+  --hair: rgba(230, 222, 207, 0.08);
+  --hair-strong: rgba(230, 222, 207, 0.16);
+  --hair-bright: rgba(230, 222, 207, 0.24);
 
   /* ── typography (theme-independent) ──────────────────────────────────── */
   --display: var(--font-display), "Songti SC", "STSong",
@@ -71,46 +75,49 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   palette · D2 · Foam Mist (day mode)
-   Mirror of L: cool pale blue-grey background, deep navy text, same
-   steel-cyan family accent (just one notch darker for legibility on
-   light surfaces). Applied via [data-theme="day"] on <html>.
+   palette · Manganese day · Sand Sediment
+   Warm sand canvas mirroring the night warm-charcoal. Same oxidized-teal
+   family accent (one step darker for legibility on the lighter surface).
+   Copper warn color shared with night. Applied via [data-theme="day"]
+   on <html>.
    ────────────────────────────────────────────────────────────────────────── */
 
 html[data-theme="day"] {
   color-scheme: light;
 
-  /* canvas: clean white, the faintest seafoam undertone so it doesn't
-     glare against the sea-blue accent. Reads as white at first glance. */
-  --abyss: #f5f8fa;
-  --abyss-1: #eaeff2;
-  --abyss-2: #dfe6ea;
-  --abyss-3: #d4dde3;
+  /* canvas: warm sand paper, never stark white. Surfaces step darker
+     (toward the warm-near-black ink), matching the existing elevation
+     convention. */
+  --abyss: #f0e9da;
+  --abyss-1: #e6ddc8;
+  --abyss-2: #daceb0;
+  --abyss-3: #c8b998;
 
-  /* ink: deep slate-navy, anchored and readable on near-white. */
-  --pearl: #14253a;
-  --pearl-soft: #2e4163;
-  --pearl-mute: #5d6c84;
-  --pearl-dim: #8d97aa;
-  --pearl-faint: #b6bcc6;
+  /* ink: warm near-black with iron-oxide undertone — anchored and
+     readable on sand, never harsh. */
+  --pearl: #1f1a14;
+  --pearl-soft: #3a332a;
+  --pearl-mute: #6e6354;
+  --pearl-dim: #948872;
+  --pearl-faint: #baae96;
 
-  /* accent: sea blue — brighter and cooler than the night theme's deep
-     blue, so light sea-water rather than ink-pool. */
-  --teal: #4a9ac6;
-  --teal-soft: rgba(74, 154, 198, 0.10);
-  --teal-line: rgba(74, 154, 198, 0.36);
-  --teal-glow: rgba(74, 154, 198, 0.18);
+  /* accent: deep oxidized teal — one step darker than the night accent
+     for legibility on the warm sand canvas. */
+  --teal: #46716b;
+  --teal-soft: rgba(70, 113, 107, 0.10);
+  --teal-line: rgba(70, 113, 107, 0.36);
+  --teal-glow: rgba(70, 113, 107, 0.18);
 
-  --support: #5b8a77;
-  --contradict: #a04e47;
-  --human: #7b85a0;
-  --warn: #7b85a0;
-  --danger: #a04e47;
-  --falsified: #a04e47;
+  --support: #46716b;
+  --contradict: #a45926;
+  --human: #7b6f58;
+  --warn: #a45926;
+  --danger: #8a3f1c;
+  --falsified: #8a3f1c;
 
-  --hair: rgba(15, 26, 43, 0.10);
-  --hair-strong: rgba(15, 26, 43, 0.18);
-  --hair-bright: rgba(15, 26, 43, 0.28);
+  --hair: rgba(31, 26, 20, 0.10);
+  --hair-strong: rgba(31, 26, 20, 0.18);
+  --hair-bright: rgba(31, 26, 20, 0.28);
 }
 
 * {
