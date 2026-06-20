@@ -723,6 +723,316 @@
       @media (prefers-reduced-motion: reduce) {
         * { transition: none !important; }
       }
+
+      /* ═══════════════════════════════════════════════════════════════
+         SUPPORTING PALETTE · 辅助色生态
+         Five secondary colors that genuinely exist in the manganese
+         floor ecosystem, each pinned to a real product use case.
+         ═══════════════════════════════════════════════════════════════ */
+
+      .sup-intro {
+        margin-bottom: 36px;
+      }
+
+      .sup-intro p {
+        max-width: 56ch;
+        color: var(--gal-ink-mute);
+        line-height: 1.6;
+      }
+
+      .sup-row {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 28px;
+        padding: 26px 0;
+        border-top: 1px solid var(--gal-line);
+        align-items: start;
+      }
+
+      .sup-row:first-of-type { border-top: none; padding-top: 0; }
+
+      .sup-meta {
+        position: sticky;
+        top: 56px;
+      }
+
+      .sup-name {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 24px;
+        line-height: 1.1;
+        letter-spacing: -0.018em;
+        margin: 0;
+      }
+
+      .sup-name strong {
+        font-style: normal;
+        font-weight: 400;
+        color: var(--gal-ink-mute);
+        font-size: 0.55em;
+        letter-spacing: 0.05em;
+        margin-left: 10px;
+      }
+
+      .sup-bio {
+        margin: 6px 0 14px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        color: var(--gal-ink-mute);
+        line-height: 1.55;
+        max-width: 30ch;
+      }
+
+      .sup-swatches {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+
+      .sup-swatch {
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .sup-swatch .lbl {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.65;
+      }
+
+      .sup-swatch .hex {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: 0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .sup-swatch.dark { color: #f5f3ec; }
+      .sup-swatch.light { color: #14181c; }
+
+      .sup-demos {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .sup-demo {
+        border: 1px solid var(--gal-line);
+        background: var(--canvas);
+        color: var(--ink);
+        padding: 18px 18px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 160px;
+        font-family: var(--body);
+      }
+
+      .sup-demo[data-mode="day"] {
+        --canvas: #f0e9da;
+        --surface: #faf5ea;
+        --line: #d3c9b5;
+        --ink: #1f1a14;
+        --ink-mute: #6e6354;
+        --ink-faint: #9d907a;
+      }
+
+      .sup-demo[data-mode="night"] {
+        --canvas: #1a1612;
+        --surface: #231d18;
+        --line: #352d25;
+        --ink: #e6decf;
+        --ink-mute: #988e7e;
+        --ink-faint: #615a4f;
+      }
+
+      .sup-demo-label {
+        font-family: var(--mono);
+        font-size: 8.5px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+
+      /* compact UI patterns reused across secondaries */
+      .sup-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        border: 1px solid var(--sec);
+        color: var(--sec);
+        background: rgba(0, 0, 0, 0);
+      }
+
+      .sup-chip.filled {
+        background: var(--sec-soft);
+      }
+
+      .sup-row-inline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        font-size: 11.5px;
+      }
+
+      .sup-row-inline .tick {
+        font-family: var(--mono);
+        font-weight: 500;
+        letter-spacing: 0.04em;
+      }
+
+      .sup-row-inline .meta {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--ink-mute);
+        margin-left: auto;
+        letter-spacing: 0.04em;
+      }
+
+      .sup-row-inline .marker {
+        color: var(--sec);
+        font-weight: 500;
+      }
+
+      .sup-kpi {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+
+      .sup-kpi .num {
+        font-family: var(--display);
+        font-style: italic;
+        font-weight: 400;
+        font-size: 28px;
+        line-height: 1;
+        color: var(--sec);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .sup-kpi .lab {
+        font-family: var(--mono);
+        font-size: 9px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+
+      .sup-pulse {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--sec);
+      }
+
+      .sup-pulse .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--sec);
+        box-shadow: 0 0 0 0 var(--sec);
+        animation: sup-pulse 2.4s ease-out infinite;
+      }
+
+      @keyframes sup-pulse {
+        0% { box-shadow: 0 0 0 0 var(--sec); opacity: 1; }
+        70% { box-shadow: 0 0 0 8px transparent; opacity: 0.4; }
+        100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+      }
+
+      .sup-trio {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .sup-trio .sup-chip {
+        font-size: 9px;
+        padding: 2px 7px;
+      }
+
+      .sup-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 11px;
+      }
+
+      .sup-timeline-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink-mute);
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+      }
+
+      .sup-timeline-item.touched {
+        color: var(--ink);
+      }
+
+      .sup-timeline-item.touched::before {
+        content: "↳";
+        color: var(--sec);
+        font-family: var(--body);
+        font-weight: 500;
+      }
+
+      .sup-timeline-item .stamp {
+        color: var(--ink-faint);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .sup-actor {
+        color: var(--sec);
+        font-weight: 500;
+      }
+
+      /* per-secondary tokens (--sec / --sec-soft swap per row × mode) */
+      .sup-row.sulfur .sup-demo[data-mode="day"] { --sec: #9a7c20; --sec-soft: rgba(154, 124, 32, 0.10); }
+      .sup-row.sulfur .sup-demo[data-mode="night"] { --sec: #d4b042; --sec-soft: rgba(212, 176, 66, 0.10); }
+      .sup-row.coral .sup-demo[data-mode="day"] { --sec: #985648; --sec-soft: rgba(152, 86, 72, 0.10); }
+      .sup-row.coral .sup-demo[data-mode="night"] { --sec: #c68077; --sec-soft: rgba(198, 128, 119, 0.10); }
+      .sup-row.cephalopod .sup-demo[data-mode="day"] { --sec: #5a4e62; --sec-soft: rgba(90, 78, 98, 0.10); }
+      .sup-row.cephalopod .sup-demo[data-mode="night"] { --sec: #8a6fa0; --sec-soft: rgba(138, 111, 160, 0.10); }
+      .sup-row.phosphor .sup-demo[data-mode="day"] { --sec: #287e5a; --sec-soft: rgba(40, 126, 90, 0.10); }
+      .sup-row.phosphor .sup-demo[data-mode="night"] { --sec: #5ae6a7; --sec-soft: rgba(90, 230, 167, 0.10); }
+      .sup-row.hematite .sup-demo[data-mode="day"] { --sec: #7a341e; --sec-soft: rgba(122, 52, 30, 0.10); }
+      .sup-row.hematite .sup-demo[data-mode="night"] { --sec: #a04e37; --sec-soft: rgba(160, 78, 55, 0.10); }
+
+      /* cephalopod row has a 3-persona demo using all three secondaries */
+      .sup-trio .sup-chip[data-actor="buffett"] { color: var(--sec-buffett, #8a6fa0); border-color: var(--sec-buffett, #8a6fa0); }
+      .sup-trio .sup-chip[data-actor="short"] { color: var(--sec-short, #a04e37); border-color: var(--sec-short, #a04e37); }
+      .sup-trio .sup-chip[data-actor="auditor"] { color: var(--sec-auditor, #d4b042); border-color: var(--sec-auditor, #d4b042); }
+
+      .sup-row.cephalopod .sup-demo[data-mode="day"] .sup-trio .sup-chip[data-actor="buffett"] { color: #5a4e62; border-color: #5a4e62; }
+      .sup-row.cephalopod .sup-demo[data-mode="day"] .sup-trio .sup-chip[data-actor="short"] { color: #7a341e; border-color: #7a341e; }
+      .sup-row.cephalopod .sup-demo[data-mode="day"] .sup-trio .sup-chip[data-actor="auditor"] { color: #9a7c20; border-color: #9a7c20; }
+
+      @media (max-width: 900px) {
+        .sup-row { grid-template-columns: 1fr; }
+        .sup-meta { position: static; }
+        .sup-demos { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
@@ -756,6 +1066,7 @@
         <a href="#pelagic" data-n="02">Pelagic Drift</a>
         <a href="#manganese" data-n="03">Manganese Floor</a>
         <a href="#sonar" data-n="04">Sonar HUD</a>
+        <a href="#supporting" data-n="05">辅助色生态</a>
       </nav>
 
       <!-- ═══════════════════════════════════════════════════════════════
@@ -1181,6 +1492,228 @@
               <span><strong>sonar</strong> · night</span>
               <span></span>
               <span class="hexes">#10171A · #4FC591</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════
+           SUPPORTING PALETTE · 辅助色生态
+           Five secondary colors that exist in the Manganese Floor
+           ecosystem, each pinned to a concrete shinkai use case.
+           ═══════════════════════════════════════════════════════════════ -->
+      <section class="pal-sec" id="supporting">
+        <div class="pal-head">
+          <div>
+            <p class="pal-num">SUPPORTING PALETTE · 辅 1–5</p>
+            <h2 class="pal-name">辅助色生态 <strong>Manganese 之外的 5 种深海色</strong></h2>
+            <p class="pal-concept">
+              Manganese 胜出后,它的世界里还有 5 种自然存在的颜色。每种都钉在
+              一个真实生物 / 地质归属上,并指向 shinkai 里一个具体的产品槽位 ——
+              不是"备选色",是"已经知道放在哪"。
+            </p>
+            <p class="pal-mood"><span>5 secondaries</span><span>each = bio referent + product slot</span><span>tested on manganese canvas</span></p>
+          </div>
+        </div>
+
+        <div class="sup-intro">
+          <p style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; color: var(--gal-ink-mute); max-width: 64ch;">
+            主调 · oxidized teal <strong style="color: var(--gal-ink);">#7AAAA5</strong> 管 active / link /
+            主操作 · copper <strong style="color: var(--gal-ink);">#C58658</strong> 管 warn。下面这 5 种
+            <em>补</em> 主调而不抢它,各自有专属语义。
+          </p>
+        </div>
+
+        <!-- ── 辅 1 · sulfur ──────────────────────────────────────── -->
+        <div class="sup-row sulfur">
+          <div class="sup-meta">
+            <h3 class="sup-name">硫黄 <strong>sulfur</strong></h3>
+            <p class="sup-bio">热液喷口的化学合成菌垫 — 黄色的、温暖、带警示意味但不是"错"。</p>
+            <div class="sup-swatches">
+              <div class="sup-swatch dark" style="background:#9a7c20"><span class="lbl">day</span><span class="hex">#9A7C20</span></div>
+              <div class="sup-swatch dark" style="background:#d4b042"><span class="lbl">night</span><span class="hex">#D4B042</span></div>
+            </div>
+            <p class="sup-bio" style="margin-top: 10px;">
+              <strong style="color: var(--gal-ink); text-transform: uppercase; letter-spacing: 0.12em;">slot</strong><br>
+              "等用户输入"的暂停态 · user-pinned items · awaiting-human chip
+            </p>
+          </div>
+          <div class="sup-demos">
+            <div class="sup-demo" data-mode="day">
+              <span class="sup-demo-label">DAY · candidate list</span>
+              <div class="sup-row-inline">
+                <span class="tick">CAMT</span><span>Wafer inspection</span>
+                <span class="sup-chip filled">awaiting input</span>
+              </div>
+              <div class="sup-kpi">
+                <span class="num">2</span><span class="lab">paused · awaiting</span>
+              </div>
+            </div>
+            <div class="sup-demo" data-mode="night">
+              <span class="sup-demo-label">NIGHT · candidate list</span>
+              <div class="sup-row-inline">
+                <span class="tick">CAMT</span><span>Wafer inspection</span>
+                <span class="sup-chip filled">awaiting input</span>
+              </div>
+              <div class="sup-kpi">
+                <span class="num">2</span><span class="lab">paused · awaiting</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 辅 2 · cold coral ──────────────────────────────────── -->
+        <div class="sup-row coral">
+          <div class="sup-meta">
+            <h3 class="sup-name">冷珊瑚 <strong>cold coral</strong></h3>
+            <p class="sup-bio">1000m+ 深处的竹珊瑚 / gorgonian — 粉珊瑚色,稀有,标记"被人触碰过"。</p>
+            <div class="sup-swatches">
+              <div class="sup-swatch dark" style="background:#985648"><span class="lbl">day</span><span class="hex">#985648</span></div>
+              <div class="sup-swatch dark" style="background:#c68077"><span class="lbl">night</span><span class="hex">#C68077</span></div>
+            </div>
+            <p class="sup-bio" style="margin-top: 10px;">
+              <strong style="color: var(--gal-ink); text-transform: uppercase; letter-spacing: 0.12em;">slot</strong><br>
+              人为干预标记 · critic 修订痕迹 · user injection 时间线
+            </p>
+          </div>
+          <div class="sup-demos">
+            <div class="sup-demo" data-mode="day">
+              <span class="sup-demo-label">DAY · injection timeline</span>
+              <div class="sup-timeline">
+                <div class="sup-timeline-item"><span class="stamp">14:21</span><span>agent · proposed candidate AEHR</span></div>
+                <div class="sup-timeline-item touched"><span class="stamp">14:23</span><span><span class="sup-actor">user injected</span> · pin + re-score</span></div>
+                <div class="sup-timeline-item"><span class="stamp">14:24</span><span>agent · resumed</span></div>
+              </div>
+              <span class="sup-chip">user-edited</span>
+            </div>
+            <div class="sup-demo" data-mode="night">
+              <span class="sup-demo-label">NIGHT · injection timeline</span>
+              <div class="sup-timeline">
+                <div class="sup-timeline-item"><span class="stamp">14:21</span><span>agent · proposed candidate AEHR</span></div>
+                <div class="sup-timeline-item touched"><span class="stamp">14:23</span><span><span class="sup-actor">user injected</span> · pin + re-score</span></div>
+                <div class="sup-timeline-item"><span class="stamp">14:24</span><span>agent · resumed</span></div>
+              </div>
+              <span class="sup-chip">user-edited</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 辅 3 · cephalopod (showcases 3 personas, uses 3 secondaries) ─ -->
+        <div class="sup-row cephalopod">
+          <div class="sup-meta">
+            <h3 class="sup-name">头足紫 <strong>cephalopod</strong></h3>
+            <p class="sup-bio">鱿鱼皮肤虹彩细胞 — 沉思 / 反思色,带一点"非工业"的智识感。</p>
+            <div class="sup-swatches">
+              <div class="sup-swatch dark" style="background:#5a4e62"><span class="lbl">day</span><span class="hex">#5A4E62</span></div>
+              <div class="sup-swatch dark" style="background:#8a6fa0"><span class="lbl">night</span><span class="hex">#8A6FA0</span></div>
+            </div>
+            <p class="sup-bio" style="margin-top: 10px;">
+              <strong style="color: var(--gal-ink); text-transform: uppercase; letter-spacing: 0.12em;">slot</strong><br>
+              Buffett critic 色 · 配合 short-seller (铁锈) / auditor (硫黄) 三色凑齐 critic 调色板
+            </p>
+          </div>
+          <div class="sup-demos">
+            <div class="sup-demo" data-mode="day">
+              <span class="sup-demo-label">DAY · critic_aggregated event</span>
+              <div class="sup-trio">
+                <span class="sup-chip" data-actor="buffett">Buffett · accept</span>
+                <span class="sup-chip" data-actor="short">Short-seller · reject</span>
+                <span class="sup-chip" data-actor="auditor">Auditor · partial</span>
+              </div>
+              <div class="sup-row-inline">
+                <span class="tick">CAMT</span>
+                <span class="meta">aggregated · <span class="marker" style="color: var(--ink-mute);">reject</span> (-0.08 conf)</span>
+              </div>
+            </div>
+            <div class="sup-demo" data-mode="night">
+              <span class="sup-demo-label">NIGHT · critic_aggregated event</span>
+              <div class="sup-trio">
+                <span class="sup-chip" data-actor="buffett">Buffett · accept</span>
+                <span class="sup-chip" data-actor="short">Short-seller · reject</span>
+                <span class="sup-chip" data-actor="auditor">Auditor · partial</span>
+              </div>
+              <div class="sup-row-inline">
+                <span class="tick">CAMT</span>
+                <span class="meta">aggregated · <span class="marker" style="color: var(--ink-mute);">reject</span> (-0.08 conf)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 辅 4 · phosphor ───────────────────────────────────── -->
+        <div class="sup-row phosphor">
+          <div class="sup-meta">
+            <h3 class="sup-name">磷光 <strong>phosphor</strong></h3>
+            <p class="sup-bio">水母 / 鞭毛藻的生物发光 — 短暂、明亮、表示"现在正在发生"。</p>
+            <div class="sup-swatches">
+              <div class="sup-swatch dark" style="background:#287e5a"><span class="lbl">day</span><span class="hex">#287E5A</span></div>
+              <div class="sup-swatch dark" style="background:#5ae6a7"><span class="lbl">night</span><span class="hex">#5AE6A7</span></div>
+            </div>
+            <p class="sup-bio" style="margin-top: 10px;">
+              <strong style="color: var(--gal-ink); text-transform: uppercase; letter-spacing: 0.12em;">slot</strong><br>
+              实时活动脉冲 · live agent 指示器 · 区别于静态 active accent
+            </p>
+          </div>
+          <div class="sup-demos">
+            <div class="sup-demo" data-mode="day">
+              <span class="sup-demo-label">DAY · live activity</span>
+              <div class="sup-pulse"><span class="dot"></span><span>LIVE · executing</span></div>
+              <div class="sup-row-inline">
+                <span class="meta" style="margin-left: 0;">▶ now</span>
+                <span>web_search · "HBM 供应商 第二来源"</span>
+                <span class="meta">2.3s</span>
+              </div>
+              <span class="sup-chip filled">streaming</span>
+            </div>
+            <div class="sup-demo" data-mode="night">
+              <span class="sup-demo-label">NIGHT · live activity</span>
+              <div class="sup-pulse"><span class="dot"></span><span>LIVE · executing</span></div>
+              <div class="sup-row-inline">
+                <span class="meta" style="margin-left: 0;">▶ now</span>
+                <span>web_search · "HBM 供应商 第二来源"</span>
+                <span class="meta">2.3s</span>
+              </div>
+              <span class="sup-chip filled">streaming</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 辅 5 · hematite ─────────────────────────────────── -->
+        <div class="sup-row hematite">
+          <div class="sup-meta">
+            <h3 class="sup-name">铁锈 <strong>hematite</strong></h3>
+            <p class="sup-bio">海底铁氧化沉积 — 深红橙,比 copper 重一档,表示"事实已被证伪"。</p>
+            <div class="sup-swatches">
+              <div class="sup-swatch dark" style="background:#7a341e"><span class="lbl">day</span><span class="hex">#7A341E</span></div>
+              <div class="sup-swatch dark" style="background:#a04e37"><span class="lbl">night</span><span class="hex">#A04E37</span></div>
+            </div>
+            <p class="sup-bio" style="margin-top: 10px;">
+              <strong style="color: var(--gal-ink); text-transform: uppercase; letter-spacing: 0.12em;">slot</strong><br>
+              hypothesis falsified · short-seller critic · 比 copper warn 更硬的拒绝态
+            </p>
+          </div>
+          <div class="sup-demos">
+            <div class="sup-demo" data-mode="day">
+              <span class="sup-demo-label">DAY · falsified hypothesis</span>
+              <div class="sup-row-inline">
+                <span class="tick" style="text-decoration: line-through; opacity: 0.6;">ATYR</span>
+                <span style="opacity: 0.6;">Pharma · HBM thesis</span>
+                <span class="sup-chip">falsified</span>
+              </div>
+              <div class="sup-kpi">
+                <span class="num">3</span><span class="lab">falsified · removed</span>
+              </div>
+            </div>
+            <div class="sup-demo" data-mode="night">
+              <span class="sup-demo-label">NIGHT · falsified hypothesis</span>
+              <div class="sup-row-inline">
+                <span class="tick" style="text-decoration: line-through; opacity: 0.6;">ATYR</span>
+                <span style="opacity: 0.6;">Pharma · HBM thesis</span>
+                <span class="sup-chip">falsified</span>
+              </div>
+              <div class="sup-kpi">
+                <span class="num">3</span><span class="lab">falsified · removed</span>
+              </div>
             </div>
           </div>
         </div>
