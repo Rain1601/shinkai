@@ -46,17 +46,37 @@ type PortalShellProps = {
   onLocaleChange?: (locale: Locale) => void;
 };
 
-const navItems: Array<{
+type NavItem = {
   id: PortalShellProps["active"];
   href: string;
   label: string;
   icon: LucideIcon;
-}> = [
-  { id: "agent", href: "/agent", label: "Overview", icon: Compass },
-  { id: "live", href: "/live", label: "Workspace", icon: Sparkles },
-  { id: "actions", href: "/actions", label: "Actions", icon: Settings },
-  { id: "history", href: "/runs", label: "History", icon: Activity },
-  { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
+};
+
+type NavSection = {
+  label: string;
+  labelZh: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
+  {
+    label: "Workspace",
+    labelZh: "工作区",
+    items: [
+      { id: "agent", href: "/agent", label: "Overview", icon: Compass },
+      { id: "live", href: "/live", label: "Workspace", icon: Sparkles },
+      { id: "actions", href: "/actions", label: "Actions", icon: Settings },
+    ],
+  },
+  {
+    label: "Engine",
+    labelZh: "引擎",
+    items: [
+      { id: "history", href: "/runs", label: "History", icon: Activity },
+      { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
+    ],
+  },
 ];
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
@@ -116,23 +136,30 @@ export function PortalShell({
           <span className="portal-logo-text">shinkai</span>
           <small>{isZh ? "深海 · 投研引擎" : "Deep Research"}</small>
         </Link>
-        <nav className="portal-nav" aria-label={isZh ? "工作区" : "Workspace"}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                aria-current={active === item.id ? "page" : undefined}
-                className={active === item.id ? "portal-nav-item active" : "portal-nav-item"}
-                href={item.href}
-                key={item.id}
-              >
-                <span className="portal-nav-icon" aria-hidden="true">
-                  <Icon size={17} strokeWidth={1.9} />
-                </span>
-                <span className="portal-nav-label">{isZh ? zhNavLabels[item.id] : item.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="portal-nav" aria-label={isZh ? "导航" : "Navigation"}>
+          {navSections.map((section) => (
+            <div className="portal-nav-section" key={section.label}>
+              <div className="portal-nav-section-label">
+                {isZh ? section.labelZh : section.label}
+              </div>
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    aria-current={active === item.id ? "page" : undefined}
+                    className={active === item.id ? "portal-nav-item active" : "portal-nav-item"}
+                    href={item.href}
+                    key={item.id}
+                  >
+                    <span className="portal-nav-icon" aria-hidden="true">
+                      <Icon size={17} strokeWidth={active === item.id ? 2 : 1.75} />
+                    </span>
+                    <span className="portal-nav-label">{isZh ? zhNavLabels[item.id] : item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         <div className="portal-sidebar-footer">
           <button
