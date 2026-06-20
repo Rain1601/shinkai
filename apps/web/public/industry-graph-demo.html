@@ -1,0 +1,2521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Industry Graph — NVIDIA Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #0F1419;
+    --ink-mute: #5E6066;
+    --ink-faint: #9C9DA0;
+    --hairline: #E8E6E0;
+    --hairline-strong: #C9C5BB;
+    --supplies: #1F3A5F;
+    --compete: #B8453A;
+    --anchor: #C8941F;
+    --L-designer: #1F3A5F;
+    --L-foundry: #5E4682;
+    --L-advanced_packaging: #9B5C70;
+    --L-memory: #B97A2D;
+    --L-testing: #8F8334;
+    --L-assembly: #4E7758;
+    --L-cooling: #4F7884;
+    --L-power: #A04E3C;
+    --L-csp: #2D2D2D;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    color: var(--ink);
+    background: var(--bg);
+    font-feature-settings: 'cv11', 'ss01';
+    font-size: 13px;
+    line-height: 1.5;
+    display: flex; flex-direction: column;
+  }
+
+  /* ====== HEADER ====== */
+  header {
+    padding: 18px 36px 14px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--bg);
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  .h-title {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+  }
+  .h-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .h-spacer { flex: 1; }
+  .h-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ====== YEAR RIBBON (signature) ====== */
+  .ribbon {
+    padding: 24px 36px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--hairline);
+    display: flex; align-items: flex-start; gap: 36px;
+  }
+  .ribbon-left {
+    min-width: 220px;
+  }
+  .ribbon-eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .ribbon-year {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    display: flex; align-items: baseline; gap: 4px;
+  }
+  .ribbon-year .est {
+    font-style: italic;
+    font-size: 24px;
+    color: var(--anchor);
+    font-weight: 400;
+  }
+  .ribbon-foot {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 6px;
+  }
+  .ribbon-track {
+    flex: 1;
+    padding-top: 36px;
+    position: relative;
+  }
+  .ribbon-line {
+    position: relative;
+    height: 1px;
+    background: var(--hairline-strong);
+    margin: 0 12px;
+  }
+  .ribbon-ticks {
+    display: flex; justify-content: space-between;
+    margin: 0 12px;
+    padding-top: 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+  }
+  .ribbon-ticks span { position: relative; }
+  .ribbon-ticks span::before {
+    content: ''; position: absolute; top: -11px; left: 50%;
+    transform: translateX(-50%);
+    width: 1px; height: 4px; background: var(--hairline-strong);
+  }
+  .ribbon-ticks span.active { color: var(--ink); font-weight: 500; }
+  #year-slider {
+    -webkit-appearance: none; appearance: none;
+    position: absolute; top: 31px; left: 0; right: 0;
+    width: 100%; height: 12px;
+    background: transparent;
+    cursor: pointer;
+  }
+  #year-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--ink);
+    cursor: grab;
+  }
+  #year-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+  #year-slider::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink); border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--ink);
+  }
+
+  /* ====== CONTROLS ====== */
+  .controls {
+    padding: 12px 36px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--hairline);
+    display: flex; gap: 24px; align-items: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .controls .group { display: flex; gap: 8px; align-items: center; }
+  .controls .group > .label {
+    color: var(--ink-faint);
+  }
+  .seg {
+    display: inline-flex; border: 1px solid var(--hairline-strong); border-radius: 0;
+  }
+  .seg button {
+    padding: 5px 12px;
+    font-family: var(--mono); font-size: 11px;
+    background: transparent; color: var(--ink-mute);
+    border: 0; cursor: pointer;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border-right: 1px solid var(--hairline-strong);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { background: var(--surface); color: var(--ink); }
+  .seg button.active { background: var(--ink); color: var(--bg); }
+  .controls select {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink); background: transparent;
+    border: 0; border-bottom: 1px solid var(--hairline-strong);
+    padding: 4px 16px 4px 4px; letter-spacing: 0.06em;
+    text-transform: uppercase; cursor: pointer; outline: none;
+  }
+  .controls .toggle {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .controls input[type="checkbox"] { accent-color: var(--ink); }
+
+  /* ====== MAIN ====== */
+  .main { flex: 1; display: flex; min-height: 0; }
+  #cy-wrap {
+    flex: 1; position: relative; min-width: 0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(31, 58, 95, 0.025) 0%, transparent 50%),
+      radial-gradient(circle at 70% 80%, rgba(184, 69, 58, 0.02) 0%, transparent 50%),
+      var(--surface);
+    overflow: hidden;
+  }
+  #cy { width: 100%; height: 100%; }
+
+  /* ====== STRATA LABELS (HTML overlay, fixed left) ====== */
+  .strata-labels {
+    position: absolute; top: 0; left: 0;
+    width: 156px; height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    background: linear-gradient(to right,
+      var(--surface) 0%,
+      var(--surface) 70%,
+      rgba(255, 255, 255, 0.6) 90%,
+      transparent 100%);
+    border-right: 1px solid var(--hairline);
+  }
+  .strata-label {
+    position: absolute;
+    left: 18px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    pointer-events: auto;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 6px 4px 0;
+    transition: color 160ms;
+  }
+  .strata-label::before {
+    content: '';
+    display: inline-block;
+    width: 3px; height: 11px;
+    background: currentColor;
+    margin-right: 10px;
+    vertical-align: middle;
+    margin-bottom: 2px;
+    opacity: 0.55;
+    transition: opacity 160ms, width 160ms;
+  }
+  .strata-label:hover {
+    color: var(--ink) !important;
+  }
+  .strata-label:hover::before {
+    opacity: 1;
+    width: 6px;
+  }
+  .strata-label.active {
+    color: var(--ink) !important;
+  }
+  .strata-label.active::before {
+    opacity: 1;
+    width: 6px;
+  }
+  .strata-label .num {
+    font-size: 9px;
+    color: var(--ink-faint);
+    margin-left: 6px;
+    font-weight: 500;
+  }
+
+  /* ====== FOCUS TAG (drill-down breadcrumb) ====== */
+  .focus-tag {
+    position: absolute;
+    top: 14px;
+    left: 175px;
+    z-index: 10;
+    background: rgba(250, 250, 247, 0.95);
+    border: 1px solid var(--hairline-strong);
+    padding: 9px 14px 9px 16px;
+    max-width: calc(100% - 200px);
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    backdrop-filter: blur(6px);
+  }
+  .focus-eyebrow {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink-faint);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    align-self: center;
+    min-width: 36px;
+  }
+  .focus-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    line-height: 1.4;
+    align-self: center;
+  }
+  .bc-item {
+    cursor: pointer;
+    padding: 3px 7px;
+    border-radius: 2px;
+    color: var(--ink-mute);
+    transition: color 120ms, background 120ms;
+    white-space: nowrap;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .bc-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--ink);
+  }
+  .bc-item.current {
+    color: var(--ink);
+    font-weight: 600;
+    cursor: default;
+  }
+  .bc-item.current:hover { background: transparent; }
+  .bc-item.virtual {
+    color: var(--ink-faint);
+    cursor: default;
+    font-style: italic;
+  }
+  .bc-item.virtual:hover { background: transparent; color: var(--ink-faint); }
+  .bc-item-kind {
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .bc-item.current .bc-item-kind { color: var(--anchor); }
+  .bc-sep {
+    color: var(--ink-faint);
+    font-size: 10px;
+    margin: 0 -2px;
+  }
+  .bc-chip {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--anchor);
+    padding: 2px 6px;
+    border: 1px solid var(--anchor);
+    border-radius: 9px;
+    cursor: pointer;
+    margin-left: 2px;
+    letter-spacing: 0.05em;
+    background: transparent;
+    transition: background 120ms, color 120ms;
+  }
+  .bc-chip:hover {
+    background: var(--anchor);
+    color: var(--bg);
+  }
+  .focus-nav {
+    display: flex;
+    gap: 4px;
+    border-left: 1px solid var(--hairline);
+    padding-left: 12px;
+    align-items: center;
+  }
+  .bc-btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-mute);
+    width: 28px; height: 26px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .bc-btn:hover:not(:disabled) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .bc-btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+
+  /* ====== ±1 RAIL (parent / children at top/bottom) — Scheme A ====== */
+  .rail {
+    position: absolute;
+    left: 156px;
+    right: 0;
+    z-index: 6;
+    background: rgba(250, 250, 247, 0.92);
+    backdrop-filter: blur(6px);
+    height: 52px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 24px;
+    transition: opacity 220ms, transform 220ms;
+  }
+  .scheme-c .rail { display: none; }
+  .rail.empty { opacity: 0; pointer-events: none; }
+  .rail.rail-top {
+    top: 78px;  /* 让出 focus-tag 空间 */
+    border-bottom: 1px solid var(--hairline);
+    background: linear-gradient(to bottom, rgba(94,70,130,0.05) 0%, rgba(250,250,247,0.95) 100%);
+  }
+  .rail.rail-bottom {
+    bottom: 0;
+    border-top: 1px solid var(--hairline);
+    background: linear-gradient(to top, rgba(78,119,88,0.05) 0%, rgba(250,250,247,0.95) 100%);
+  }
+  .rail-label {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--ink-faint);
+    min-width: 110px; display: flex; align-items: center; gap: 4px;
+  }
+  .rail.rail-top .rail-label { color: var(--L-foundry); }
+  .rail.rail-bottom .rail-label { color: var(--L-assembly); }
+  .rail-arrow { font-size: 12px; }
+  .rail-chips {
+    display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto;
+    flex: 1;
+    scrollbar-width: thin;
+  }
+  .rail-chips::-webkit-scrollbar { height: 4px; }
+  .rail-chips::-webkit-scrollbar-thumb { background: var(--hairline-strong); }
+  .rail-chip {
+    padding: 5px 11px; border: 1px solid currentColor; border-radius: 14px;
+    font-family: var(--sans); font-size: 11.5px; cursor: pointer;
+    background: var(--surface); display: inline-flex; align-items: center; gap: 5px;
+    transition: background 120ms, transform 120ms;
+    white-space: nowrap;
+  }
+  .rail-chip:hover { background: currentColor; }
+  .rail-chip:hover .chip-label { color: var(--bg); }
+  .rail-chip:hover .chip-kind { color: rgba(255,255,255,0.7); }
+  .rail.rail-top .rail-chip { color: var(--L-foundry); }
+  .rail.rail-bottom .rail-chip { color: var(--L-assembly); }
+  .chip-kind {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .chip-label { color: var(--ink); }
+
+  /* ====== EDGE TOOLTIP (hover) ====== */
+  .edge-tooltip {
+    position: absolute;
+    z-index: 100;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 13px 9px;
+    pointer-events: none;
+    display: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    min-width: 230px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+    border: 1px solid var(--anchor);
+    line-height: 1.5;
+  }
+  .edge-tooltip .tip-head {
+    font-family: var(--serif);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--bg);
+    letter-spacing: -0.005em;
+    margin-bottom: 2px;
+  }
+  .edge-tooltip .tip-arrow { color: var(--anchor); margin: 0 5px; }
+  .edge-tooltip .tip-type {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--anchor);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(200,148,31,0.32);
+  }
+  .edge-tooltip .tip-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    color: rgba(250, 250, 247, 0.65);
+  }
+  .edge-tooltip .tip-row .v { color: var(--bg); font-weight: 500; }
+  .edge-tooltip .tip-foot {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    font-style: italic;
+    color: rgba(250,250,247,0.55);
+    font-size: 9.5px;
+  }
+
+  /* ====== SIDE PANEL ====== */
+  .side {
+    width: 380px;
+    background: var(--bg);
+    border-left: 1px solid var(--hairline);
+    overflow-y: auto;
+    padding: 28px 28px 40px;
+  }
+  .side-empty {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-faint);
+    padding-top: 40px;
+    text-align: center;
+  }
+  .s-kind {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .s-name {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin-top: 6px;
+    color: var(--ink);
+  }
+  .s-name .layer-bar {
+    display: inline-block;
+    width: 4px; height: 22px;
+    margin-right: 10px; margin-bottom: -3px;
+    background: var(--accent);
+  }
+  .s-aliases {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    margin-top: 4px;
+  }
+  .s-desc {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--ink-mute);
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hairline);
+  }
+  .s-meta {
+    margin-top: 18px;
+  }
+  .s-meta-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px dotted var(--hairline);
+  }
+  .s-meta-row .k {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .s-meta-row .v {
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink);
+  }
+  .s-section {
+    margin-top: 28px;
+  }
+  .s-section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 0;
+  }
+  .s-section-head h3 {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink); letter-spacing: 0.2em;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .s-section-head .count {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.06em;
+  }
+  .s-edge {
+    padding: 12px 0; border-bottom: 1px dotted var(--hairline);
+  }
+  .s-edge-line1 {
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .s-edge-type {
+    font-family: var(--mono); font-size: 9.5px;
+    color: var(--ink-faint); letter-spacing: 0.1em;
+    text-transform: uppercase; min-width: 80px;
+  }
+  .s-edge-target {
+    font-family: var(--serif); font-weight: 500; font-size: 15px;
+    color: var(--ink); flex: 1;
+  }
+  .s-edge-target .arrow {
+    color: var(--ink-faint);
+    margin-right: 4px;
+    font-family: var(--sans);
+  }
+  .s-edge-evid {
+    font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 1px 4px;
+  }
+  .s-edge-evid.hard { color: var(--L-assembly); }
+  .s-edge-evid.soft { color: var(--L-memory); font-style: italic; }
+  .s-edge-weights {
+    display: flex; gap: 16px; margin-top: 8px; margin-left: 88px;
+  }
+  .s-w {
+    display: flex; flex-direction: column;
+  }
+  .s-w-val {
+    font-family: var(--mono); font-size: 14px; font-weight: 500;
+    color: var(--ink); letter-spacing: -0.01em;
+  }
+  .s-w-key {
+    font-family: var(--mono); font-size: 9px;
+    color: var(--ink-faint); letter-spacing: 0.08em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+  .s-edge-foot {
+    margin-top: 6px; margin-left: 88px;
+    font-family: var(--serif); font-style: italic;
+    font-size: 11px; color: var(--ink-faint);
+  }
+
+  /* ====== LEGEND / FOOTER ====== */
+  .footer {
+    border-top: 1px solid var(--hairline);
+    padding: 10px 36px;
+    display: flex; gap: 28px; align-items: center;
+    background: var(--bg);
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-mute); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .footer-edges { display: flex; gap: 14px; align-items: center; }
+  .footer-edge { display: flex; gap: 6px; align-items: center; }
+  .footer-edge .swatch {
+    width: 28px; height: 1px;
+  }
+  .footer-edge .swatch.solid-blue { background: var(--supplies); height: 2px; }
+  .footer-edge .swatch.dashed-red {
+    background: linear-gradient(to right, var(--compete) 50%, transparent 0%);
+    background-size: 6px 1.5px;
+    background-repeat: repeat-x;
+    background-position: center;
+    height: 1.5px;
+  }
+  .footer-layers { display: flex; gap: 10px; flex-wrap: wrap; }
+  .footer-layer { display: flex; gap: 5px; align-items: center; }
+  .footer-layer .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .footer-spacer { flex: 1; }
+  .footer-cred {
+    font-family: var(--serif);
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-faint);
+    font-size: 11px;
+  }
+
+  /* ====== ERROR ====== */
+  #error { display: none; color: var(--compete); background: #FEE; padding: 8px 36px;
+           font-family: var(--mono); font-size: 11px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-title">Industry Graph</div>
+  <div class="h-sub" id="h-sub">Atlas of NVIDIA's supply chain · double-click any node to switch anchor</div>
+  <div class="h-spacer"></div>
+  <div class="h-meta">Mock · v0.1</div>
+</header>
+
+<div id="error"></div>
+
+<div class="ribbon">
+  <div class="ribbon-left">
+    <div class="ribbon-eyebrow">As of fiscal</div>
+    <div class="ribbon-year"><span id="year-num">2026</span><span class="est" id="year-est">e</span></div>
+    <div class="ribbon-foot">Edge widths reflect <span style="font-style:normal; font-family:var(--mono); font-size:10px; letter-spacing:0.05em;">share of buyer spend</span> for this period.</div>
+  </div>
+  <div class="ribbon-track">
+    <div class="ribbon-line"></div>
+    <input type="range" id="year-slider" min="2024" max="2028" step="1" value="2026">
+    <div class="ribbon-ticks" id="year-ticks">
+      <span data-y="2024">2024</span>
+      <span data-y="2025">2025</span>
+      <span data-y="2026" class="active">2026e</span>
+      <span data-y="2027">2027e</span>
+      <span data-y="2028">2028e</span>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="group">
+    <span class="label">View</span>
+    <div class="seg" id="view-seg">
+      <button data-view="entity" class="active">Anchor</button>
+      <button data-view="layer">Strata</button>
+      <button data-view="full">Full</button>
+    </div>
+  </div>
+  <div class="group" id="anchor-ctrl">
+    <span class="label">Anchor</span>
+    <select id="anchor-select">
+      <option value="co:NVIDIA">NVIDIA</option>
+      <option value="co:AMD">AMD</option>
+      <option value="co:TSMC">TSMC</option>
+      <option value="co:Cambricon">Cambricon</option>
+    </select>
+  </div>
+  <div class="group" id="layer-ctrl" style="display:none;">
+    <span class="label">Stratum</span>
+    <select id="layer-select">
+      <option value="layer:theme">Themes (L2)</option>
+      <option value="layer:designer">Designer</option>
+      <option value="layer:foundry">Foundry</option>
+      <option value="layer:advanced_packaging">Packaging</option>
+      <option value="layer:memory">Memory</option>
+      <option value="layer:testing" selected>Testing</option>
+      <option value="layer:assembly">Assembly</option>
+    </select>
+  </div>
+  <div class="group">
+    <label class="toggle"><input type="checkbox" id="show-products"> <span class="label">Products</span></label>
+  </div>
+</div>
+
+<div class="main">
+  <div id="cy-wrap">
+    <div id="cy"></div>
+    <div class="strata-labels" id="strata-labels"></div>
+    <div class="focus-tag" id="focus-tag">
+      <div class="focus-eyebrow">Focus</div>
+      <div class="focus-breadcrumb" id="focus-bc"></div>
+      <div class="focus-nav">
+        <button id="bc-up" class="bc-btn" title="向上一级">↑</button>
+        <button id="bc-down" class="bc-btn" title="向下一级">↓</button>
+      </div>
+    </div>
+    <div class="rail rail-top" id="rail-top">
+      <div class="rail-label"><span class="rail-arrow">▲</span><span id="rail-top-lvl">PARENT</span></div>
+      <div class="rail-chips" id="rail-top-chips"></div>
+    </div>
+    <div class="rail rail-bottom" id="rail-bottom">
+      <div class="rail-label"><span class="rail-arrow">▼</span><span id="rail-bot-lvl">CHILDREN</span></div>
+      <div class="rail-chips" id="rail-bot-chips"></div>
+    </div>
+  </div>
+  <aside class="side" id="side">
+    <div class="side-empty">Tap any node to inspect its evidence.</div>
+  </aside>
+</div>
+
+<div class="footer">
+  <div class="footer-edges">
+    <div class="footer-edge"><span class="swatch solid-blue"></span><span>supplies_to</span></div>
+    <div class="footer-edge"><span class="swatch dashed-red"></span><span>competes_with</span></div>
+  </div>
+  <div class="footer-layers">
+    <div class="footer-layer"><span class="dot" style="background:var(--L-designer)"></span>Designer</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-foundry)"></span>Foundry</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-advanced_packaging)"></span>Packaging</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-memory)"></span>Memory</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-testing)"></span>Testing</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-assembly)"></span>Assembly</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-cooling)"></span>Cooling</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-power)"></span>Power</div>
+    <div class="footer-layer"><span class="dot" style="background:var(--L-csp)"></span>Buyers</div>
+  </div>
+  <div class="footer-spacer"></div>
+  <div class="footer-cred">Source: Morgan Stanley, 20260508 — visualisation by Shinkai</div>
+</div>
+
+<script>
+(function () {
+  try {
+
+  // ============ LAYOUT SCHEME ============
+  // 'A' = ±1 layer 用顶/底 rail chip 显示(主图只 same-kind)
+  // 'C' = ±1 layer 节点放进主图作 satellite(半透明 + 虚线连接)
+  // 切换只改这一行;两种 scheme 代码并存,memory 记录在 industry-graph-layout-decision.md
+  const SCHEME = 'A';
+
+  const LAYER_COLOR = {
+    theme: '#3F3A3A',  // L2 主题层:暗墨色,中性
+    designer: '#1F3A5F', foundry: '#5E4682', advanced_packaging: '#9B5C70',
+    memory: '#B97A2D', testing: '#8F8334', assembly: '#4E7758',
+    cooling: '#4F7884', power: '#A04E3C', csp: '#2D2D2D',
+  };
+
+  // Market cap in USD billion (rough 2026 mid; private/business-line marked as null).
+  const MCAP_USD_BN = {
+    'co:NVIDIA': 3500, 'co:AMD': 280, 'co:Broadcom': 900,
+    'co:Huawei': 500 /* private est. */, 'co:Cambricon': 120,
+    'co:TSMC': 1100, 'co:SMIC': 50,
+    'co:TSMC-CoWoS': null /* business line */, 'co:Amkor': 6,
+    'co:Hynix': 150, 'co:Micron': 140, 'co:Samsung': 400,
+    'co:ASE': 30, 'co:KYEC': 1.5,
+    'co:HonPrecision': 5, 'co:MPI': 3, 'co:Winway': 2, 'co:Aspeed': 4,
+    'co:HonHai': 80, 'co:Quanta': 25, 'co:Wistron': 10,
+    'co:AVC': 1, 'co:Auras': 0.5,
+    'co:InnoScience': 1.5,
+    'co:Microsoft': 3500, 'co:Oracle': 600, 'co:Meta': 1800,
+    'co:xAI': 100 /* private est. */, 'co:CoreWeave': 30,
+  };
+  // Log-scale size mapping: 0.5B → ~37px, 100B → ~66px, 3500B → ~89px
+  function sizeByMcap(mcap) {
+    if (mcap == null) return 50;             // unknown — neutral default
+    const v = Math.max(0.5, mcap);
+    return Math.round(38 + Math.log10(v) * 14);
+  }
+  function fmtMcap(mcap) {
+    if (mcap == null) return '—';
+    if (mcap >= 1000) return `$${(mcap / 1000).toFixed(1)}T`;
+    if (mcap >= 1) return `$${mcap.toFixed(mcap < 10 ? 1 : 0)}B`;
+    return `$${(mcap * 1000).toFixed(0)}M`;
+  }
+
+  // ============ L2 SUB-THEMES (多面体分类:概念抽象层级 facet 1) ============
+  // Mega-theme L1=AI 不显示(它是所有 L2 的根,单点无意义)。
+  // 每个公司可以多对多挂多个 L2(NVIDIA 横跨 AI Infra + Physical AI + AI Models)。
+  const SUBTHEMES = [
+    { id: 'st:AI_Infra',    label: 'AI Infrastructure', kind: 'SubTheme',
+      desc: '算力载体:GPU / ASIC / HBM / 封装 / 网络 / 散热 / 电源 / 整柜 / DC。',
+      color: '#1F3A5F' },
+    { id: 'st:AI_Models',   label: 'AI Models', kind: 'SubTheme',
+      desc: 'LLM / 多模态 / VLA / 世界模型 / 国产模型。',
+      color: '#5E4682' },
+    { id: 'st:Physical_AI', label: 'Physical AI', kind: 'SubTheme',
+      desc: '人形机器人 / 自动驾驶 / 机器人核心零件 / 边缘 SoC。',
+      color: '#4E7758' },
+    { id: 'st:AI_Apps',     label: 'AI Applications', kind: 'SubTheme',
+      desc: 'Search / Productivity / Copilot / Coding / 企业 AI。',
+      color: '#9B5C70' },
+    { id: 'st:AI_Econ',     label: 'AI Econ Impact', kind: 'SubTheme',
+      desc: 'Capex / 电力 / 估值 / 监管 / 主权 AI。',
+      color: '#A04E3C' },
+  ];
+
+  // Company → SubTheme 多对多映射(themed_under 边)。
+  const THEMED_UNDER = {
+    'co:NVIDIA':       ['st:AI_Infra', 'st:Physical_AI', 'st:AI_Models'],  // GPU + Jetson + Cosmos
+    'co:AMD':          ['st:AI_Infra'],
+    'co:Broadcom':     ['st:AI_Infra'],
+    'co:Huawei':       ['st:AI_Infra', 'st:AI_Models'],
+    'co:Cambricon':    ['st:AI_Infra'],
+    'co:TSMC':         ['st:AI_Infra'],
+    'co:SMIC':         ['st:AI_Infra'],
+    'co:TSMC-CoWoS':   ['st:AI_Infra'],
+    'co:Amkor':        ['st:AI_Infra'],
+    'co:Hynix':        ['st:AI_Infra'],
+    'co:Micron':       ['st:AI_Infra'],
+    'co:Samsung':      ['st:AI_Infra'],
+    'co:ASE':          ['st:AI_Infra'],
+    'co:KYEC':         ['st:AI_Infra'],
+    'co:HonPrecision': ['st:AI_Infra'],
+    'co:MPI':          ['st:AI_Infra'],
+    'co:Winway':       ['st:AI_Infra'],
+    'co:Aspeed':       ['st:AI_Infra'],
+    'co:HonHai':       ['st:AI_Infra', 'st:Physical_AI'],   // 富士康 EV / 机器人代工
+    'co:Quanta':       ['st:AI_Infra'],
+    'co:Wistron':      ['st:AI_Infra'],
+    'co:AVC':          ['st:AI_Infra'],
+    'co:Auras':        ['st:AI_Infra'],
+    'co:InnoScience':  ['st:AI_Infra', 'st:Physical_AI'],   // GaN 也用于 EV / 机器人电源
+    'co:Microsoft':    ['st:AI_Infra', 'st:AI_Apps', 'st:AI_Models'],     // Azure + Copilot + 自研模型
+    'co:Oracle':       ['st:AI_Infra'],
+    'co:Meta':         ['st:AI_Infra', 'st:Physical_AI', 'st:AI_Apps'],   // MTIA + AI Glasses + 应用
+    'co:xAI':          ['st:AI_Infra', 'st:AI_Models'],
+    'co:CoreWeave':    ['st:AI_Infra'],
+  };
+
+  // 计算每个 SubTheme 的聚合 mcap(用于节点大小):挂在它下的所有公司 mcap 总和
+  const SUBTHEME_MCAP = {};
+  SUBTHEMES.forEach(st => {
+    let sum = 0;
+    Object.entries(THEMED_UNDER).forEach(([coId, themes]) => {
+      if (themes.includes(st.id)) {
+        const m = MCAP_USD_BN[coId];
+        if (m != null) sum += m;
+      }
+    });
+    SUBTHEME_MCAP[st.id] = sum;
+  });
+  // 主题节点 size: log scale 60 ~ 120
+  function sizeBySubthemeMcap(mcap) {
+    if (mcap == null || mcap <= 0) return 70;
+    return Math.round(50 + Math.log10(Math.max(1, mcap)) * 16);  // $1B → 50, $10B → 66, $1T → 98, $15T → 117
+  }
+
+  // ============ STRATA: theme (L2) → buyers → 供应链下游 → 供应链末端 ============
+  // 多面体分类的 facet 1 (theme) 在顶部,然后是 facet 2 (价值链) 由上往下
+  const STRATA = [
+    { layer: 'theme',              y: 50,  label: 'Themes' },     // L2 SubTheme 层
+    { layer: 'csp',                y: 175, label: 'Buyers' },
+    { layer: 'assembly',           y: 275, label: 'Assembly' },
+    { layer: 'designer',           y: 375, label: 'Designer' },
+    { layer: 'advanced_packaging', y: 475, label: 'Packaging' },
+    { layer: 'memory',             y: 565, label: 'Memory' },
+    { layer: 'foundry',            y: 655, label: 'Foundry' },
+    { layer: 'testing',            y: 745, label: 'Test / OSAT' },
+    { layer: 'cooling',            y: 830, label: 'Cooling' },
+    { layer: 'power',              y: 905, label: 'Power' },
+  ];
+
+  // ============ NODES ============
+  const RAW_NODES = [
+    // Strata labels (rendered as nodes on the left)
+    ...STRATA.map(s => ({ id: 'layer:'+s.layer, label: s.label, kind: 'SupplyLayer', layer: s.layer })),
+
+    // L2 SubTheme 节点(顶部主题层,layer='theme')
+    ...SUBTHEMES.map(st => ({
+      id: st.id, label: st.label, kind: 'SubTheme', layer: 'theme',
+      desc: st.desc, color: st.color,
+      aggregated_mcap: SUBTHEME_MCAP[st.id],
+      confidence: 1.0, source: 'taxonomy',
+    })),
+
+    // Companies
+    { id: 'co:NVIDIA', label: 'NVIDIA', kind: 'Company', layer: 'designer', anchor: true,
+      aliases: ['NVDA', '英伟达'],
+      desc: 'AI GPU 设计巨头。2026e 占 CoWoS 配额 ~58%,占 HBM 需求 ~58%。',
+      confidence: 1.0, source: 'MS p.13 / p.15' },
+    { id: 'co:AMD', label: 'AMD', kind: 'Company', layer: 'designer',
+      desc: 'GPU 设计第二。MI400 走 2nm,2026e CoWoS 配额 130k wafers。',
+      confidence: 1.0, source: 'MS p.13' },
+    { id: 'co:Broadcom', label: 'Broadcom', kind: 'Company', layer: 'designer',
+      desc: 'Google TPU 设计代工方。ASIC 路线竞争对手。',
+      confidence: 1.0, source: 'MS p.13' },
+    { id: 'co:Huawei', label: 'Huawei', kind: 'Company', layer: 'designer',
+      desc: '中国 AI 加速器份额 62%。Ascend 910C/950PR。',
+      confidence: 0.95, source: 'MS p.38' },
+    { id: 'co:Cambricon', label: 'Cambricon', kind: 'Company', layer: 'designer',
+      desc: '中国 AI ASIC 龙头。MLU 690 推理 2,063 TPS。',
+      confidence: 0.95, source: 'MS p.49' },
+    { id: 'co:TSMC', label: 'TSMC', kind: 'Company', layer: 'foundry', aliases: ['台积电'],
+      desc: '全球先进制程独家代工。2026e AI 收入占比 >30%。',
+      confidence: 1.0, source: 'MS p.18' },
+    { id: 'co:SMIC', label: 'SMIC', kind: 'Company', layer: 'foundry',
+      desc: '中国先进制程代工。承接 Huawei/Cambricon 7nm。',
+      confidence: 1.0, source: 'MS p.40' },
+    { id: 'co:TSMC-CoWoS', label: 'TSMC CoWoS', kind: 'Company', layer: 'advanced_packaging',
+      desc: 'CoWoS-L/S/R。2026e 170kwpm → 2027e 245kwpm。',
+      confidence: 1.0, source: 'MS p.11' },
+    { id: 'co:Amkor', label: 'Amkor', kind: 'Company', layer: 'advanced_packaging',
+      desc: '非 TSMC CoWoS 备用。NVIDIA 2026 195k wafers。',
+      confidence: 0.85, source: 'MS p.13' },
+    { id: 'co:Hynix', label: 'SK Hynix', kind: 'Company', layer: 'memory',
+      desc: 'HBM 龙头。HBM3e 12hi + HBM4 主供。',
+      confidence: 1.0, source: 'MS p.15' },
+    { id: 'co:Micron', label: 'Micron', kind: 'Company', layer: 'memory',
+      desc: 'HBM3e 12hi。Rubin R200 HBM4 候选。',
+      confidence: 0.95, source: 'MS p.15' },
+    { id: 'co:Samsung', label: 'Samsung', kind: 'Company', layer: 'memory',
+      desc: 'HBM3e 12hi。AMD MI300/350 主供。',
+      confidence: 0.95, source: 'MS p.15' },
+    { id: 'co:ASE', label: 'ASE', kind: 'Company', layer: 'testing',
+      desc: 'OSAT 全球龙头。burn-in / FT / SLT 主供。',
+      confidence: 1.0, source: 'MS p.29' },
+    { id: 'co:KYEC', label: 'KYEC', kind: 'Company', layer: 'testing',
+      desc: 'OSAT 终测代工。NVIDIA AI GPU 主要测试方。',
+      confidence: 1.0, source: 'MS p.29' },
+    { id: 'co:HonPrecision', label: 'Hon Precision', kind: 'Company', layer: 'testing',
+      desc: 'Handler 龙头。share 28%→42%。EPS CAGR 67%。',
+      confidence: 0.9, source: 'MS p.31' },
+    { id: 'co:MPI', label: 'MPI', kind: 'Company', layer: 'testing',
+      desc: 'Probe card。share 8%→20%。CPO Optionality。',
+      confidence: 0.9, source: 'MS p.32' },
+    { id: 'co:Winway', label: 'WinWay', kind: 'Company', layer: 'testing',
+      desc: 'Test socket。share 8.6%→20%。EPS CAGR 95%。',
+      confidence: 0.9, source: 'MS p.33' },
+    { id: 'co:Aspeed', label: 'Aspeed', kind: 'Company', layer: 'testing',
+      desc: 'AI server BMC 独家供应。',
+      confidence: 1.0, source: 'MS p.2' },
+    { id: 'co:HonHai', label: 'Hon Hai', kind: 'Company', layer: 'assembly',
+      desc: 'GB200/300 NVL72 整柜组装份额 57%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:Quanta', label: 'Quanta', kind: 'Company', layer: 'assembly',
+      desc: 'GB200/300 整柜组装份额 21%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:Wistron', label: 'Wistron', kind: 'Company', layer: 'assembly',
+      desc: 'GB200/300 整柜组装份额 18%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:AVC', label: 'AVC', kind: 'Company', layer: 'cooling',
+      desc: 'NVIDIA AI rack 散热 cold plate 主供。',
+      confidence: 0.9, source: 'MS p.29' },
+    { id: 'co:Auras', label: 'Auras', kind: 'Company', layer: 'cooling',
+      desc: 'AI rack 散热模组。',
+      confidence: 0.9, source: 'MS p.29' },
+    { id: 'co:InnoScience', label: 'InnoScience', kind: 'Company', layer: 'power',
+      desc: 'GaN 龙头,NVIDIA rack 800V HVDC 受益方。',
+      confidence: 0.85, source: 'MS p.36' },
+    { id: 'co:Microsoft', label: 'Microsoft', kind: 'Company', layer: 'csp',
+      desc: 'GB200/300 demand share 35%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:Oracle', label: 'Oracle', kind: 'Company', layer: 'csp',
+      desc: 'GB200/300 demand share 23%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:Meta', label: 'Meta', kind: 'Company', layer: 'csp',
+      desc: 'GB200/300 demand share 9%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:xAI', label: 'xAI', kind: 'Company', layer: 'csp',
+      desc: 'GB200/300 demand share 9%。',
+      confidence: 1.0, source: 'MS p.17' },
+    { id: 'co:CoreWeave', label: 'CoreWeave', kind: 'Company', layer: 'csp',
+      desc: 'GB200/300 demand share 7%。',
+      confidence: 1.0, source: 'MS p.17' },
+
+    // Products (hidden by default)
+    { id: 'pd:B300', label: 'B300', kind: 'Product', layer: 'designer',
+      desc: 'Blackwell Ultra,4nm。2026 → 5,460k 颗。', confidence: 1.0, source: 'MS p.14' },
+    { id: 'pd:RubinR200', label: 'Rubin R200', kind: 'Product', layer: 'designer',
+      desc: '3nm,HBM4 × 8 × 36GB。', confidence: 1.0, source: 'MS p.14' },
+    { id: 'pd:VeraCPU', label: 'Vera CPU', kind: 'Product', layer: 'designer',
+      desc: '3nm,与 Rubin GPU 配套。', confidence: 1.0, source: 'MS p.14' },
+    { id: 'pd:GB200', label: 'GB200 NVL72', kind: 'Product', layer: 'designer',
+      desc: '整柜产品,220 kW/rack。', confidence: 1.0, source: 'MS p.10' },
+
+    // L6 组件演示 — 证明动态深度(只放在 B300 下,验证 breadcrumb 可以走到 5+ 层)
+    { id: 'cmp:SoCDie',     label: 'SoC Die',     kind: 'Component', layer: 'designer',
+      desc: 'B300 的逻辑芯片(4nm)。', confidence: 1.0, source: 'TSMC channel' },
+    { id: 'cmp:HBMStack',   label: 'HBM Stack',   kind: 'Component', layer: 'designer',
+      desc: 'B300 的 8 个 HBM3e 12hi 堆栈,每个 36GB。', confidence: 1.0, source: 'MS p.15' },
+    { id: 'cmp:Interposer', label: 'CoWoS Interposer', kind: 'Component', layer: 'designer',
+      desc: 'B300 的硅 interposer,连接 SoC die + HBM。', confidence: 1.0, source: 'MS p.27' },
+  ];
+
+  // ============ EDGES ============
+  const SUPPLY_EDGES = [
+    { id: 'sp_tsmc_nv', source: 'co:TSMC', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.95,0.15,0.90], 2025:[0.98,0.18,0.92], 2026:[1.00,0.21,0.95], 2027:[1.00,0.24,0.95], 2028:[1.00,0.26,0.95] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.18' },
+    { id: 'sp_cowos_nv', source: 'co:TSMC-CoWoS', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.92,0.50,0.85], 2025:[0.85,0.54,0.85], 2026:[0.78,0.58,0.80], 2027:[0.75,0.58,0.78], 2028:[0.72,0.58,0.75] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.13' },
+    { id: 'sp_amkor_nv', source: 'co:Amkor', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.03,0.05,0.30], 2025:[0.10,0.12,0.40], 2026:[0.18,0.20,0.50], 2027:[0.22,0.25,0.55], 2028:[0.25,0.28,0.60] },
+      confidence: 0.75, evidence_type: 'hard_data', evidence_ref: 'MS p.13(测算)' },
+    { id: 'sp_hynix_nv', source: 'co:Hynix', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.60,0.40,0.65], 2025:[0.55,0.42,0.70], 2026:[0.50,0.45,0.70], 2027:[0.55,0.48,0.75], 2028:[0.55,0.50,0.75] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.15' },
+    { id: 'sp_micron_nv', source: 'co:Micron', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.15,0.18,0.50], 2025:[0.20,0.22,0.55], 2026:[0.25,0.28,0.60], 2027:[0.25,0.32,0.62], 2028:[0.25,0.35,0.65] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.15' },
+    { id: 'sp_samsung_nv', source: 'co:Samsung', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.25,0.20,0.55], 2025:[0.25,0.22,0.55], 2026:[0.25,0.24,0.55], 2027:[0.20,0.22,0.50], 2028:[0.20,0.25,0.50] },
+      confidence: 0.85, evidence_type: 'soft_inference', evidence_ref: 'MS p.15 + 推断' },
+    { id: 'sp_ase_nv', source: 'co:ASE', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2025:[0.40,0.25,0.70], 2026:[0.40,0.28,0.72], 2027:[0.42,0.30,0.75] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.29' },
+    { id: 'sp_kyec_nv', source: 'co:KYEC', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2025:[0.35,0.60,0.78], 2026:[0.38,0.65,0.80], 2027:[0.40,0.68,0.82] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.29' },
+    { id: 'sp_honp_ase', source: 'co:HonPrecision', target: 'co:ASE', type: 'supplies_to',
+      wbp: { 2024:[0.28,0.40,0.65], 2025:[0.32,0.45,0.70], 2026:[0.36,0.50,0.72], 2027:[0.42,0.55,0.75], 2028:[0.45,0.58,0.78] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.31' },
+    { id: 'sp_mpi_ase', source: 'co:MPI', target: 'co:ASE', type: 'supplies_to',
+      wbp: { 2024:[0.08,0.35,0.60], 2025:[0.11,0.40,0.62], 2026:[0.14,0.45,0.65], 2027:[0.18,0.50,0.70], 2028:[0.20,0.55,0.72] },
+      confidence: 0.80, evidence_type: 'hard_data', evidence_ref: 'MS p.32' },
+    { id: 'sp_winway_ase', source: 'co:Winway', target: 'co:ASE', type: 'supplies_to',
+      wbp: { 2024:[0.09,0.50,0.60], 2025:[0.09,0.55,0.65], 2026:[0.13,0.62,0.70], 2027:[0.17,0.68,0.75], 2028:[0.20,0.72,0.78] },
+      confidence: 0.80, evidence_type: 'hard_data', evidence_ref: 'MS p.33' },
+    { id: 'sp_aspeed_hh', source: 'co:Aspeed', target: 'co:HonHai', type: 'supplies_to',
+      wbp: { 2025:[0.95,0.40,0.92], 2026:[0.95,0.55,0.95], 2027:[0.95,0.65,0.95] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.2' },
+    { id: 'sp_hh_nv', source: 'co:HonHai', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.55,0.15,0.65], 2025:[0.57,0.22,0.68], 2026:[0.55,0.28,0.68], 2027:[0.52,0.32,0.65] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_quanta_nv', source: 'co:Quanta', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.20,0.12,0.55], 2025:[0.21,0.18,0.58], 2026:[0.23,0.22,0.60], 2027:[0.25,0.25,0.60] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_wistron_nv', source: 'co:Wistron', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2024:[0.18,0.20,0.55], 2025:[0.18,0.25,0.55], 2026:[0.18,0.28,0.55], 2027:[0.18,0.30,0.55] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_avc_hh', source: 'co:AVC', target: 'co:HonHai', type: 'supplies_to',
+      wbp: { 2025:[0.45,0.50,0.70], 2026:[0.50,0.60,0.75], 2027:[0.50,0.65,0.75] },
+      confidence: 0.80, evidence_type: 'soft_inference', evidence_ref: 'MS p.29' },
+    { id: 'sp_inno_nv', source: 'co:InnoScience', target: 'co:NVIDIA', type: 'supplies_to',
+      wbp: { 2026:[0.05,0.08,0.35], 2027:[0.10,0.15,0.40], 2028:[0.18,0.25,0.50] },
+      confidence: 0.60, evidence_type: 'soft_inference', evidence_ref: 'MS p.36 + 推断' },
+    { id: 'sp_nv_ms', source: 'co:NVIDIA', target: 'co:Microsoft', type: 'supplies_to',
+      wbp: { 2025:[0.85,0.35,0.75], 2026:[0.78,0.32,0.72], 2027:[0.70,0.30,0.65] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_nv_oracle', source: 'co:NVIDIA', target: 'co:Oracle', type: 'supplies_to',
+      wbp: { 2025:[0.95,0.23,0.85], 2026:[0.92,0.22,0.82] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_nv_meta', source: 'co:NVIDIA', target: 'co:Meta', type: 'supplies_to',
+      wbp: { 2025:[0.70,0.09,0.55], 2026:[0.55,0.08,0.45] },
+      confidence: 0.80, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_nv_xai', source: 'co:NVIDIA', target: 'co:xAI', type: 'supplies_to',
+      wbp: { 2025:[1.00,0.09,0.90], 2026:[1.00,0.10,0.90] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_nv_cw', source: 'co:NVIDIA', target: 'co:CoreWeave', type: 'supplies_to',
+      wbp: { 2025:[1.00,0.07,0.95], 2026:[1.00,0.07,0.95] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.17' },
+    { id: 'sp_smic_huawei', source: 'co:SMIC', target: 'co:Huawei', type: 'supplies_to',
+      wbp: { 2025:[1.00,0.30,0.98], 2026:[1.00,0.35,0.98] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.40' },
+    { id: 'sp_smic_cambricon', source: 'co:SMIC', target: 'co:Cambricon', type: 'supplies_to',
+      wbp: { 2025:[1.00,0.05,0.95], 2026:[1.00,0.08,0.95] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.49' },
+    { id: 'sp_tsmc_amd', source: 'co:TSMC', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2026:[1.00,0.08,0.95] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.13' },
+    { id: 'sp_tsmc_brcm', source: 'co:TSMC', target: 'co:Broadcom', type: 'supplies_to',
+      wbp: { 2026:[1.00,0.10,0.95] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.13' },
+
+    // ====== AMD 上下游链 ======
+    { id: 'sp_cowos_amd', source: 'co:TSMC-CoWoS', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2025:[0.85,0.07,0.78], 2026:[0.80,0.09,0.75], 2027:[0.75,0.10,0.72] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.13' },
+    { id: 'sp_hynix_amd', source: 'co:Hynix', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2025:[0.30,0.04,0.55], 2026:[0.35,0.05,0.58], 2027:[0.40,0.06,0.62] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.15' },
+    { id: 'sp_samsung_amd', source: 'co:Samsung', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2025:[0.55,0.05,0.70], 2026:[0.55,0.06,0.70], 2027:[0.50,0.06,0.65] },
+      confidence: 0.90, evidence_type: 'hard_data', evidence_ref: 'MS p.15 MI300/350 主供 Samsung' },
+    { id: 'sp_ase_amd', source: 'co:ASE', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2026:[0.50,0.10,0.70], 2027:[0.50,0.12,0.72] },
+      confidence: 0.80, evidence_type: 'soft_inference', evidence_ref: 'MS p.29' },
+    { id: 'sp_kyec_amd', source: 'co:KYEC', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2026:[0.20,0.18,0.60] },
+      confidence: 0.75, evidence_type: 'soft_inference', evidence_ref: 'MS p.29' },
+    { id: 'sp_honp_amd', source: 'co:HonPrecision', target: 'co:ASE', type: 'supplies_to',
+      wbp: {}, confidence: 0, evidence_type: 'hard_data', evidence_ref: '' }, // dummy skip - we already have honp_ase
+    { id: 'sp_quanta_amd', source: 'co:Quanta', target: 'co:AMD', type: 'supplies_to',
+      wbp: { 2026:[0.45,0.06,0.55] },
+      confidence: 0.75, evidence_type: 'soft_inference', evidence_ref: 'MI300 server assembly' },
+
+    // AMD → buyers
+    { id: 'sp_amd_ms', source: 'co:AMD', target: 'co:Microsoft', type: 'supplies_to',
+      wbp: { 2025:[0.12,0.18,0.45], 2026:[0.18,0.22,0.50], 2027:[0.25,0.28,0.55] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'Azure MI300/350 采购' },
+    { id: 'sp_amd_meta', source: 'co:AMD', target: 'co:Meta', type: 'supplies_to',
+      wbp: { 2025:[0.25,0.10,0.40], 2026:[0.40,0.18,0.50], 2027:[0.45,0.22,0.55] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'Meta MI300 采购' },
+    { id: 'sp_amd_oracle', source: 'co:AMD', target: 'co:Oracle', type: 'supplies_to',
+      wbp: { 2026:[0.06,0.03,0.30] },
+      confidence: 0.70, evidence_type: 'soft_inference', evidence_ref: 'Oracle 评估中' },
+  ].filter(e => e.id !== 'sp_honp_amd');  // 去掉 dummy
+
+  const COMPETE_EDGES = [
+    { id: 'cp_nv_amd', source: 'co:NVIDIA', target: 'co:AMD', type: 'competes_with',
+      wbp: { 2024:[0.80,0.05], 2025:[0.82,0.03], 2026:[0.85,-0.02], 2027:[0.85,-0.05] },
+      confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'MS p.13' },
+    { id: 'cp_nv_brcm', source: 'co:NVIDIA', target: 'co:Broadcom', type: 'competes_with',
+      wbp: { 2024:[0.50,0.10], 2025:[0.55,0.05], 2026:[0.60,-0.05], 2027:[0.65,-0.10] },
+      confidence: 0.85, evidence_type: 'soft_inference', evidence_ref: 'MS p.26' },
+    { id: 'cp_nv_huawei', source: 'co:NVIDIA', target: 'co:Huawei', type: 'competes_with',
+      wbp: { 2024:[0.30,0.20], 2025:[0.40,0.10], 2026:[0.45,-0.05], 2027:[0.50,-0.15] },
+      confidence: 0.80, evidence_type: 'hard_data', evidence_ref: 'MS p.38' },
+    { id: 'cp_huawei_cambricon', source: 'co:Huawei', target: 'co:Cambricon', type: 'competes_with',
+      wbp: { 2026:[0.70,-0.10] },
+      confidence: 0.85, evidence_type: 'hard_data', evidence_ref: 'MS p.38' },
+  ];
+
+  const PRODUCE_EDGES = [
+    { id: 'pr_nv_b300', source: 'co:NVIDIA', target: 'pd:B300', type: 'produces' },
+    { id: 'pr_nv_rubin', source: 'co:NVIDIA', target: 'pd:RubinR200', type: 'produces' },
+    { id: 'pr_nv_vera', source: 'co:NVIDIA', target: 'pd:VeraCPU', type: 'produces' },
+    { id: 'pr_nv_gb200', source: 'co:NVIDIA', target: 'pd:GB200', type: 'produces' },
+  ];
+
+  // part_of: Component → Product(L6 → L5,演示动态深度)
+  const PART_OF_EDGES = [
+    { id: 'po_soc_b300',   source: 'cmp:SoCDie',     target: 'pd:B300', type: 'part_of' },
+    { id: 'po_hbm_b300',   source: 'cmp:HBMStack',   target: 'pd:B300', type: 'part_of' },
+    { id: 'po_intp_b300',  source: 'cmp:Interposer', target: 'pd:B300', type: 'part_of' },
+  ];
+
+  // themed_under: Company → SubTheme(多对多)
+  const THEMED_EDGES = [];
+  Object.entries(THEMED_UNDER).forEach(([coId, themes]) => {
+    themes.forEach(stId => {
+      THEMED_EDGES.push({
+        id: `tu_${coId.replace('co:', '')}_${stId.replace('st:', '')}`,
+        source: coId, target: stId, type: 'themed_under',
+        confidence: 0.95, evidence_type: 'hard_data', evidence_ref: 'taxonomy v0',
+      });
+    });
+  });
+
+  const ALL_EDGES = [...SUPPLY_EDGES, ...COMPETE_EDGES, ...PRODUCE_EDGES, ...PART_OF_EDGES, ...THEMED_EDGES];
+
+  // ============ STRATA PRESET POSITIONS ============
+  // 每个 layer 的 x range,左侧留出 layer label 区
+  const X_LABEL = 90;
+  const X_MIN = 220;
+  const X_MAX = 1180;
+
+  function computePositions() {
+    const pos = {};
+    // SupplyLayer labels — 左侧
+    STRATA.forEach(s => { pos['layer:'+s.layer] = { x: X_LABEL, y: s.y }; });
+
+    // Group companies by layer
+    const byLayer = {};
+    RAW_NODES.forEach(n => {
+      if (n.kind !== 'Company' && n.kind !== 'Product' && n.kind !== 'SubTheme') return;
+      if (!byLayer[n.layer]) byLayer[n.layer] = [];
+      byLayer[n.layer].push(n);
+    });
+
+    STRATA.forEach(s => {
+      const arr = (byLayer[s.layer] || []).filter(n => n.kind === 'Company');
+      const products = (byLayer[s.layer] || []).filter(n => n.kind === 'Product');
+      // Anchor 在中间,其他按重要性/字母分布
+      const anchorIdx = arr.findIndex(n => n.anchor);
+      if (anchorIdx > -1) {
+        const a = arr.splice(anchorIdx, 1)[0];
+        const half = Math.floor(arr.length / 2);
+        arr.splice(half, 0, a);
+      }
+      const n = arr.length;
+      const width = X_MAX - X_MIN;
+      arr.forEach((node, i) => {
+        const x = n === 1 ? (X_MIN + X_MAX) / 2 : X_MIN + (i / (n - 1)) * width;
+        pos[node.id] = { x, y: s.y };
+      });
+      // Products: 放在 designer 同层稍偏上
+      products.forEach((node, i) => {
+        pos[node.id] = { x: X_MIN + 200 + i * 90, y: s.y - 60 };
+      });
+    });
+
+    return pos;
+  }
+
+  const POSITIONS = computePositions();
+
+  function getWBP(wbp, year) {
+    if (!wbp) return null;
+    if (wbp[year]) return wbp[year];
+    const keys = Object.keys(wbp).map(Number).sort((a, b) => a - b);
+    if (year < keys[0]) return wbp[keys[0]];
+    if (year > keys[keys.length - 1]) return wbp[keys[keys.length - 1]];
+    for (let i = keys.length - 1; i >= 0; i--) if (keys[i] <= year) return wbp[keys[i]];
+    return null;
+  }
+
+  function edgeWidth(edge, year) {
+    if (edge.type === 'themed_under') return 0.8;
+    if (!edge.wbp) return 1.2;
+    const w = getWBP(edge.wbp, year);
+    if (!w) return 1.2;
+    if (edge.type === 'supplies_to') return 0.6 + (w[0] || 0) * 5.5;
+    if (edge.type === 'competes_with') return 0.6 + (w[0] || 0) * 2.5;
+    return 1.2;
+  }
+
+  function buildNodeData(n) {
+    const isLayer = n.kind === 'SupplyLayer';
+    const isProduct = n.kind === 'Product';
+    const isComponent = n.kind === 'Component';
+    const isSubTheme = n.kind === 'SubTheme';
+    const isAnchor = !!n.anchor;
+    const layerColor = LAYER_COLOR[n.layer] || '#9C9DA0';
+    let bgColor, borderColor, textColor, borderWidth, width, height, shape, fontSize, fontWeight, fontFamily, textOpacity;
+    if (isSubTheme) {
+      // L2 主题节点:大圆,白底,粗描边(theme color),印刷感 serif 标签,size 按聚合 mcap log 缩放
+      const size = sizeBySubthemeMcap(n.aggregated_mcap);
+      bgColor = '#FFFFFF';
+      borderColor = n.color;
+      borderWidth = 2.5;
+      textColor = n.color;
+      width = size; height = size;
+      shape = 'ellipse';
+      fontSize = size >= 100 ? 13 : (size >= 80 ? 12 : 11);
+      fontWeight = 500;
+      fontFamily = 'serif';
+      textOpacity = 1;
+    } else if (isLayer) {
+      // Layer label = transparent text node (left side)
+      bgColor = '#FAFAF7';
+      borderColor = '#FAFAF7';
+      borderWidth = 0;
+      textColor = layerColor;
+      width = 130; height = 28;
+      shape = 'rectangle';
+      fontSize = 11;
+      fontWeight = 600;
+      fontFamily = 'monospace';
+      textOpacity = 1;
+    } else if (isProduct) {
+      bgColor = '#FAFAF7';
+      borderColor = layerColor;
+      borderWidth = 1;
+      textColor = layerColor;
+      width = 64; height = 30;
+      shape = 'round-rectangle';
+      fontSize = 10;
+      fontWeight = 500;
+      fontFamily = 'monospace';
+      textOpacity = 1;
+    } else if (isComponent) {
+      // L6 组件:更小的菱形,展示"产品内部"
+      bgColor = '#F5F2EA';
+      borderColor = '#9C9DA0';
+      borderWidth = 1;
+      textColor = '#5E6066';
+      width = 56; height = 28;
+      shape = 'round-rectangle';
+      fontSize = 9.5;
+      fontWeight = 500;
+      fontFamily = 'monospace';
+      textOpacity = 1;
+    } else if (isAnchor) {
+      // anchor — ink black with ochre ring; uniform size
+      bgColor = '#0F1419';
+      borderColor = '#C8941F';
+      borderWidth = 3;
+      textColor = '#FAFAF7';
+      width = 76; height = 76;
+      shape = 'ellipse';
+      fontSize = 13;
+      fontWeight = 600;
+      fontFamily = 'serif';
+      textOpacity = 1;
+    } else {
+      // Company — uniform size; market cap moved to side panel only
+      bgColor = '#FFFFFF';
+      borderColor = layerColor;
+      borderWidth = 1.5;
+      textColor = '#0F1419';
+      width = 60; height = 60;
+      shape = 'ellipse';
+      fontSize = 11;
+      fontWeight = 500;
+      fontFamily = 'sans-serif';
+      textOpacity = 1;
+    }
+    return { ...n, bgColor, borderColor, borderWidth, textColor, width, height, shape, fontSize, fontWeight, fontFamily, textOpacity };
+  }
+
+  function buildEdgeData(e, year) {
+    let lineColor = '#1F3A5F';
+    let lineStyle = 'solid';
+    let opacity = 0.42;
+    let curve = 'straight';
+    if (e.type === 'competes_with') { lineColor = '#B8453A'; lineStyle = 'dashed'; opacity = 0.4; curve = 'bezier'; }
+    else if (e.type === 'produces')   { lineColor = '#9C9DA0'; opacity = 0.3; lineStyle = 'dotted'; curve = 'bezier'; }
+    else if (e.type === 'part_of')    { lineColor = '#9C9DA0'; opacity = 0.35; lineStyle = 'dotted'; curve = 'bezier'; }
+    else if (e.type === 'themed_under'){ lineColor = '#C8941F'; opacity = 0.22; lineStyle = 'dashed'; curve = 'bezier'; }
+    return { ...e, lineColor, lineStyle, opacity, curve, currentWidth: edgeWidth(e, year) };
+  }
+
+  let currentYear = 2026;
+  let currentView = 'entity';
+  let currentAnchor = 'co:NVIDIA';
+  let currentLayer = 'layer:testing';
+  let showProducts = false;
+  let firstRender = true;
+  const ANIM_FADE = 250;
+  const ANIM_MOVE = 380;
+
+  // SupplyLayer 节点不进 cytoscape,改成 HTML overlay(fixed 左侧)
+  // 注入 market cap 到节点 data
+  const cyNodes = RAW_NODES.filter(n => n.kind !== 'SupplyLayer')
+    .map(n => {
+      const enriched = { ...n, mcap: MCAP_USD_BN[n.id] };
+      return { data: buildNodeData(enriched), position: POSITIONS[n.id] || { x: 600, y: 500 } };
+    });
+  const cyEdges = ALL_EDGES.map(e => ({ data: buildEdgeData(e, currentYear) }));
+
+  const cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: { nodes: cyNodes, edges: cyEdges },
+    minZoom: 0.4, maxZoom: 2.5,
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'label': 'data(label)',
+          'background-color': 'data(bgColor)',
+          'border-color': 'data(borderColor)',
+          'border-width': 'data(borderWidth)',
+          'color': 'data(textColor)',
+          'width': 'data(width)',
+          'height': 'data(height)',
+          'shape': 'data(shape)',
+          'font-size': 'data(fontSize)',
+          'font-weight': 'data(fontWeight)',
+          'font-family': 'data(fontFamily)',
+          'text-valign': 'center',
+          'text-halign': 'center',
+          'text-opacity': 'data(textOpacity)',
+          'text-wrap': 'wrap',
+          'text-max-width': '100px',
+          'transition-property': 'border-width, opacity, background-color',
+          'transition-duration': '180ms',
+        }
+      },
+      {
+        selector: 'node[kind = "SupplyLayer"]',
+        style: {
+          'background-opacity': 0,
+          'border-opacity': 0,
+          'text-halign': 'right',
+          'text-margin-x': -8,
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'curve-style': 'data(curve)',
+          'line-color': 'data(lineColor)',
+          'target-arrow-color': 'data(lineColor)',
+          'line-style': 'data(lineStyle)',
+          'width': 'data(currentWidth)',
+          'opacity': 'data(opacity)',
+          'target-arrow-shape': 'triangle',
+          'arrow-scale': 0.7,
+          'label': 'data(label_text)',
+          'font-family': 'monospace',
+          'font-size': 12,
+          'font-weight': 600,
+          'min-zoomed-font-size': 11,
+          'color': 'data(lineColor)',
+          'text-background-color': '#FAFAF7',
+          'text-background-opacity': 0.95,
+          'text-background-padding': '4px',
+          'text-background-shape': 'roundrectangle',
+          'text-border-opacity': 0,
+          'text-rotation': 'autorotate',
+          'text-margin-y': -2,
+          'transition-property': 'width, opacity',
+          'transition-duration': '220ms',
+        }
+      },
+      {
+        selector: 'edge[type = "supplies_to"]',
+        style: { 'control-point-distance': 30 }
+      },
+      {
+        selector: 'edge[type = "competes_with"]',
+        style: { 'control-point-distance': 50 }
+      },
+      { selector: 'node.faded', style: { 'opacity': 0.12 } },
+      { selector: 'edge.faded', style: { 'opacity': 0.04 } },
+      { selector: 'node.hi', style: { 'border-width': 4 } },
+      { selector: 'node.anchor-hi', style: {} },
+      { selector: 'edge.hi', style: { 'opacity': 0.95, 'width': 'mapData(currentWidth, 0.6, 8, 2, 9)' } },
+      { selector: 'node.hidden', style: { 'opacity': 0, 'text-opacity': 0, 'events': 'no' } },
+      { selector: 'edge.hidden', style: { 'opacity': 0, 'events': 'no' } },
+      { selector: 'node.satellite', style: { 'opacity': 0.55, 'text-opacity': 0.85 } },
+      { selector: 'edge.satellite', style: { 'opacity': 0.32 } },
+    ],
+    layout: { name: 'preset', positions: POSITIONS, fit: true, padding: 30 },
+    wheelSensitivity: 0.18,
+  });
+
+  function computeHiddenSet() {
+    // Returns the set of elements that should be hidden under current view/anchor/products.
+    let hidden = cy.collection();
+    if (!showProducts) {
+      hidden = hidden.union(cy.nodes('[kind = "Product"]'));
+      hidden = hidden.union(cy.edges('[type = "produces"]'));
+    }
+    if (currentView === 'entity') {
+      const anchor = cy.getElementById(currentAnchor);
+      if (anchor.length === 0) return hidden;
+      const siblings = findSiblings(anchor);
+      const mainScope = siblings.add(anchor);
+      const siblingEdges = mainScope.edgesWith(mainScope).filter('edge[type = "supplies_to"], edge[type = "competes_with"]');
+      let inScope = mainScope.union(siblingEdges);
+      if (SCHEME === 'C') {
+        // 方案 C:±1 层 parents/children 作为 satellite 加入 inScope
+        const parents = findParents(anchor);
+        const children = findChildren(anchor);
+        const satellites = parents.union(children);
+        const satEdges = anchor.connectedEdges('edge[type = "themed_under"], edge[type = "produces"], edge[type = "part_of"]')
+          .filter(e => satellites.has(e.source()) || satellites.has(e.target()));
+        inScope = inScope.union(satellites).union(satEdges);
+      }
+      // 方案 A:只 same-kind 节点,父/子用顶/底 rail 显示
+      hidden = hidden.union(cy.elements().difference(inScope));
+    } else if (currentView === 'layer') {
+      const layerKey = currentLayer.replace('layer:', '');
+      const companies = cy.nodes('[layer = "' + layerKey + '"]');
+      const competeEdges = companies.edgesWith(companies).filter('edge[type = "competes_with"]');
+      hidden = hidden.union(cy.elements().difference(companies.add(competeEdges)));
+    }
+    return hidden;
+  }
+
+  function applyView() {
+    cy.elements().removeClass('faded hi anchor-hi satellite');
+
+    // 方案 C:Mark satellite nodes/edges(parent/child of anchor)— 方案 A 不 mark
+    if (SCHEME === 'C' && currentView === 'entity') {
+      const anchor = cy.getElementById(currentAnchor);
+      if (anchor.length > 0) {
+        const parents = findParents(anchor);
+        const children = findChildren(anchor);
+        parents.union(children).addClass('satellite');
+        anchor.connectedEdges('edge[type = "themed_under"], edge[type = "produces"], edge[type = "part_of"]').addClass('satellite');
+      }
+    }
+
+    const newlyHidden = computeHiddenSet();
+    const allEls = cy.elements();
+    const wasHidden = allEls.filter(el => el.hasClass('hidden'));
+    const willBeVisible = allEls.difference(newlyHidden);
+
+    // Compute target positions for visible nodes (without committing yet)
+    const targetPositions = computeTargetPositions(willBeVisible);
+
+    if (firstRender) {
+      // Snap on first render
+      firstRender = false;
+      cy.batch(() => {
+        allEls.removeClass('hidden');
+        newlyHidden.addClass('hidden');
+        Object.entries(targetPositions).forEach(([id, p]) => {
+          const n = cy.getElementById(id);
+          if (n.length) n.position(p);
+        });
+      });
+      fitToVisibleSnap();
+      updateStrataLabelCounts();
+      updateEdgeLabels();
+      if (typeof syncStrataLabelsActive === 'function') syncStrataLabelsActive();
+      syncStrataLabels();
+      return;
+    }
+
+    // Animated path
+    // 1. Determine which elements are entering visibility (need fade-in from 0)
+    const enteringVisible = wasHidden.intersection(willBeVisible);
+    // 2. Which are leaving (need fade out)
+    const leavingVisible = allEls.difference(wasHidden).intersection(newlyHidden);
+    // 3. Staying visible — animate position
+    const stayingVisible = allEls.difference(wasHidden).difference(newlyHidden);
+
+    // Pre-state: remove .hidden class from entering so they can animate via inline style
+    cy.batch(() => {
+      enteringVisible.removeClass('hidden');
+      enteringVisible.style({ 'opacity': 0, 'text-opacity': 0 });
+      // Pre-position entering nodes at their target so they don't fly in
+      enteringVisible.nodes().forEach(n => {
+        const p = targetPositions[n.id()];
+        if (p) n.position(p);
+      });
+    });
+
+    // Fade out leaving
+    leavingVisible.forEach(el => {
+      el.stop(true);
+      el.animate(
+        { style: { 'opacity': 0, 'text-opacity': 0 } },
+        { duration: ANIM_FADE, easing: 'ease-in-out',
+          complete: () => { el.addClass('hidden'); el.removeStyle('opacity').removeStyle('text-opacity'); } }
+      );
+    });
+
+    // Fade in entering
+    enteringVisible.forEach(el => {
+      el.stop(true);
+      const isEdge = el.isEdge();
+      const finalOpacity = isEdge ? (el.data('opacity') ?? 1) : 1;
+      el.animate(
+        { style: { 'opacity': finalOpacity, 'text-opacity': 1 } },
+        { duration: ANIM_FADE, easing: 'ease-in-out',
+          complete: () => { el.removeStyle('opacity').removeStyle('text-opacity'); } }
+      );
+    });
+
+    // Animate staying nodes to new positions
+    stayingVisible.nodes().forEach(n => {
+      const p = targetPositions[n.id()];
+      if (!p) return;
+      const cur = n.position();
+      if (Math.abs(cur.x - p.x) < 0.5 && Math.abs(cur.y - p.y) < 0.5) return;
+      n.stop(true);
+      n.animate({ position: p }, { duration: ANIM_MOVE, easing: 'ease-in-out' });
+    });
+
+    // Animate fit to new visible bbox
+    animateFitToVisible(willBeVisible, () => {
+      updateStrataLabelCounts();
+      updateEdgeLabels();
+      if (typeof syncStrataLabelsActive === 'function') syncStrataLabelsActive();
+      syncStrataLabels();
+    });
+  }
+
+  // ============ ROW LAYOUT ============
+  // 节点等距 spacing,anchor 永远在 midX,其他节点向两侧对称扩散
+  const ROW_SPACING = 180;
+  const ROW_MID_X = (X_MIN + X_MAX) / 2;
+
+  function layoutRowPositions(nodes, anchorId, y, out) {
+    if (nodes.length === 0) return;
+    const anchorNode = nodes.find(n => n.id() === anchorId);
+    if (anchorNode) {
+      out[anchorNode.id()] = { x: ROW_MID_X, y };
+      const others = nodes.filter(n => n.id() !== anchorId);
+      others.sort((a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''));
+      others.forEach((node, i) => {
+        const sign = (i % 2 === 0) ? 1 : -1;
+        const offset = (Math.floor(i / 2) + 1) * ROW_SPACING;
+        out[node.id()] = { x: ROW_MID_X + sign * offset, y };
+      });
+    } else {
+      const sorted = [...nodes].sort((a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''));
+      const n = sorted.length;
+      const totalWidth = (n - 1) * ROW_SPACING;
+      const startX = ROW_MID_X - totalWidth / 2;
+      sorted.forEach((node, i) => {
+        out[node.id()] = { x: startX + i * ROW_SPACING, y };
+      });
+    }
+  }
+
+  // Satellite (parent/child) y bands — 在 STRATA 主区域上下漂浮
+  const SAT_TOP_Y = 30;     // 父层 satellite 行(顶部)
+  const SAT_BOT_Y = 970;    // 子层 satellite 行(底部)
+  const SAT_SPACING = 150;  // satellite chip 间距(比正常 ROW_SPACING 稍紧)
+
+  function computeTargetPositions(visibleEls) {
+    const out = {};
+    const visibleIds = new Set();
+    visibleEls.forEach(el => { if (el.isNode()) visibleIds.add(el.id()); });
+    const byLayer = {};
+    const satTop = [];
+    const satBot = [];
+    cy.nodes().forEach(n => {
+      if (!visibleIds.has(n.id())) return;
+      const k = n.data('kind');
+      // Satellite 节点分流到顶/底独立行
+      if (n.hasClass('satellite')) {
+        if (k === 'SubTheme' || k === 'Theme' || k === 'Technology') satTop.push(n);
+        else satBot.push(n);   // Product / Component / Company-as-parent-of-Product
+        return;
+      }
+      // 非 satellite 的 Product/Component 不进 strata 行(避免意外显示)
+      if (k === 'Product' || k === 'Component') return;
+      const lay = n.data('layer');
+      if (!byLayer[lay]) byLayer[lay] = [];
+      byLayer[lay].push(n);
+    });
+    STRATA.forEach(s => {
+      const arr = byLayer[s.layer] || [];
+      layoutRowPositions(arr, currentAnchor, s.y, out);
+    });
+    // Satellite 行:均匀分布,不居中 anchor(它们不是当前层)
+    layoutSatelliteRow(satTop, SAT_TOP_Y, out);
+    layoutSatelliteRow(satBot, SAT_BOT_Y, out);
+    return out;
+  }
+
+  function layoutSatelliteRow(nodes, y, out) {
+    if (nodes.length === 0) return;
+    const sorted = [...nodes].sort((a, b) => (a.data('label') || '').localeCompare(b.data('label') || ''));
+    const n = sorted.length;
+    const totalWidth = (n - 1) * SAT_SPACING;
+    const startX = ROW_MID_X - totalWidth / 2;
+    sorted.forEach((node, i) => {
+      out[node.id()] = { x: startX + i * SAT_SPACING, y };
+    });
+  }
+
+  function computeFitTarget(visible) {
+    if (visible.length === 0) return null;
+    const anchor = cy.getElementById(currentAnchor);
+    if (anchor.length > 0 && currentView === 'entity') {
+      const ap = anchor.position();
+      // Use TARGET positions if mid-animation by reading current; fall back to position.
+      let maxDx = 0, maxDy = 0;
+      visible.forEach(n => {
+        if (!n.isNode || !n.isNode()) return;
+        const p = n.position();
+        const halfW = (n.outerWidth() || 60) / 2;
+        const halfH = (n.outerHeight() || 60) / 2;
+        maxDx = Math.max(maxDx, Math.abs(p.x - ap.x) + halfW);
+        maxDy = Math.max(maxDy, Math.abs(p.y - ap.y) + halfH);
+      });
+      const pad = 70;
+      return {
+        x1: ap.x - maxDx - pad,
+        x2: ap.x + maxDx + pad,
+        y1: ap.y - maxDy - pad,
+        y2: ap.y + maxDy + pad,
+      };
+    }
+    return null; // use eles
+  }
+
+  function fitToVisibleSnap() {
+    const visible = cy.nodes().filter(n => !n.hasClass('hidden'));
+    if (visible.length === 0) return;
+    const bb = computeFitTarget(visible);
+    if (bb) cy.fit(bb, 0); else cy.fit(visible, 0);
+  }
+
+  function bbToPanZoom(bb) {
+    // Compute pan/zoom that would fit bb into the cy viewport.
+    const ext = cy.extent();
+    const w = bb.x2 - bb.x1;
+    const h = bb.y2 - bb.y1;
+    if (w <= 0 || h <= 0) return null;
+    const containerW = cy.width();
+    const containerH = cy.height();
+    const zoom = Math.min(containerW / w, containerH / h);
+    const clamped = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
+    const cx = (bb.x1 + bb.x2) / 2;
+    const cy2 = (bb.y1 + bb.y2) / 2;
+    const pan = {
+      x: containerW / 2 - cx * clamped,
+      y: containerH / 2 - cy2 * clamped,
+    };
+    return { pan, zoom: clamped };
+  }
+
+  function animateFitToVisible(willBeVisibleEls, onComplete) {
+    // Compute target bbox using *target* positions of visible nodes.
+    const targetPositions = computeTargetPositions(willBeVisibleEls);
+    const visibleNodes = willBeVisibleEls.filter(el => el.isNode());
+    const anchorPos = targetPositions[currentAnchor];
+    let bb;
+    if (anchorPos && currentView === 'entity') {
+      let maxDx = 0, maxDy = 0;
+      visibleNodes.forEach(n => {
+        const p = targetPositions[n.id()] || n.position();
+        const halfW = (n.outerWidth() || 60) / 2;
+        const halfH = (n.outerHeight() || 60) / 2;
+        maxDx = Math.max(maxDx, Math.abs(p.x - anchorPos.x) + halfW);
+        maxDy = Math.max(maxDy, Math.abs(p.y - anchorPos.y) + halfH);
+      });
+      const pad = 70;
+      bb = {
+        x1: anchorPos.x - maxDx - pad,
+        x2: anchorPos.x + maxDx + pad,
+        y1: anchorPos.y - maxDy - pad,
+        y2: anchorPos.y + maxDy + pad,
+      };
+    } else if (visibleNodes.length > 0) {
+      let xs = [], ys = [];
+      visibleNodes.forEach(n => {
+        const p = targetPositions[n.id()] || n.position();
+        const halfW = (n.outerWidth() || 60) / 2;
+        const halfH = (n.outerHeight() || 60) / 2;
+        xs.push(p.x - halfW, p.x + halfW);
+        ys.push(p.y - halfH, p.y + halfH);
+      });
+      const pad = 30;
+      bb = { x1: Math.min(...xs) - pad, x2: Math.max(...xs) + pad,
+             y1: Math.min(...ys) - pad, y2: Math.max(...ys) + pad };
+    } else {
+      if (onComplete) onComplete();
+      return;
+    }
+    const pz = bbToPanZoom(bb);
+    if (!pz) { if (onComplete) onComplete(); return; }
+    cy.stop(true);
+    cy.animate(
+      { pan: pz.pan, zoom: pz.zoom },
+      { duration: ANIM_MOVE, easing: 'ease-in-out', complete: onComplete }
+    );
+  }
+
+  // anchor 1-hop 边显数字标签;其他边 label 为空
+  function updateEdgeLabels() {
+    cy.batch(() => {
+      cy.edges().forEach(e => e.data('label_text', ''));
+      if (currentView !== 'entity') return;
+      const anchor = cy.getElementById(currentAnchor);
+      if (anchor.length === 0) return;
+      anchor.connectedEdges().forEach(e => {
+        if (e.hasClass('hidden')) return;
+        const orig = ALL_EDGES.find(x => x.id === e.id());
+        if (!orig) return;
+        const w = orig.wbp ? getWBP(orig.wbp, currentYear) : null;
+        if (!w) return;
+        let txt = '';
+        if (e.data('type') === 'supplies_to') {
+          txt = `${(w[0] * 100).toFixed(0)}%`;
+        } else if (e.data('type') === 'competes_with') {
+          const delta = w[1] || 0;
+          txt = `${delta > 0 ? '+' : ''}${(delta * 100).toFixed(0)}%`;
+        }
+        if (txt && orig.evidence_type) {
+          txt += orig.evidence_type === 'hard_data' ? '  ◆' : '  ◇';
+        }
+        e.data('label_text', txt);
+      });
+    });
+  }
+
+  function updateStrataLabelCounts() {
+    // 重算每个 layer 当前可见节点数;count=0 整行隐藏(不留视觉空白)
+    STRATA.forEach(s => {
+      const el = document.getElementById('lbl-' + s.layer);
+      if (!el) return;
+      const numEl = el.querySelector('.num');
+      if (!numEl) return;
+      const count = cy.nodes(`[layer = "${s.layer}"]`).filter(n => !n.hasClass('hidden')).length;
+      numEl.textContent = String(count).padStart(2, '0');
+      el.style.display = count === 0 ? 'none' : '';
+      el.style.opacity = '1';
+    });
+  }
+
+  function updateEdgeWidths() {
+    cy.batch(() => {
+      cy.edges().forEach(e => {
+        const orig = ALL_EDGES.find(x => x.id === e.id());
+        if (!orig) return;
+        e.data('currentWidth', edgeWidth(orig, currentYear));
+      });
+    });
+  }
+
+  // ============ STRATA LABELS (HTML overlay) ============
+  const LAYER_Y_MAP = Object.fromEntries(STRATA.map(s => [s.layer, s.y]));
+  const LAYER_COUNT = {};
+  RAW_NODES.forEach(n => {
+    if (n.kind === 'Company' || n.kind === 'SubTheme') LAYER_COUNT[n.layer] = (LAYER_COUNT[n.layer] || 0) + 1;
+  });
+
+  function buildStrataLabels() {
+    const container = document.getElementById('strata-labels');
+    container.innerHTML = '';
+    STRATA.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'strata-label';
+      el.id = 'lbl-' + s.layer;
+      el.dataset.layer = s.layer;
+      el.style.color = LAYER_COLOR[s.layer];
+      const count = LAYER_COUNT[s.layer] || 0;
+      el.innerHTML = `${s.label.toUpperCase()}<span class="num">${String(count).padStart(2, '0')}</span>`;
+      // 点击 = 切到 LayerView 锁定这一 layer
+      el.addEventListener('click', () => {
+        document.querySelectorAll('#view-seg button').forEach(x => x.classList.remove('active'));
+        document.querySelector('#view-seg button[data-view="layer"]').classList.add('active');
+        document.getElementById('anchor-ctrl').style.display = 'none';
+        document.getElementById('layer-ctrl').style.display = 'flex';
+        const sel = document.getElementById('layer-select');
+        if (sel.querySelector(`option[value="layer:${s.layer}"]`)) sel.value = 'layer:' + s.layer;
+        currentView = 'layer';
+        currentLayer = 'layer:' + s.layer;
+        applyView();
+        syncStrataLabelsActive();
+      });
+      el.addEventListener('mouseenter', () => {
+        // hover layer label = 临时高亮该 layer
+        const companies = cy.nodes('[layer = "' + s.layer + '"]');
+        if (companies.length === 0) return;
+        cy.elements().addClass('faded');
+        companies.removeClass('faded');
+        companies.connectedEdges().forEach(e => {
+          if (companies.has(e.source()) && companies.has(e.target())) e.removeClass('faded');
+        });
+      });
+      el.addEventListener('mouseleave', () => {
+        cy.elements().removeClass('faded');
+      });
+      container.appendChild(el);
+    });
+    syncStrataLabelsActive();
+  }
+
+  function syncStrataLabels() {
+    const pan = cy.pan();
+    const zoom = cy.zoom();
+    STRATA.forEach(s => {
+      const el = document.getElementById('lbl-' + s.layer);
+      if (!el) return;
+      const screenY = pan.y + s.y * zoom;
+      const halfHeight = el.offsetHeight / 2;
+      el.style.top = (screenY - halfHeight) + 'px';
+    });
+  }
+
+  function syncStrataLabelsActive() {
+    document.querySelectorAll('.strata-label').forEach(el => {
+      const isActive = (currentView === 'layer' && currentLayer === 'layer:' + el.dataset.layer);
+      el.classList.toggle('active', isActive);
+    });
+  }
+
+  // ============ ANCHOR SWITCH (double-click any company to make it anchor) ============
+  function populateAnchorSelect() {
+    const sel = document.getElementById('anchor-select');
+    const current = sel.value || currentAnchor;
+    sel.innerHTML = '';
+    const items = RAW_NODES.filter(n => n.kind === 'Company').map(n => {
+      const layerIdx = STRATA.findIndex(s => s.layer === n.layer);
+      return { ...n, layerIdx };
+    }).sort((a, b) => {
+      if (a.layerIdx !== b.layerIdx) return a.layerIdx - b.layerIdx;
+      return a.label.localeCompare(b.label);
+    });
+    let curLayer = -1;
+    items.forEach(n => {
+      if (n.layerIdx !== curLayer) {
+        curLayer = n.layerIdx;
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = '— ' + STRATA[curLayer].label.toUpperCase() + ' —';
+        sel.appendChild(opt);
+      }
+      const opt = document.createElement('option');
+      opt.value = n.id;
+      opt.textContent = '  ' + n.label;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  }
+
+  function setAnchor(newId) {
+    if (newId === currentAnchor) return;
+    const oldId = currentAnchor;
+    currentAnchor = newId;
+    cy.batch(() => {
+      [oldId, newId].forEach(id => {
+        const n = cy.getElementById(id);
+        if (n.length === 0) return;
+        const raw = RAW_NODES.find(x => x.id === id);
+        if (!raw) return;
+        const enriched = { ...raw, mcap: MCAP_USD_BN[id], anchor: id === currentAnchor };
+        const newData = buildNodeData(enriched);
+        Object.keys(newData).forEach(k => n.data(k, newData[k]));
+      });
+    });
+    document.getElementById('anchor-select').value = newId;
+    // 切回 EntityView(因为新 anchor 只在 entity 模式有意义)
+    if (currentView !== 'entity') {
+      currentView = 'entity';
+      document.querySelectorAll('#view-seg button').forEach(x => x.classList.remove('active'));
+      document.querySelector('#view-seg button[data-view="entity"]').classList.add('active');
+      document.getElementById('anchor-ctrl').style.display = 'flex';
+      document.getElementById('layer-ctrl').style.display = 'none';
+    }
+    applyView();   // 内部 hide + relayout + fitToVisible
+    renderNode(newId);
+    updateHeaderSub();
+    if (typeof updateFocusTag === 'function') updateFocusTag();
+    if (typeof renderRails === 'function') renderRails();
+  }
+
+  function updateHeaderSub() {
+    const n = cy.getElementById(currentAnchor);
+    const label = n.length ? n.data('label') : currentAnchor;
+    document.getElementById('h-sub').textContent =
+      `Atlas of ${label}'s supply chain · double-click any node to switch anchor`;
+  }
+
+  cy.on('dbltap', 'node', (evt) => {
+    const n = evt.target;
+    const kind = n.data('kind');
+    // 允许任何 entity 节点作为 anchor:Company / SubTheme / Product / Component
+    if (kind === 'SupplyLayer') return;
+    setAnchor(n.id());
+  });
+
+  // ============ FOCUS TAG: drill-up / drill-down breadcrumb ============
+  // 从任意节点 walk up 到根(L1 AI 虚拟节点),返回路径数组
+  function computePath(nodeId) {
+    const node = cy.getElementById(nodeId);
+    if (node.length === 0) return [];
+    const path = [{
+      id: node.id(), label: node.data('label'), kind: node.data('kind'),
+      isCurrent: true, alt: [],
+    }];
+    let current = node;
+    const visited = new Set([nodeId]);
+    while (current && current.length > 0) {
+      const kind = current.data('kind');
+      let upTargets = cy.collection();
+      if (kind === 'Component') {
+        upTargets = current.outgoers('edge[type = "part_of"]').targets();
+      } else if (kind === 'Product') {
+        upTargets = current.incomers('edge[type = "produces"]').sources();
+      } else if (kind === 'Company') {
+        upTargets = current.outgoers('edge[type = "themed_under"]').targets();
+      }
+      // SubTheme 在 graph 上没有 up 边(L1 AI 是虚拟的)
+      if (upTargets.length === 0) break;
+      const primary = upTargets[0];
+      const alt = upTargets.slice(1).map(n => ({
+        id: n.id(), label: n.data('label'), kind: n.data('kind'),
+      }));
+      if (visited.has(primary.id())) break;
+      visited.add(primary.id());
+      path.unshift({
+        id: primary.id(), label: primary.data('label'), kind: primary.data('kind'),
+        alt: alt,
+      });
+      current = primary;
+    }
+    // 顶端加 L1 AI 虚拟根节点
+    path.unshift({
+      id: 'L1_AI', label: 'AI', kind: 'Theme', virtual: true, alt: [],
+    });
+    return path;
+  }
+
+  const KIND_LEVEL = {
+    Theme: 'L1', SubTheme: 'L2', Technology: 'L3',
+    Company: 'L4', Product: 'L5', Component: 'L6',
+  };
+
+  function renderBreadcrumb(path) {
+    const bc = document.getElementById('focus-bc');
+    bc.innerHTML = '';
+    path.forEach((seg, i) => {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'bc-sep';
+        sep.textContent = '▸';
+        bc.appendChild(sep);
+      }
+      const item = document.createElement('span');
+      const classes = ['bc-item'];
+      if (seg.isCurrent) classes.push('current');
+      if (seg.virtual) classes.push('virtual');
+      item.className = classes.join(' ');
+      const lvl = KIND_LEVEL[seg.kind] || '';
+      item.innerHTML = `<span class="bc-item-kind">${lvl}</span><span>${seg.label}</span>`;
+      if (!seg.virtual && !seg.isCurrent) {
+        item.title = `Click to drill to ${seg.label}`;
+        item.addEventListener('click', () => setAnchor(seg.id));
+      }
+      bc.appendChild(item);
+      if (seg.alt && seg.alt.length > 0) {
+        const chip = document.createElement('span');
+        chip.className = 'bc-chip';
+        chip.textContent = `+${seg.alt.length}`;
+        chip.title = '其他主题:\n• ' + seg.alt.map(a => a.label).join('\n• ') + '\n\n点击切换到下一个';
+        let altIdx = 0;
+        chip.addEventListener('click', () => {
+          // 点击 = 循环切换到下一个 alt 主题
+          setAnchor(seg.alt[altIdx % seg.alt.length].id);
+          altIdx += 1;
+        });
+        bc.appendChild(chip);
+      }
+    });
+  }
+
+  function findChildren(node) {
+    if (node.length === 0) return cy.collection();
+    const kind = node.data('kind');
+    if (kind === 'SubTheme') return node.incomers('edge[type = "themed_under"]').sources();
+    if (kind === 'Company')  return node.outgoers('edge[type = "produces"]').targets();
+    if (kind === 'Product')  return node.incomers('edge[type = "part_of"]').sources();
+    return cy.collection();
+  }
+
+  function findParents(node) {
+    if (node.length === 0) return cy.collection();
+    const kind = node.data('kind');
+    if (kind === 'Company')   return node.outgoers('edge[type = "themed_under"]').targets();
+    if (kind === 'Product')   return node.incomers('edge[type = "produces"]').sources();
+    if (kind === 'Component') return node.outgoers('edge[type = "part_of"]').targets();
+    return cy.collection();  // SubTheme 没有 graph 上的父(L1 AI 虚拟)
+  }
+
+  // 同 kind 的"邻居"集合 — Anchor 模式只显示这些 + anchor 自己
+  function findSiblings(node) {
+    if (node.length === 0) return cy.collection();
+    const kind = node.data('kind');
+    if (kind === 'Company') {
+      // 直接的 supplies_to/competes_with 1-hop Company 邻居
+      const edges = node.connectedEdges('[type = "supplies_to"], [type = "competes_with"]');
+      return edges.connectedNodes().filter('[kind = "Company"]');
+    }
+    if (kind === 'SubTheme') {
+      // 同 layer 的所有其他 SubTheme(L2 全部)
+      return cy.nodes('[kind = "SubTheme"]');
+    }
+    if (kind === 'Product') {
+      // 同公司其他 Products(走父 Company 找它的所有 Products)
+      const parent = node.incomers('edge[type = "produces"]').sources();
+      if (parent.length === 0) return node;
+      return parent.outgoers('edge[type = "produces"]').targets();
+    }
+    if (kind === 'Component') {
+      // 同 Product 其他 Components
+      const parent = node.outgoers('edge[type = "part_of"]').targets();
+      if (parent.length === 0) return node;
+      return parent.incomers('edge[type = "part_of"]').sources();
+    }
+    return cy.collection();
+  }
+
+  // ============ RAIL: parent/children chips ============
+  function kindLabel(kind) {
+    return ({
+      'Theme': 'L1 Theme', 'SubTheme': 'L2 SubTheme', 'Technology': 'L3 Technology',
+      'Company': 'L4 Company', 'Product': 'L5 Product', 'Component': 'L6 Component',
+    })[kind] || kind;
+  }
+
+  function renderRails() {
+    const node = cy.getElementById(currentAnchor);
+    if (node.length === 0) return;
+    const parents = findParents(node).toArray();
+    const children = findChildren(node).toArray();
+    const railTop = document.getElementById('rail-top');
+    const railBot = document.getElementById('rail-bottom');
+    const topChips = document.getElementById('rail-top-chips');
+    const botChips = document.getElementById('rail-bot-chips');
+    const topLvl = document.getElementById('rail-top-lvl');
+    const botLvl = document.getElementById('rail-bot-lvl');
+
+    // 父层 label
+    const anchorKind = node.data('kind');
+    if (parents.length > 0) {
+      const parentKind = parents[0].data('kind');
+      topLvl.textContent = kindLabel(parentKind) + ' · PARENT';
+    } else {
+      topLvl.textContent = anchorKind === 'SubTheme' ? 'L1 · AI (root)' : 'NO PARENT';
+    }
+
+    // 子层 label
+    if (children.length > 0) {
+      const childKind = children[0].data('kind');
+      botLvl.textContent = kindLabel(childKind) + ' · CHILDREN';
+    } else {
+      botLvl.textContent = 'NO CHILDREN';
+    }
+
+    // 渲染 chips
+    function renderChip(n) {
+      const chip = document.createElement('div');
+      chip.className = 'rail-chip';
+      const lvl = ({'Theme':'L1','SubTheme':'L2','Technology':'L3','Company':'L4','Product':'L5','Component':'L6'})[n.data('kind')] || '';
+      chip.innerHTML = `<span class="chip-kind">${lvl}</span><span class="chip-label">${n.data('label')}</span>`;
+      chip.addEventListener('click', () => setAnchor(n.id()));
+      return chip;
+    }
+    topChips.innerHTML = '';
+    parents.forEach(n => topChips.appendChild(renderChip(n)));
+    botChips.innerHTML = '';
+    children.forEach(n => botChips.appendChild(renderChip(n)));
+
+    railTop.classList.toggle('empty', parents.length === 0 && anchorKind !== 'SubTheme');
+    railBot.classList.toggle('empty', children.length === 0);
+
+    // SubTheme:顶部 rail 显示 L1 AI(虚拟根)单 chip
+    if (anchorKind === 'SubTheme' && parents.length === 0) {
+      const aiChip = document.createElement('div');
+      aiChip.className = 'rail-chip';
+      aiChip.style.opacity = '0.55';
+      aiChip.style.cursor = 'default';
+      aiChip.innerHTML = `<span class="chip-kind">L1</span><span class="chip-label">AI · root</span>`;
+      topChips.appendChild(aiChip);
+    }
+  }
+
+  function updateFocusTag() {
+    const path = computePath(currentAnchor);
+    renderBreadcrumb(path);
+    const upBtn = document.getElementById('bc-up');
+    const downBtn = document.getElementById('bc-down');
+    // Up 可用条件:path 长度 > 1 且 parent 不是 virtual
+    upBtn.disabled = path.length < 2 || path[path.length - 2].virtual;
+    // Down 可用条件:current anchor 有 children
+    const node = cy.getElementById(currentAnchor);
+    downBtn.disabled = findChildren(node).length === 0;
+  }
+
+  document.getElementById('bc-up').addEventListener('click', () => {
+    const path = computePath(currentAnchor);
+    if (path.length < 2) return;
+    const parent = path[path.length - 2];
+    if (parent.virtual) return;
+    setAnchor(parent.id);
+  });
+  document.getElementById('bc-down').addEventListener('click', () => {
+    const node = cy.getElementById(currentAnchor);
+    const children = findChildren(node);
+    if (children.length === 0) return;
+    // 直接下钻到第一个 child;切换其他 child 通过 graph 双击或 anchor 下拉
+    setAnchor(children[0].id());
+  });
+
+  populateAnchorSelect();
+
+  buildStrataLabels();
+  syncStrataLabels();
+  cy.on('pan zoom render viewport', syncStrataLabels);
+  cy.on('resize', syncStrataLabels);
+  window.addEventListener('resize', syncStrataLabels);
+
+  // ============ DRAG: lock y to layer band ============
+  cy.on('drag', 'node', (evt) => {
+    const n = evt.target;
+    const targetY = LAYER_Y_MAP[n.data('layer')];
+    if (targetY != null) {
+      n.position('y', targetY);
+    }
+  });
+
+  // ============ Hover highlight ============
+  let hoverPin = null;
+  cy.on('mouseover', 'node', (evt) => {
+    const n = evt.target;
+    if (n.data('kind') === 'SupplyLayer') return;
+    const nbh = n.closedNeighborhood();
+    const inScope = nbh.union(n.incomers()).union(n.outgoers());
+    cy.elements().not(inScope).not('[kind = "SupplyLayer"]').addClass('faded');
+    inScope.removeClass('faded');
+    inScope.connectedEdges().filter(e => inScope.has(e.source()) && inScope.has(e.target())).addClass('hi');
+    n.addClass('hi');
+  });
+  cy.on('mouseout', 'node', () => {
+    cy.elements().removeClass('faded hi');
+  });
+
+  // ============ SIDE PANEL ============
+  function fmtPct(v) { return v == null ? '—' : `${(v * 100).toFixed(0)}%`; }
+  function fmtConfidence(c) {
+    if (c == null) return '—';
+    const symbol = c >= 0.9 ? '●' : c >= 0.7 ? '◐' : '○';
+    return `${symbol} <span style="font-family:var(--mono)">${(c * 100).toFixed(0)}%</span>`;
+  }
+
+  function renderNode(nodeId) {
+    const node = cy.getElementById(nodeId);
+    if (node.length === 0) return;
+    const d = node.data();
+    const side = document.getElementById('side');
+    const layerColor = LAYER_COLOR[d.layer] || '#9C9DA0';
+
+    let html = '';
+    html += `<div class="s-kind">${d.kind === 'SupplyLayer' ? 'Stratum' : d.kind}</div>`;
+    html += `<div class="s-name" style="--accent:${layerColor}">`;
+    html += `<span class="layer-bar"></span>${d.label}`;
+    html += `</div>`;
+    if (d.aliases && d.aliases.length) {
+      html += `<div class="s-aliases">aka  ${d.aliases.join(' · ')}</div>`;
+    }
+    if (d.desc) html += `<div class="s-desc">${d.desc}</div>`;
+
+    html += `<div class="s-meta">`;
+    html += `<div class="s-meta-row"><span class="k">id</span><span class="v">${d.id}</span></div>`;
+    html += `<div class="s-meta-row"><span class="k">stratum</span><span class="v">${d.layer || '—'}</span></div>`;
+    if (d.mcap !== undefined) {
+      const mcapLabel = d.mcap == null ? 'n/a' : fmtMcap(d.mcap);
+      html += `<div class="s-meta-row"><span class="k">market cap</span><span class="v">${mcapLabel}</span></div>`;
+    }
+    if (d.confidence != null) html += `<div class="s-meta-row"><span class="k">confidence</span><span class="v">${fmtConfidence(d.confidence)}</span></div>`;
+    if (d.source) html += `<div class="s-meta-row"><span class="k">source</span><span class="v" style="font-size:10.5px">${d.source}</span></div>`;
+    html += `</div>`;
+
+    const out = node.outgoers('edge');
+    const inc = node.incomers('edge');
+
+    if (out.length > 0) {
+      html += `<div class="s-section"><div class="s-section-head"><h3>↓ Downstream</h3><span class="count">${out.length}</span></div>`;
+      out.forEach(e => { html += renderEdgeRow(e, '→', e.target()); });
+      html += `</div>`;
+    }
+    if (inc.length > 0) {
+      html += `<div class="s-section"><div class="s-section-head"><h3>↑ Upstream</h3><span class="count">${inc.length}</span></div>`;
+      inc.forEach(e => { html += renderEdgeRow(e, '←', e.source()); });
+      html += `</div>`;
+    }
+
+    side.innerHTML = html;
+  }
+
+  function renderEdgeRow(e, arrow, otherNode) {
+    const orig = ALL_EDGES.find(x => x.id === e.id());
+    const w = orig && orig.wbp ? getWBP(orig.wbp, currentYear) : null;
+    const evType = e.data('evidence_type');
+    const evRef = e.data('evidence_ref');
+    const otherLayer = LAYER_COLOR[otherNode.data('layer')] || '#9C9DA0';
+    let weightsHtml = '';
+    if (w && e.data('type') === 'supplies_to') {
+      weightsHtml = `<div class="s-edge-weights">
+        <div class="s-w"><span class="s-w-val">${fmtPct(w[0])}</span><span class="s-w-key">buyer spend</span></div>
+        <div class="s-w"><span class="s-w-val">${fmtPct(w[1])}</span><span class="s-w-key">seller rev</span></div>
+        <div class="s-w"><span class="s-w-val">${fmtPct(w[2])}</span><span class="s-w-key">lock-in</span></div>
+      </div>`;
+    } else if (w && e.data('type') === 'competes_with') {
+      weightsHtml = `<div class="s-edge-weights">
+        <div class="s-w"><span class="s-w-val">${fmtPct(w[0])}</span><span class="s-w-key">overlap</span></div>
+        <div class="s-w"><span class="s-w-val">${w[1] > 0 ? '+' : ''}${(w[1] * 100).toFixed(0)}%</span><span class="s-w-key">Δ share</span></div>
+      </div>`;
+    }
+    return `<div class="s-edge">
+      <div class="s-edge-line1">
+        <span class="s-edge-type">${e.data('type').replace('_', ' ')}</span>
+        <span class="s-edge-target"><span class="arrow">${arrow}</span><span style="border-left:3px solid ${otherLayer}; padding-left:8px">${otherNode.data('label')}</span></span>
+        ${evType ? `<span class="s-edge-evid ${evType === 'hard_data' ? 'hard' : 'soft'}">${evType === 'hard_data' ? '◆ hard' : '◇ soft'}</span>` : ''}
+      </div>
+      ${weightsHtml}
+      ${evRef ? `<div class="s-edge-foot">${evRef}</div>` : ''}
+    </div>`;
+  }
+
+  cy.on('tap', 'node', (evt) => renderNode(evt.target.id()));
+  cy.on('tap', 'edge', (evt) => renderEdgeDetails(evt.target));
+  cy.on('tap', (evt) => {
+    if (evt.target === cy) {
+      document.getElementById('side').innerHTML = `<div class="side-empty">Tap any node or edge to inspect its evidence.</div>`;
+    }
+  });
+
+  // ============ EDGE TOOLTIP (hover) ============
+  let edgeTooltip = null;
+  function ensureTooltip() {
+    if (!edgeTooltip) {
+      edgeTooltip = document.createElement('div');
+      edgeTooltip.className = 'edge-tooltip';
+      document.getElementById('cy-wrap').appendChild(edgeTooltip);
+    }
+    return edgeTooltip;
+  }
+  function buildTipHtml(edge) {
+    const orig = ALL_EDGES.find(x => x.id === edge.id());
+    if (!orig) return '';
+    const w = orig.wbp ? getWBP(orig.wbp, currentYear) : null;
+    const srcLabel = edge.source().data('label') || edge.source().id();
+    const tgtLabel = edge.target().data('label') || edge.target().id();
+    const type = edge.data('type').replace('_', ' ');
+    let html = `<div class="tip-head">${srcLabel}<span class="tip-arrow">→</span>${tgtLabel}</div>`;
+    html += `<div class="tip-type">${type}</div>`;
+    if (w && edge.data('type') === 'supplies_to') {
+      html += `<div class="tip-row"><span>buyer spend</span><span class="v">${fmtPct(w[0])}</span></div>`;
+      html += `<div class="tip-row"><span>seller revenue</span><span class="v">${fmtPct(w[1])}</span></div>`;
+      html += `<div class="tip-row"><span>lock-in</span><span class="v">${fmtPct(w[2])}</span></div>`;
+    } else if (w && edge.data('type') === 'competes_with') {
+      const delta = w[1] || 0;
+      html += `<div class="tip-row"><span>direct overlap</span><span class="v">${fmtPct(w[0])}</span></div>`;
+      html += `<div class="tip-row"><span>share Δ</span><span class="v">${delta > 0 ? '+' : ''}${(delta*100).toFixed(0)}%</span></div>`;
+    }
+    const evType = edge.data('evidence_type');
+    if (evType) {
+      html += `<div class="tip-row"><span>evidence</span><span class="v">${evType === 'hard_data' ? '◆ hard' : '◇ soft'}</span></div>`;
+    }
+    if (edge.data('confidence') != null) {
+      html += `<div class="tip-row"><span>confidence</span><span class="v">${(edge.data('confidence')*100).toFixed(0)}%</span></div>`;
+    }
+    const ref = edge.data('evidence_ref');
+    if (ref) html += `<div class="tip-foot">${ref}</div>`;
+    return html;
+  }
+  function positionTip(evt) {
+    const tip = ensureTooltip();
+    const pos = evt.renderedPosition || evt.position;
+    if (!pos) return;
+    const wrap = document.getElementById('cy-wrap');
+    const wrapRect = wrap.getBoundingClientRect();
+    let x = pos.x + 14;
+    let y = pos.y + 14;
+    // 边界检查:不超出 wrap
+    if (x + 260 > wrapRect.width) x = pos.x - 270;
+    if (y + 180 > wrapRect.height) y = pos.y - 190;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+  cy.on('mouseover', 'edge', (evt) => {
+    const e = evt.target;
+    if (e.hasClass('hidden')) return;
+    const tip = ensureTooltip();
+    tip.innerHTML = buildTipHtml(e);
+    tip.style.display = 'block';
+    positionTip(evt);
+  });
+  cy.on('mousemove', 'edge', positionTip);
+  cy.on('mouseout', 'edge', () => {
+    if (edgeTooltip) edgeTooltip.style.display = 'none';
+  });
+
+  // ============ EDGE CLICK → 侧栏切换成交互证据详情 ============
+  function renderEdgeDetails(edge) {
+    const orig = ALL_EDGES.find(x => x.id === edge.id());
+    const source = edge.source();
+    const target = edge.target();
+    const sd = source.data();
+    const td = target.data();
+    const type = edge.data('type');
+    const w = orig && orig.wbp ? getWBP(orig.wbp, currentYear) : null;
+    const sLayerColor = LAYER_COLOR[sd.layer] || '#9C9DA0';
+    const tLayerColor = LAYER_COLOR[td.layer] || '#9C9DA0';
+
+    let html = '';
+    html += `<div class="s-kind">RELATION · ${type.replace('_', ' ')}</div>`;
+    html += `<div class="s-name" style="font-size: 21px; line-height: 1.2">`;
+    html += `<span style="color:${sLayerColor}">${sd.label}</span> `;
+    html += `<span style="color: var(--ink-faint); font-family: var(--mono); font-size: 14px"> → </span> `;
+    html += `<span style="color:${tLayerColor}">${td.label}</span>`;
+    html += `</div>`;
+    html += `<div class="s-desc" style="margin-top: 10px">${type === 'supplies_to' ? '供应方 → 采购方' : type === 'competes_with' ? '同 layer 直接竞争' : type.replace('_', ' ')}。当前年份 ${currentYear}${currentYear >= 2026 ? 'e' : ''}。</div>`;
+
+    // Weight 三维
+    if (w && type === 'supplies_to') {
+      html += `<div class="s-section"><div class="s-section-head"><h3>Quantitative Weights</h3><span class="count">${currentYear}${currentYear >= 2026 ? 'e' : ''}</span></div>`;
+      html += `<div class="s-edge-weights" style="margin: 12px 0 0">`;
+      html += `<div class="s-w"><span class="s-w-val">${fmtPct(w[0])}</span><span class="s-w-key">buyer spend</span></div>`;
+      html += `<div class="s-w"><span class="s-w-val">${fmtPct(w[1])}</span><span class="s-w-key">seller revenue</span></div>`;
+      html += `<div class="s-w"><span class="s-w-val">${fmtPct(w[2])}</span><span class="s-w-key">lock-in</span></div>`;
+      html += `</div></div>`;
+    } else if (w && type === 'competes_with') {
+      const delta = w[1] || 0;
+      html += `<div class="s-section"><div class="s-section-head"><h3>Competitive Dynamics</h3><span class="count">${currentYear}${currentYear >= 2026 ? 'e' : ''}</span></div>`;
+      html += `<div class="s-edge-weights" style="margin: 12px 0 0">`;
+      html += `<div class="s-w"><span class="s-w-val">${fmtPct(w[0])}</span><span class="s-w-key">direct overlap</span></div>`;
+      html += `<div class="s-w"><span class="s-w-val">${delta > 0 ? '+' : ''}${(delta*100).toFixed(0)}%</span><span class="s-w-key">share Δ</span></div>`;
+      html += `</div></div>`;
+    }
+
+    // Evidence
+    const evType = edge.data('evidence_type');
+    const evRef = edge.data('evidence_ref');
+    const conf = edge.data('confidence');
+    html += `<div class="s-section"><div class="s-section-head"><h3>Evidence</h3></div>`;
+    if (evType) html += `<div class="s-meta-row"><span class="k">type</span><span class="v">${evType === 'hard_data' ? '◆ hard data' : '◇ soft inference'}</span></div>`;
+    if (conf != null) html += `<div class="s-meta-row"><span class="k">confidence</span><span class="v">${fmtConfidence(conf)}</span></div>`;
+    if (evRef) html += `<div class="s-meta-row"><span class="k">source</span><span class="v" style="font-size:11px">${evRef}</span></div>`;
+    html += `</div>`;
+
+    // Endpoints — 两端公司的简要信息
+    html += `<div class="s-section"><div class="s-section-head"><h3>Endpoints</h3></div>`;
+    html += renderEndpointMini(source, '↑ source / seller', sLayerColor);
+    html += renderEndpointMini(target, '↓ target / buyer', tLayerColor);
+    html += `</div>`;
+
+    document.getElementById('side').innerHTML = html;
+  }
+
+  function renderEndpointMini(node, label, color) {
+    const d = node.data();
+    const mcap = d.mcap !== undefined ? fmtMcap(d.mcap) : '—';
+    return `<div style="padding: 10px 0; border-bottom: 1px dotted var(--hairline); cursor: pointer" onclick="(function(){window.__setAnchorFromEdgeEndpoint && window.__setAnchorFromEdgeEndpoint('${d.id}')})()">
+      <div style="font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.15em; text-transform: uppercase">${label}</div>
+      <div style="font-family: var(--serif); font-size: 16px; font-weight: 500; margin-top: 3px; color: ${color}">${d.label}</div>
+      <div style="font-family: var(--mono); font-size: 10px; color: var(--ink-mute); margin-top: 2px">
+        <span>${d.layer || '—'}</span> · <span>${mcap}</span> · <span>${d.kind || ''}</span>
+      </div>
+    </div>`;
+  }
+  window.__setAnchorFromEdgeEndpoint = (id) => setAnchor(id);
+
+  // ============ UI BINDINGS ============
+  document.querySelectorAll('#view-seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#view-seg button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      currentView = b.dataset.view;
+      document.getElementById('anchor-ctrl').style.display = (currentView === 'entity') ? 'flex' : 'none';
+      document.getElementById('layer-ctrl').style.display = (currentView === 'layer') ? 'flex' : 'none';
+      applyView();
+    });
+  });
+  document.getElementById('anchor-select').addEventListener('change', (e) => {
+    if (e.target.value) setAnchor(e.target.value);
+  });
+  document.getElementById('layer-select').addEventListener('change', (e) => {
+    currentLayer = e.target.value;
+    applyView();
+  });
+  document.getElementById('year-slider').addEventListener('input', (e) => {
+    currentYear = parseInt(e.target.value, 10);
+    document.getElementById('year-num').textContent = currentYear;
+    document.getElementById('year-est').textContent = currentYear >= 2026 ? 'e' : '';
+    document.querySelectorAll('#year-ticks span').forEach(s => {
+      s.classList.toggle('active', parseInt(s.dataset.y, 10) === currentYear);
+    });
+    updateEdgeWidths();
+    updateEdgeLabels();
+    const hl = cy.$('node.hi');
+    if (hl.length > 0) renderNode(hl[0].id());
+  });
+  document.getElementById('show-products').addEventListener('change', (e) => {
+    showProducts = e.target.checked;
+    applyView();
+  });
+
+  // Initial — snap (firstRender flag enforces no animation on first applyView)
+  requestAnimationFrame(() => {
+    applyView();
+    renderNode('co:NVIDIA');
+    updateFocusTag();
+    renderRails();
+  });
+
+  } catch (err) {
+    const e = document.getElementById('error');
+    e.style.display = 'block';
+    e.textContent = 'Init error: ' + (err && err.stack ? err.stack : err);
+    console.error(err);
+  }
+})();
+</script>
+
+</body>
+</html>

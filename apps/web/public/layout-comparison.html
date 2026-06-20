@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Layout Comparison — A · B · C</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAFAF7;
+    --surface: #FFFFFF;
+    --ink: #0F1419;
+    --ink-mute: #5E6066;
+    --ink-faint: #9C9DA0;
+    --hairline: #E8E6E0;
+    --hairline-strong: #C9C5BB;
+    --supplies: #1F3A5F;
+    --compete: #B8453A;
+    --anchor: #C8941F;
+    --L-parent: #5E4682;
+    --L-current: #1F3A5F;
+    --L-child: #4E7758;
+    --serif: 'IBM Plex Serif', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 13px; }
+  body { padding: 32px 48px 80px; }
+
+  header {
+    max-width: 1400px; margin: 0 auto 28px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--hairline);
+  }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 24px; letter-spacing: -0.01em; }
+  .intro { color: var(--ink-mute); margin-top: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+
+  .scenario { max-width: 1400px; margin: 0 auto 14px;
+    padding: 14px 20px; background: var(--surface); border: 1px solid var(--hairline);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute); letter-spacing: 0.04em; }
+  .scenario strong { color: var(--ink); font-weight: 600; }
+  .scenario .anchor-mark { display: inline-block; width: 8px; height: 8px; background: var(--anchor);
+    border-radius: 50%; margin: 0 4px; vertical-align: middle; }
+
+  .panel { max-width: 1400px; margin: 0 auto 48px; }
+  .panel-head { display: flex; align-items: baseline; gap: 16px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink); margin-bottom: 14px; }
+  .panel-tag { font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink);
+    border: 1px solid var(--ink); padding: 3px 9px; }
+  .panel-title { font-family: var(--serif); font-weight: 500; font-size: 19px;
+    letter-spacing: -0.01em; }
+  .panel-desc { color: var(--ink-mute); font-style: italic; font-family: var(--serif);
+    font-size: 13px; margin-left: auto; max-width: 540px; line-height: 1.5; }
+
+  .panel-body { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
+  .panel-canvas { background: var(--surface); border: 1px solid var(--hairline);
+    height: 480px; position: relative; overflow: hidden; }
+  .panel-notes { background: transparent; padding-top: 8px; }
+  .notes-h { font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint);
+    letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 8px; }
+  .notes-list { list-style: none; padding: 0; }
+  .notes-list li { padding: 7px 0; border-bottom: 1px dotted var(--hairline);
+    font-size: 12.5px; line-height: 1.5; color: var(--ink-mute); display: flex; gap: 8px; }
+  .notes-list li:before { content: '·'; color: var(--ink); font-weight: 700; font-size: 18px;
+    line-height: 1; margin-top: 2px; }
+  .notes-pros { color: var(--L-child); font-weight: 500; font-family: var(--mono);
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 14px; margin-bottom: 4px; }
+  .notes-cons { color: var(--compete); font-weight: 500; font-family: var(--mono);
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 14px; margin-bottom: 4px; }
+
+  /* ============ SHARED NODE STYLES ============ */
+  .node {
+    position: absolute; transform: translate(-50%, -50%);
+    border-radius: 50%; background: var(--surface);
+    border: 1.5px solid var(--ink-faint);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--sans); font-size: 11px; color: var(--ink);
+    font-weight: 500; text-align: center;
+    transition: all 200ms;
+  }
+  .node.parent { border-color: var(--L-parent); color: var(--L-parent); }
+  .node.current { border-color: var(--L-current); }
+  .node.child {
+    border-radius: 4px;
+    border-color: var(--L-child); color: var(--L-child);
+    font-family: var(--mono); font-size: 10px;
+  }
+  .node.anchor {
+    background: var(--ink); color: var(--bg); border-color: var(--anchor); border-width: 3px;
+    font-family: var(--serif); font-weight: 600; font-size: 13px;
+  }
+  .node.dim { opacity: 0.55; }
+  .node-label { padding: 0 6px; line-height: 1.1; }
+
+  /* ============ SCENARIO 共用:NVIDIA + 同层 + 父 + 子 ============ */
+
+  /* ============ A: TOP/BOTTOM RAIL ============ */
+  .canvas-a { padding: 0; }
+  .rail {
+    position: absolute; left: 0; right: 0; height: 60px;
+    background: rgba(94, 70, 130, 0.04);
+    display: flex; align-items: center; gap: 12px; padding: 0 24px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .rail.top { top: 0; }
+  .rail.bottom { bottom: 0; border-bottom: 0; border-top: 1px solid var(--hairline);
+    background: rgba(78, 119, 88, 0.04); }
+  .rail-label {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint); min-width: 90px;
+  }
+  .rail-label .arrow { font-size: 14px; margin-right: 4px; }
+  .rail.top .rail-label { color: var(--L-parent); }
+  .rail.bottom .rail-label { color: var(--L-child); }
+  .rail-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 12px; border: 1px solid currentColor; border-radius: 14px;
+    font-family: var(--sans); font-size: 11.5px; cursor: pointer;
+    background: var(--surface); display: inline-flex; align-items: center; gap: 5px;
+    transition: background 120ms;
+  }
+  .chip:hover { background: rgba(0,0,0,0.04); }
+  .chip.parent { color: var(--L-parent); }
+  .chip.child { color: var(--L-child); }
+  .chip-kind {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .canvas-a .center {
+    position: absolute; top: 60px; left: 0; right: 0; bottom: 60px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(31, 58, 95, 0.025), transparent 60%);
+  }
+
+  /* ============ B: FINDER COLUMN VIEW ============ */
+  .canvas-b { display: grid; grid-template-columns: 200px 1fr 200px; height: 100%; }
+  .col {
+    background: var(--surface);
+    overflow-y: auto;
+    padding: 14px 0;
+  }
+  .col + .col { border-left: 1px solid var(--hairline); }
+  .col-head {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint);
+    padding: 0 16px 10px; border-bottom: 1px solid var(--hairline);
+    margin-bottom: 8px;
+  }
+  .col.parent .col-head { color: var(--L-parent); }
+  .col.child .col-head { color: var(--L-child); }
+  .col.current .col-head { color: var(--L-current); }
+  .col-row {
+    padding: 9px 16px; cursor: pointer;
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink);
+    border-left: 2px solid transparent;
+    display: flex; align-items: baseline; gap: 8px;
+    transition: background 120ms;
+  }
+  .col-row:hover { background: rgba(0,0,0,0.03); }
+  .col-row.selected {
+    background: rgba(200, 148, 31, 0.07);
+    border-left-color: var(--anchor);
+    font-weight: 600;
+  }
+  .col-row .kind {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .col-row .arrow { color: var(--ink-faint); margin-left: auto; }
+  .canvas-b .col.current .graph {
+    position: relative; height: 360px; margin-top: 4px;
+  }
+
+  /* ============ C: SATELLITE NODES ============ */
+  .canvas-c .satellite-zone { position: absolute; left: 0; right: 0; height: 70px; }
+  .canvas-c .satellite-zone.top { top: 0; }
+  .canvas-c .satellite-zone.bottom { bottom: 0; }
+  .canvas-c .satellite-zone .node { opacity: 0.45; }
+  .canvas-c .satellite-zone .node:hover { opacity: 0.95; }
+  .canvas-c .center {
+    position: absolute; top: 70px; bottom: 70px; left: 0; right: 0;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(31, 58, 95, 0.025), transparent 60%);
+  }
+
+  /* edges (svg overlay) */
+  .edge-svg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+  }
+  .edge-svg line { stroke: var(--supplies); stroke-width: 1.8; opacity: 0.42; }
+  .edge-svg line.compete { stroke: var(--compete); stroke-dasharray: 5 3; }
+  .edge-svg line.themed { stroke: var(--anchor); stroke-dasharray: 3 3; opacity: 0.3; }
+  .edge-svg line.produces { stroke: var(--ink-faint); stroke-dasharray: 2 4; opacity: 0.4; }
+
+  /* level indicator */
+  .level-indicator {
+    position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-faint);
+    background: rgba(250,250,247,0.9); padding: 4px 10px;
+    border: 1px solid var(--hairline);
+  }
+  .level-indicator .now { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>三种 layout 方案对比</h1>
+  <div class="intro">同一份数据 · 同一个 anchor (NVIDIA) · 三种"当前层 + ±1 层"呈现</div>
+</header>
+
+<div class="scenario">
+  <strong>场景</strong>:用户当前 anchor =<span class="anchor-mark"></span><strong>NVIDIA (L4 Company)</strong>。希望只看同层(其他公司)的关系,但同时知道 NVIDIA 的父层(L2 主题)是 AI Infra / Physical AI / AI Models,子层(L5 产品)是 B300 / Rubin / Vera / GB200。点击任意 ±1 层节点 → drill 切换层级。
+</div>
+
+<!-- ============================================================
+     方案 A: TOP / BOTTOM RAIL
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-tag">A</span>
+    <h2 class="panel-title">Top / Bottom Rail</h2>
+    <p class="panel-desc">主图永远只显示当前层公司 + 同层关系。父层在顶条带,子层在底条带,各以 chip 列出,可点击 drill。</p>
+  </div>
+  <div class="panel-body">
+    <div class="panel-canvas canvas-a">
+      <div class="level-indicator">level <span class="now">L4 Company</span></div>
+
+      <!-- 顶条带:父层 L2 -->
+      <div class="rail top">
+        <div class="rail-label"><span class="arrow">▲</span>L2 PARENT</div>
+        <div class="rail-chips">
+          <div class="chip parent"><span class="chip-kind">L2</span>AI Infrastructure</div>
+          <div class="chip parent"><span class="chip-kind">L2</span>Physical AI</div>
+          <div class="chip parent"><span class="chip-kind">L2</span>AI Models</div>
+        </div>
+      </div>
+
+      <!-- 中间:当前层 L4 graph -->
+      <div class="center">
+        <svg class="edge-svg" viewBox="0 0 800 360" preserveAspectRatio="none">
+          <line x1="400" y1="180" x2="180" y2="100" />
+          <line x1="400" y1="180" x2="620" y2="100" />
+          <line x1="400" y1="180" x2="180" y2="270" />
+          <line x1="400" y1="180" x2="620" y2="270" />
+          <line x1="400" y1="180" x2="400" y2="60" />
+          <line x1="400" y1="180" x2="400" y2="320" />
+          <line x1="400" y1="180" x2="180" y2="180" class="compete" />
+          <line x1="400" y1="180" x2="620" y2="180" class="compete" />
+        </svg>
+        <div class="node anchor" style="left: 50%; top: 50%; width: 76px; height: 76px;">NVIDIA</div>
+        <div class="node current" style="left: 22.5%; top: 27.8%; width: 60px; height: 60px;">AMD</div>
+        <div class="node current" style="left: 77.5%; top: 27.8%; width: 60px; height: 60px;">Broadcom</div>
+        <div class="node current" style="left: 22.5%; top: 75%; width: 60px; height: 60px;">TSMC</div>
+        <div class="node current" style="left: 77.5%; top: 75%; width: 60px; height: 60px;">Hynix</div>
+        <div class="node current" style="left: 50%; top: 16.7%; width: 60px; height: 60px;">Huawei</div>
+        <div class="node current" style="left: 50%; top: 88.9%; width: 60px; height: 60px;">Hon Hai</div>
+      </div>
+
+      <!-- 底条带:子层 L5 -->
+      <div class="rail bottom">
+        <div class="rail-label"><span class="arrow">▼</span>L5 CHILDREN</div>
+        <div class="rail-chips">
+          <div class="chip child"><span class="chip-kind">L5</span>B300</div>
+          <div class="chip child"><span class="chip-kind">L5</span>Rubin R200</div>
+          <div class="chip child"><span class="chip-kind">L5</span>Vera CPU</div>
+          <div class="chip child"><span class="chip-kind">L5</span>GB200 NVL72</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-notes">
+      <div class="notes-h">特点</div>
+      <ul class="notes-list">
+        <li>主图永远只一个 facet(L4 公司 + 价值链关系),视觉干净</li>
+        <li>"我在哪一层"用条带位置 + 颜色直接告知</li>
+        <li>±1 层 chip 单击 drill,无需在 graph 里找节点</li>
+        <li>与现有 Strata strip 兼容,左侧仍然显示价值链行</li>
+      </ul>
+      <div class="notes-pros">PROS</div>
+      <ul class="notes-list">
+        <li>实施简单,与当前架构兼容</li>
+        <li>视觉负担最小</li>
+        <li>chip 数量多时可水平滚动</li>
+      </ul>
+      <div class="notes-cons">CONS</div>
+      <ul class="notes-list">
+        <li>父/子层用 chip 表达,失去"节点间关系"信息</li>
+        <li>跨多层 drill 时(L4 → L6)需多次点击</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     方案 B: FINDER COLUMN VIEW
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-tag">B</span>
+    <h2 class="panel-title">Finder Column View</h2>
+    <p class="panel-desc">三列布局,左父右子,中间是当前层 graph。像 macOS Finder Column 一样可层层"进入",列表式导航。</p>
+  </div>
+  <div class="panel-body">
+    <div class="panel-canvas canvas-b">
+
+      <div class="col parent">
+        <div class="col-head">↑ L2 Parent</div>
+        <div class="col-row"><span class="kind">L2</span>AI Infrastructure<span class="arrow">›</span></div>
+        <div class="col-row"><span class="kind">L2</span>Physical AI<span class="arrow">›</span></div>
+        <div class="col-row"><span class="kind">L2</span>AI Models<span class="arrow">›</span></div>
+      </div>
+
+      <div class="col current">
+        <div class="col-head">L4 Current</div>
+        <div class="col-row selected"><span class="kind">L4</span>NVIDIA<span class="arrow">›</span></div>
+        <div class="graph">
+          <svg class="edge-svg" viewBox="0 0 380 360" preserveAspectRatio="none">
+            <line x1="190" y1="180" x2="80" y2="100" />
+            <line x1="190" y1="180" x2="300" y2="100" />
+            <line x1="190" y1="180" x2="80" y2="270" />
+            <line x1="190" y1="180" x2="300" y2="270" />
+            <line x1="190" y1="180" x2="190" y2="50" />
+            <line x1="190" y1="180" x2="190" y2="320" />
+          </svg>
+          <div class="node anchor" style="left: 50%; top: 50%; width: 64px; height: 64px;">NVIDIA</div>
+          <div class="node current" style="left: 21%; top: 28%; width: 54px; height: 54px;">AMD</div>
+          <div class="node current" style="left: 79%; top: 28%; width: 54px; height: 54px;">Brcm</div>
+          <div class="node current" style="left: 21%; top: 75%; width: 54px; height: 54px;">TSMC</div>
+          <div class="node current" style="left: 79%; top: 75%; width: 54px; height: 54px;">Hynix</div>
+          <div class="node current" style="left: 50%; top: 14%; width: 54px; height: 54px;">Hwi</div>
+          <div class="node current" style="left: 50%; top: 89%; width: 54px; height: 54px;">HHai</div>
+        </div>
+      </div>
+
+      <div class="col child">
+        <div class="col-head">↓ L5 Children</div>
+        <div class="col-row"><span class="kind">L5</span>B300<span class="arrow">›</span></div>
+        <div class="col-row"><span class="kind">L5</span>Rubin R200<span class="arrow">›</span></div>
+        <div class="col-row"><span class="kind">L5</span>Vera CPU<span class="arrow">›</span></div>
+        <div class="col-row"><span class="kind">L5</span>GB200 NVL72<span class="arrow">›</span></div>
+      </div>
+
+    </div>
+
+    <div class="panel-notes">
+      <div class="notes-h">特点</div>
+      <ul class="notes-list">
+        <li>像文件管理器一样的层级 navigation</li>
+        <li>左列 list 显示所有可下钻的父层,右列同理</li>
+        <li>中间列是当前层 graph + 当前 anchor 在 list 中高亮</li>
+        <li>点击右列任一行 = 立即 drill into 该节点</li>
+      </ul>
+      <div class="notes-pros">PROS</div>
+      <ul class="notes-list">
+        <li>层级关系最清晰,navigation 体验最强</li>
+        <li>支持同时浏览多层(扫一眼父/子列表全貌)</li>
+        <li>已经习惯 macOS Finder 的用户秒上手</li>
+      </ul>
+      <div class="notes-cons">CONS</div>
+      <ul class="notes-list">
+        <li>中间 graph 区域被压窄(只占中间 1/3)</li>
+        <li>失去"graph 全屏"的视觉爽感</li>
+        <li>实施复杂(三个独立 panel + 状态同步)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     方案 C: SATELLITE NODES
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-tag">C</span>
+    <h2 class="panel-title">Satellite Nodes</h2>
+    <p class="panel-desc">父/子层节点仍在 graph 内,但用极淡的视觉(半透明 + 虚线边)表达"不是主角",拉到顶部/底部边缘漂浮。</p>
+  </div>
+  <div class="panel-body">
+    <div class="panel-canvas canvas-c">
+      <div class="level-indicator">level <span class="now">L4 Company</span></div>
+
+      <!-- 父层 satellite -->
+      <div class="satellite-zone top">
+        <div class="node parent dim" style="left: 25%; top: 50%; width: 80px; height: 50px; border-radius: 12px; font-size: 10.5px;">AI Infra</div>
+        <div class="node parent dim" style="left: 50%; top: 50%; width: 80px; height: 50px; border-radius: 12px; font-size: 10.5px;">Physical AI</div>
+        <div class="node parent dim" style="left: 75%; top: 50%; width: 80px; height: 50px; border-radius: 12px; font-size: 10.5px;">AI Models</div>
+      </div>
+
+      <!-- 中间:当前层 + themed_under / produces 虚线 -->
+      <div class="center">
+        <svg class="edge-svg" viewBox="0 0 800 340" preserveAspectRatio="none">
+          <!-- themed_under 虚线连父 -->
+          <line x1="400" y1="170" x2="200" y2="-30" class="themed" />
+          <line x1="400" y1="170" x2="400" y2="-30" class="themed" />
+          <line x1="400" y1="170" x2="600" y2="-30" class="themed" />
+          <!-- produces 虚线连子 -->
+          <line x1="400" y1="170" x2="150" y2="370" class="produces" />
+          <line x1="400" y1="170" x2="320" y2="370" class="produces" />
+          <line x1="400" y1="170" x2="480" y2="370" class="produces" />
+          <line x1="400" y1="170" x2="650" y2="370" class="produces" />
+          <!-- supplies_to 公司间 -->
+          <line x1="400" y1="170" x2="180" y2="100" />
+          <line x1="400" y1="170" x2="620" y2="100" />
+          <line x1="400" y1="170" x2="180" y2="260" />
+          <line x1="400" y1="170" x2="620" y2="260" />
+          <line x1="400" y1="170" x2="180" y2="170" class="compete" />
+          <line x1="400" y1="170" x2="620" y2="170" class="compete" />
+        </svg>
+        <div class="node anchor" style="left: 50%; top: 50%; width: 76px; height: 76px;">NVIDIA</div>
+        <div class="node current" style="left: 22.5%; top: 29.4%; width: 60px; height: 60px;">AMD</div>
+        <div class="node current" style="left: 77.5%; top: 29.4%; width: 60px; height: 60px;">Broadcom</div>
+        <div class="node current" style="left: 22.5%; top: 76.5%; width: 60px; height: 60px;">TSMC</div>
+        <div class="node current" style="left: 77.5%; top: 76.5%; width: 60px; height: 60px;">Hynix</div>
+        <div class="node current" style="left: 22.5%; top: 50%; width: 60px; height: 60px;">Huawei</div>
+        <div class="node current" style="left: 77.5%; top: 50%; width: 60px; height: 60px;">Hon Hai</div>
+      </div>
+
+      <!-- 子层 satellite -->
+      <div class="satellite-zone bottom">
+        <div class="node child dim" style="left: 18.75%; top: 50%; width: 78px; height: 34px;">B300</div>
+        <div class="node child dim" style="left: 40%; top: 50%; width: 78px; height: 34px;">Rubin R200</div>
+        <div class="node child dim" style="left: 60%; top: 50%; width: 78px; height: 34px;">Vera CPU</div>
+        <div class="node child dim" style="left: 81.25%; top: 50%; width: 78px; height: 34px;">GB200 NVL72</div>
+      </div>
+    </div>
+
+    <div class="panel-notes">
+      <div class="notes-h">特点</div>
+      <ul class="notes-list">
+        <li>主图仍是一张完整 graph,层级感用透明度 + 边缘位置表达</li>
+        <li>父/子节点半透明 + 虚线连接,视觉上"次要但存在"</li>
+        <li>hover 父/子节点会变实(显眼),点击 drill</li>
+        <li>themed_under / produces 用极淡虚线连接父/子和 anchor</li>
+      </ul>
+      <div class="notes-pros">PROS</div>
+      <ul class="notes-list">
+        <li>graph 完整性最高,所有节点和边都在视图里</li>
+        <li>层级关系视觉化(虚线可见)</li>
+        <li>不破坏现有 graph 美学</li>
+      </ul>
+      <div class="notes-cons">CONS</div>
+      <ul class="notes-list">
+        <li>多 facet 仍然混在同一画布,视觉负担最大</li>
+        <li>跨层多节点时(如 L2 有 5 个,L5 有 10 个)边缘会很挤</li>
+        <li>"哪些是当前层、哪些是 ±1 层"靠透明度区分,新用户需要适应</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="scenario" style="text-align: center; margin-top: 32px;">
+  告诉我 <strong>A / B / C</strong> 哪个对味,我去 industry-graph-demo.html 实现完整版。
+</div>
+
+</body>
+</html>
