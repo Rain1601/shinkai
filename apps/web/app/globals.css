@@ -517,12 +517,12 @@ select {
 }
 
 .portal-sidebar:hover,
-.portal-sidebar:focus-within {
+.portal-sidebar:has(:focus-visible) {
   border-right-color: var(--hair-bright);
 }
 
 .portal-sidebar:hover,
-.portal-sidebar:focus-within,
+.portal-sidebar:has(:focus-visible),
 .portal[data-sidebar-pinned="true"] .portal-sidebar {
   width: var(--sidebar-w-expanded);
 }
@@ -597,8 +597,8 @@ select {
 
 .portal-sidebar:hover .portal-logo-text,
 .portal-sidebar:hover .portal-logo small,
-.portal-sidebar:focus-within .portal-logo-text,
-.portal-sidebar:focus-within .portal-logo small,
+.portal-sidebar:has(:focus-visible) .portal-logo-text,
+.portal-sidebar:has(:focus-visible) .portal-logo small,
 .portal[data-sidebar-pinned="true"] .portal-logo-text,
 .portal[data-sidebar-pinned="true"] .portal-logo small {
   opacity: 1;
@@ -639,7 +639,7 @@ select {
 }
 
 .portal-sidebar:hover .portal-nav-item::before,
-.portal-sidebar:focus-within .portal-nav-item::before,
+.portal-sidebar:has(:focus-visible) .portal-nav-item::before,
 .portal[data-sidebar-pinned="true"] .portal-nav-item::before {
   display: inline-block;
 }
@@ -662,7 +662,7 @@ select {
 }
 
 .portal-sidebar:hover .portal-nav-label,
-.portal-sidebar:focus-within .portal-nav-label,
+.portal-sidebar:has(:focus-visible) .portal-nav-label,
 .portal[data-sidebar-pinned="true"] .portal-nav-label {
   opacity: 1;
 }
@@ -706,7 +706,7 @@ select {
 }
 
 .portal-sidebar:hover .sidebar-language,
-.portal-sidebar:focus-within .sidebar-language,
+.portal-sidebar:has(:focus-visible) .sidebar-language,
 .portal[data-sidebar-pinned="true"] .sidebar-language {
   padding: 4px 22px 10px;
 }
@@ -748,7 +748,7 @@ select {
 
 /* Expanded: both buttons equal width */
 .portal-sidebar:hover .sidebar-language button:not(.active),
-.portal-sidebar:focus-within .sidebar-language button:not(.active),
+.portal-sidebar:has(:focus-visible) .sidebar-language button:not(.active),
 .portal[data-sidebar-pinned="true"] .sidebar-language button:not(.active) {
   flex: 1 1 0;
   max-width: 100px;
@@ -760,7 +760,7 @@ select {
 }
 
 .portal-sidebar:hover .sidebar-language button.active,
-.portal-sidebar:focus-within .sidebar-language button.active,
+.portal-sidebar:has(:focus-visible) .sidebar-language button.active,
 .portal[data-sidebar-pinned="true"] .sidebar-language button.active {
   flex: 1 1 0;
 }
