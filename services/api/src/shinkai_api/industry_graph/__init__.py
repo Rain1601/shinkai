@@ -6,10 +6,16 @@ in later stages.
 
 from __future__ import annotations
 
-from . import schemas, store, tools
+from . import schemas, store, subjects, tools
 from .agent_loop import AGENT_SYSTEM_PROMPT, AgentLoop
 from .e2e_runner import INGESTION_SYSTEM_PROMPT, ToolDispatcher
 from .service import IndustryGraphStore
+from .subjects import (
+    Subject,
+    SubjectStore,
+    SubjectVersion,
+    SubjectVersionChangeSummary,
+)
 from .tools import build_tools, register_industry_graph_tools
 
 __all__ = [
@@ -17,10 +23,15 @@ __all__ = [
     "AgentLoop",
     "INGESTION_SYSTEM_PROMPT",
     "IndustryGraphStore",
+    "Subject",
+    "SubjectStore",
+    "SubjectVersion",
+    "SubjectVersionChangeSummary",
     "ToolDispatcher",
     "build_tools",
     "register_industry_graph_tools",
     "schemas",
     "store",
+    "subjects",
     "tools",
 ]
