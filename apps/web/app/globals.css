@@ -4447,3 +4447,56 @@ select {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── /industry-graph (list + detail) ──────────────────────────────────────
+   Reuses the /live workspace grid and event/record markup. Adds:
+   - A type-filter pill row above the search box (All / Company / Theme).
+   - A compact highlight bullet list under each analysis record. */
+
+.ig-pill-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.ig-pill-row .live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ig-pill-count {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--pearl-mute);
+}
+
+.live-pill.active .ig-pill-count {
+  color: var(--teal);
+}
+
+.ig-record-highlights {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--pearl-soft);
+}
+
+.ig-record-highlights li {
+  padding-left: 8px;
+  position: relative;
+}
+
+.ig-record-highlights li::before {
+  content: "·";
+  position: absolute;
+  left: 0;
+  color: var(--teal);
+}

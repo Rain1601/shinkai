@@ -86,10 +86,9 @@ const navSections: NavSection[] = [
     items: [
       {
         id: "industry",
-        href: "/industry-graph-live.html",
+        href: "/industry-graph",
         label: "Industry Graph",
         icon: Network,
-        external: true,
       },
     ],
   },
