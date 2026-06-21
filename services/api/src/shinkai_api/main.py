@@ -10,6 +10,7 @@ from shinkai_api.api import (
     evals,
     graph,
     health,
+    industry_graph,
     research,
     results,
     runs,
@@ -47,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(themes.router, prefix="/api/v1")
     app.include_router(agent.router, prefix="/api/v1")
     app.include_router(actions.router, prefix="/api/v1")
+    app.include_router(industry_graph.router, prefix="/api/v1")
 
     @app.on_event("startup")
     async def recover_active_runs() -> None:
