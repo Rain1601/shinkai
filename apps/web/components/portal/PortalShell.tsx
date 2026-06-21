@@ -10,7 +10,6 @@ import {
   Pin,
   Radio,
   Settings,
-  Sparkles,
   Sun,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -35,7 +34,6 @@ type PortalShellProps = {
   subtitle?: string;
   active:
     | "agent"
-    | "live"
     | "actions"
     | "history"
     | "results"
@@ -68,7 +66,6 @@ const navSections: NavSection[] = [
     labelZh: "工作区",
     items: [
       { id: "agent", href: "/agent", label: "Overview", icon: Compass },
-      { id: "live", href: "/live", label: "Workspace", icon: Sparkles },
       { id: "actions", href: "/actions", label: "Actions", icon: Settings },
     ],
   },
@@ -96,7 +93,6 @@ const navSections: NavSection[] = [
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
   agent: "总览",
-  live: "工作台",
   actions: "能力",
   history: "历史记录",
   results: "产出",
