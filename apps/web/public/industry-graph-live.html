@@ -328,30 +328,47 @@
   }
   #cy { width: 100%; height: 100%; }
 
-  /* Strata side guides — light typographic anchors flanking the canvas */
-  .strata-guide {
+  /* Strata side guides — typographic markers flanking the canvas */
+  .strata-rail {
     position: absolute;
-    left: 18px;
+    left: 0; top: 0; bottom: 0;
+    width: 150px;
+    pointer-events: none;
+    background: linear-gradient(to right,
+      var(--abyss) 0%, var(--abyss) 60%,
+      rgba(0,0,0,0) 100%);
+    border-right: 1px solid var(--hair);
+    z-index: 4;
+  }
+  .strata-row {
+    position: absolute;
+    left: 16px;
     font-family: var(--mono);
     font-size: 10px;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--pearl-mute);
-    pointer-events: none;
     display: flex; align-items: center; gap: 10px;
+    transform: translateY(-50%);
+    white-space: nowrap;
   }
-  .strata-guide::before {
-    content: ""; width: 22px; height: 1px;
-    background: currentColor; opacity: 0.5;
+  .strata-row::before {
+    content: "";
+    display: inline-block;
+    width: 3px; height: 16px;
+    background: currentColor;
+    opacity: 0.7;
   }
-  .strata-guide.buyer { top: 14%; color: var(--role-buyer); }
-  .strata-guide.competitor { top: 50%; transform: translateY(-50%); right: 22px; left: auto; color: var(--role-competitor); }
-  .strata-guide.competitor::before { display: none; }
-  .strata-guide.competitor::after {
-    content: ""; width: 22px; height: 1px;
-    background: currentColor; opacity: 0.5;
+  .strata-row .count {
+    color: var(--pearl-dim);
+    margin-left: 6px;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
   }
-  .strata-guide.supplier { bottom: 14%; color: var(--role-supplier); }
+  .strata-row.buyer { color: var(--role-buyer); }
+  .strata-row.anchor { color: var(--role-anchor); font-weight: 500; }
+  .strata-row.competitor { color: var(--role-competitor); }
+  .strata-row.layer { color: var(--role-supplier); }
 
   .empty-cy {
     position: absolute; inset: 0;
@@ -616,9 +633,7 @@
 </aside>
 
 <main id="cy-wrap">
-  <div class="strata-guide buyer">buyers · customers</div>
-  <div class="strata-guide competitor">competitors</div>
-  <div class="strata-guide supplier">suppliers · upstream</div>
+  <div class="strata-rail" id="strata-rail"></div>
   <div id="cy"></div>
 </main>
 
@@ -664,6 +679,8 @@
   let anchorId = "";
   let currentPayload = null;
   let cy = null;
+  const H_VIRT = 1100;  // virtual canvas height used by computePositions
+  const W_VIRT = 1400;
 
   // ── fetchers ───────────────────────────────────────────────────────────
   async function fetchStats() {
@@ -747,19 +764,49 @@
     return best;  // 0..1
   }
 
+  // ── layer ordering for the supplier strata ──────────────────────────────
+  // Top of list = closest to anchor (buyer-side); bottom = deepest upstream.
+  // Mirrors backend LAYER_ORDER; suppliers get sub-rows in this order with
+  // the closest layer just below the anchor.
+  const SUPPLIER_LAYER_ORDER = [
+    "ai_model",
+    "assembly",
+    "designer",
+    "advanced_packaging",
+    "memory",
+    "testing",
+    "foundry",
+    "optical",
+    "robotics",
+    "battery",
+    "power",
+    "cooling",
+    "infrastructure",
+    "passive",
+    "materials",
+  ];
+  const LAYER_LABEL = {
+    ai_model: "AI Model",
+    designer: "Designer",
+    assembly: "Assembly",
+    advanced_packaging: "Packaging",
+    memory: "Memory",
+    testing: "Test / OSAT",
+    foundry: "Foundry",
+    optical: "Optical",
+    robotics: "Robotics",
+    battery: "Battery",
+    power: "Power",
+    cooling: "Cooling",
+    infrastructure: "Infra",
+    passive: "Passives",
+    materials: "Materials",
+    theme: "Theme",
+    other: "Other",
+  };
+
   // ── preset layout (anchor at center, roles in horizontal bands) ─────────
   function computePositions(nodes, roles, edges) {
-    // Bands (Y as fraction of canvas height; X spread within band).
-    const BANDS = {
-      buyer:      { y: 0.18, color: "--role-buyer" },
-      anchor:     { y: 0.50, color: "--role-anchor" },
-      competitor: { y: 0.50, color: "--role-competitor" },
-      supplier:   { y: 0.82, color: "--role-supplier" },
-      related:    { y: 0.50, color: "--role-other" },
-      other:      { y: 0.92, color: "--role-other" },
-    };
-
-    // Strength rank per node (highest weight on edges touching it).
     const strength = new Map();
     for (const e of edges) {
       const w = strongestWeight(e);
@@ -767,61 +814,96 @@
       strength.set(e.target, Math.max(strength.get(e.target) || 0, w));
     }
 
-    // Group by role.
     const groups = { buyer: [], supplier: [], competitor: [], related: [], other: [] };
     for (const n of nodes) {
       const role = roles.get(n.id);
       if (role === "anchor") continue;
       (groups[role] || groups.other).push(n);
     }
-    // Sort each group by strength desc so the strongest sits closest to center.
     for (const g of Object.values(groups)) {
       g.sort((a, b) => (strength.get(b.id) || 0) - (strength.get(a.id) || 0));
     }
 
-    const W = 1400, H = 900;          // virtual coords; cytoscape rescales
+    const W = W_VIRT, H = H_VIRT;
     const positions = new Map();
-    positions.set(anchorId, { x: W / 2, y: H * BANDS.anchor.y });
+    positions.set(anchorId, { x: W / 2, y: H * 0.40 });
 
-    function spread(arr, band, opts) {
+    // ── BUYERS: single row above anchor, wraps if crowded.
+    function spreadRow(arr, y, leftFrac, rightFrac, perRow = 9) {
       const n = arr.length;
-      if (n === 0) return;
-      const yCenter = H * band.y;
-      const leftPad = opts && opts.right ? W * 0.62 : W * 0.08;
-      const rightPad = opts && opts.right ? W * 0.96 : W * 0.92;
+      if (!n) return;
+      const leftPad = W * leftFrac;
+      const rightPad = W * rightFrac;
       const span = rightPad - leftPad;
-      // Wrap to multiple rows when crowded, with the strongest in the inner row.
-      const perRow = Math.min(n, opts && opts.right ? 5 : 10);
       const rows = Math.ceil(n / perRow);
-      const rowGap = 78;
-      // First row sits exactly on the band Y; subsequent rows step away from
-      // the anchor (above if band is below anchor, below if above).
-      const stepDir = band.y > 0.5 ? +1 : (band.y < 0.5 ? -1 : 0);
+      const rowGap = 84;
       arr.forEach((node, i) => {
         const row = Math.floor(i / perRow);
         const inRow = i - row * perRow;
         const cnt = Math.min(perRow, n - row * perRow);
         const t = cnt === 1 ? 0.5 : inRow / (cnt - 1);
         const x = leftPad + t * span;
-        const y = yCenter + stepDir * row * rowGap;
-        positions.set(node.id, { x, y });
+        // Buyer rows stack upward (further from anchor)
+        const dir = y < H * 0.4 ? -1 : (y > H * 0.4 ? +1 : 0);
+        positions.set(node.id, { x, y: y + dir * row * rowGap });
       });
     }
 
-    spread(groups.buyer, BANDS.buyer);
-    spread(groups.supplier, BANDS.supplier);
-    spread(groups.competitor, BANDS.competitor, { right: true });
-    // related/other: tuck along the left side at mid band
-    const sides = [...groups.related, ...groups.other];
-    sides.forEach((node, i) => {
-      const half = Math.ceil(sides.length / 2);
-      const isLeft = i < half;
-      const rank = isLeft ? i : i - half;
-      const y = H * 0.50 + (rank - half / 2) * 38;
-      const x = isLeft ? W * 0.06 : W * 0.94;
+    spreadRow(groups.buyer, H * 0.14, 0.08, 0.92, 8);
+
+    // ── SUPPLIERS: bucket by layer, one row per layer, top → bottom = closer
+    //     to anchor → deeper upstream.
+    const supplierByLayer = new Map();
+    for (const n of groups.supplier) {
+      const layer = n.layer || "other";
+      if (!supplierByLayer.has(layer)) supplierByLayer.set(layer, []);
+      supplierByLayer.get(layer).push(n);
+    }
+    // Only emit rows for layers that actually have suppliers.
+    const supplierLayers = [];
+    for (const l of SUPPLIER_LAYER_ORDER) {
+      if (supplierByLayer.has(l)) supplierLayers.push(l);
+    }
+    // Append unmapped at the end
+    for (const l of supplierByLayer.keys()) {
+      if (!SUPPLIER_LAYER_ORDER.includes(l) && l !== "other") supplierLayers.push(l);
+    }
+    if (supplierByLayer.has("other")) supplierLayers.push("other");
+
+    const supplierYStart = H * 0.56;
+    const supplierRowGap = 95;
+    const layerYByName = new Map();
+    supplierLayers.forEach((layer, idx) => {
+      const y = supplierYStart + idx * supplierRowGap;
+      layerYByName.set(layer, y);
+      const arr = supplierByLayer.get(layer) || [];
+      // Sort within layer by strength
+      arr.sort((a, b) => (strength.get(b.id) || 0) - (strength.get(a.id) || 0));
+      // Within a row, suppliers spread across full width
+      spreadRow(arr, y, 0.12, 0.88, 9);
+    });
+
+    // ── COMPETITORS: right of anchor at anchor Y, vertical column if many.
+    const comps = groups.competitor;
+    comps.forEach((node, i) => {
+      const col = Math.floor(i / 4);
+      const row = i % 4;
+      const x = W * 0.84 + col * 80;
+      const y = H * 0.32 + row * 70;
       positions.set(node.id, { x, y });
     });
-    return { positions, BANDS };
+
+    // ── RELATED / OTHER: tuck on the left flank of the anchor.
+    const sides = [...groups.related, ...groups.other];
+    sides.forEach((node, i) => {
+      const col = Math.floor(i / 5);
+      const row = i % 5;
+      const x = W * 0.08 - col * 80;
+      const y = H * 0.30 + row * 60;
+      positions.set(node.id, { x, y });
+    });
+
+    return { positions, supplierLayers, layerYByName };
   }
 
   function colorForRole(role) {
@@ -873,7 +955,8 @@
       return;
     }
 
-    const { positions } = computePositions(visibleNodes, roles, visibleEdges);
+    const layoutOut = computePositions(visibleNodes, roles, visibleEdges);
+    const positions = layoutOut.positions;
 
     // Edge weight → width.
     const maxW = Math.max(...visibleEdges.map(strongestWeight), 0.001);
@@ -1019,6 +1102,33 @@
       maxZoom: 2.4,
     });
 
+    // ── Strata rail: synthesize HTML labels in canvas coordinates and sync
+    //     their positions to cytoscape's projected Y on every pan/zoom.
+    const railEntries = [];
+    railEntries.push({ klass: "buyer", label: "Buyers · Customers", virtualY: H_VIRT * 0.14, count: cyNodes.filter((n) => n.data.role === "buyer").length });
+    railEntries.push({ klass: "anchor", label: "Anchor", virtualY: H_VIRT * 0.40, count: 1 });
+    if (cyNodes.some((n) => n.data.role === "competitor")) {
+      railEntries.push({ klass: "competitor", label: "Competitors", virtualY: H_VIRT * 0.32, count: cyNodes.filter((n) => n.data.role === "competitor").length });
+    }
+    for (const layer of layoutOut.supplierLayers) {
+      const y = layoutOut.layerYByName.get(layer);
+      const cnt = visibleNodes.filter((n) => roles.get(n.id) === "supplier" && (n.layer || "other") === layer).length;
+      const lbl = LAYER_LABEL[layer] || layer;
+      railEntries.push({ klass: "layer", label: lbl, virtualY: y, count: cnt });
+    }
+    function syncRail() {
+      const rail = $("strata-rail");
+      const wrapBox = $("cy-wrap").getBoundingClientRect();
+      const pan = cy.pan();
+      const z = cy.zoom();
+      rail.innerHTML = railEntries.map((r) => {
+        const screenY = r.virtualY * z + pan.y;
+        if (screenY < 6 || screenY > wrapBox.height - 6) return "";
+        return `<div class="strata-row ${r.klass}" style="top:${screenY}px;">${r.label}<span class="count">${r.count}</span></div>`;
+      }).join("");
+    }
+    cy.on("zoom pan", syncRail);
+
     cy.on("tap", (evt) => {
       cy.elements().removeClass("selected dimmed");
       if (evt.target === cy) {
@@ -1055,6 +1165,7 @@
     }
 
     cy.fit(undefined, 60);
+    syncRail();
 
     // Render the anchor's detail card on first paint.
     renderAnchorDetail();
