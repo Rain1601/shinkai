@@ -4537,7 +4537,11 @@ select {
   padding-left: 28px;
   border-left: 1px solid var(--hair);
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* Graph gets the lion's share of vertical space.
+     `minmax(420px, 1fr)` guarantees ~420px even on shorter laptops, but
+     can grow to fill the viewport on bigger screens.
+     Version card + Activity (collapsed by default) trail below. */
+  grid-template-rows: minmax(420px, 1fr) auto auto;
   gap: 16px;
 }
 
@@ -4680,7 +4684,7 @@ select {
   position: relative;
   background: var(--abyss-1);
   border: 1px solid var(--hair);
-  min-height: 320px;
+  min-height: 0; /* grid row already enforces minmax(420px, 1fr) */
   overflow: hidden;
 }
 
@@ -5060,9 +5064,14 @@ select {
 
 .ig-version-card {
   border-top: 1px solid var(--hair);
-  padding-top: 14px;
+  padding-top: 12px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  /* Keep the card compact so the graph row above can dominate the
+     visible viewport. Internal content scrolls if a version has a long
+     rationale or many highlight bullets. */
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .ig-version-header {
@@ -5650,21 +5659,30 @@ select {
   color: var(--pearl-dim);
 }
 
-/* Detail page Activity section — Stage 5 of the merge. Sits below the
-   version detail card; reuses ActivityFeed so the row markup matches
-   the list-page Activity tab. */
+/* Detail page Activity section — Stage 5 of the merge. Collapsible
+   (<details>) so the graph above keeps prominence; users open it when
+   they want the back-history. */
 
 .ig-detail-activity {
   border-top: 1px solid var(--hair);
-  padding-top: 16px;
-  margin-top: 18px;
+  padding-top: 14px;
+  margin-top: 12px;
+  max-height: 32vh;
+  overflow-y: auto;
 }
 
-.ig-detail-activity-head {
+.ig-detail-activity > summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 12px;
+  list-style: none;
+  cursor: pointer;
+  padding-bottom: 6px;
+  user-select: none;
+}
+
+.ig-detail-activity > summary::-webkit-details-marker {
+  display: none;
 }
 
 .ig-detail-activity-eyebrow {
@@ -5673,6 +5691,17 @@ select {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--pearl-mute);
+}
+
+.ig-detail-activity-toggle {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pearl-mute);
+  transition: transform 160ms var(--ease);
+}
+
+.ig-detail-activity[open] .ig-detail-activity-toggle {
+  transform: rotate(180deg);
 }
 
 /* When ActivityFeed renders inside the detail page (subjectId set), the

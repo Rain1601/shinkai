@@ -467,17 +467,20 @@ export default function IndustryGraphSubjectDetail({
             )}
           </div>
 
-          {/* Historical Run events that touched this Subject. Replaces /live's
-              right-rail Analyses list. Only renders when there's something
-              to show — empty state lives inside ActivityFeed. */}
-          <div className="ig-detail-activity">
-            <header className="ig-detail-activity-head">
+          {/* Historical Run events that touched this Subject. Collapsed by
+              default so the graph stays dominant; users open the section
+              when they want the back-history. */}
+          <details className="ig-detail-activity">
+            <summary>
               <span className="ig-detail-activity-eyebrow">
                 {isZh ? "历史分析活动" : "Past analytical activity"}
               </span>
-            </header>
+              <span className="ig-detail-activity-toggle" aria-hidden>
+                ▾
+              </span>
+            </summary>
             <ActivityFeed subjectId={subjectId} locale={locale} limit={30} />
-          </div>
+          </details>
         </section>
 
         {/* RIGHT — Anchor card or Edge inspection, whichever the user has
