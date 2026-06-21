@@ -4807,6 +4807,82 @@ select {
   display: inline-block;
 }
 
+/* ── Edge hover tooltip ────────────────────────────────────────────────
+   Floating card that follows the cursor on edge hover. Carries the data
+   the right pane will surface in detail on click — buyer/seller share,
+   lock-in, evidence type, confidence, source ref. */
+.ig-edge-tooltip {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--abyss);
+  color: var(--pearl);
+  border: 1px solid var(--role-anchor);
+  padding: 10px 13px 9px;
+  min-width: 230px;
+  max-width: 320px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+}
+
+.ig-edge-tooltip .tip-head {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--pearl);
+  margin-bottom: 2px;
+}
+
+.ig-edge-tooltip .tip-arrow {
+  color: var(--role-anchor);
+  margin: 0 5px;
+  font-style: italic;
+}
+
+.ig-edge-tooltip .tip-type {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--role-anchor);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(200, 148, 31, 0.32);
+}
+
+.ig-edge-tooltip .tip-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: var(--pearl-mute);
+}
+
+.ig-edge-tooltip .tip-row .v {
+  color: var(--pearl);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-edge-tooltip .tip-foot {
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--hair);
+  font-family: var(--body);
+  font-style: italic;
+  color: var(--pearl-dim);
+  font-size: 10.5px;
+}
+
+/* Linkable nodes — cytoscape can't set CSS cursor on its own; we set the
+   pointer cursor on the canvas itself via JS only when the latest hover
+   is on a linkable node. Light affordance: a thin extra ring (defined in
+   the SubjectGraph stylesheet, not here). */
+.ig-cy[data-pointer="linkable"] canvas {
+  cursor: pointer;
+}
+
 .ig-version-card {
   border-top: 1px solid var(--hair);
   padding-top: 14px;
