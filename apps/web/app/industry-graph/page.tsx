@@ -132,6 +132,7 @@ export default function IndustryGraphListPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [events, setEvents] = useState<ThemeEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [selectedVersions, setSelectedVersions] = useState<SubjectVersion[]>([]);
   const [locale, setLocale] = useState<Locale>("zh");
   const isZh = locale === "zh";
 
@@ -175,24 +176,36 @@ export default function IndustryGraphListPage() {
     };
   }, []);
 
-  // Load events for the selected subject
+  // Load events + full version history for the selected subject. We fan out
+  // two fetches in parallel so the right rail can show every analysis pass
+  // for this subject (not just the global latest-version slice).
   useEffect(() => {
     if (!selectedId) {
       setEvents([]);
+      setSelectedVersions([]);
       return;
     }
     let cancelled = false;
     setLoadingEvents(true);
     async function load() {
       try {
-        const r = await fetch(
-          `${API_URL}/api/v1/industry_graph/subjects/${encodeURIComponent(selectedId!)}/events`,
-          { cache: "no-store" },
-        );
-        if (!r.ok) throw new Error(`events ${r.status}`);
-        const d: SubjectEventsResponse = await r.json();
+        const [evRes, detailRes] = await Promise.all([
+          fetch(
+            `${API_URL}/api/v1/industry_graph/subjects/${encodeURIComponent(selectedId!)}/events`,
+            { cache: "no-store" },
+          ),
+          fetch(
+            `${API_URL}/api/v1/industry_graph/subjects/${encodeURIComponent(selectedId!)}`,
+            { cache: "no-store" },
+          ),
+        ]);
+        if (!evRes.ok) throw new Error(`events ${evRes.status}`);
+        if (!detailRes.ok) throw new Error(`subject ${detailRes.status}`);
+        const ev: SubjectEventsResponse = await evRes.json();
+        const detail: { versions: SubjectVersion[] } = await detailRes.json();
         if (cancelled) return;
-        setEvents(d.events);
+        setEvents(ev.events);
+        setSelectedVersions(detail.versions);
       } catch (e) {
         if (cancelled) return;
         setError((e as Error).message);
@@ -222,8 +235,19 @@ export default function IndustryGraphListPage() {
 
   const recentRecords = useMemo(() => {
     const rows: Array<{ subject: SubjectListRow; version: SubjectVersion }> = [];
-    for (const s of subjects) {
-      if (s.latest_version) rows.push({ subject: s, version: s.latest_version });
+    if (selectedId) {
+      // Scoped view: every analysis pass for the selected subject.
+      const subj = subjects.find((s) => s.id === selectedId);
+      if (subj) {
+        for (const v of selectedVersions) {
+          rows.push({ subject: subj, version: v });
+        }
+      }
+    } else {
+      // Global view: the most recent run across every subject.
+      for (const s of subjects) {
+        if (s.latest_version) rows.push({ subject: s, version: s.latest_version });
+      }
     }
     rows.sort((a, b) => {
       const at = a.version.ended_at ?? a.version.started_at;
@@ -231,7 +255,7 @@ export default function IndustryGraphListPage() {
       return new Date(bt).getTime() - new Date(at).getTime();
     });
     return rows.slice(0, 30);
-  }, [subjects]);
+  }, [subjects, selectedId, selectedVersions]);
 
   const selectedSubject = selectedId
     ? subjects.find((s) => s.id === selectedId) ?? null
@@ -430,7 +454,14 @@ export default function IndustryGraphListPage() {
 
         <aside className="live-records">
           <header className="live-records-header">
-            <span className="label">{isZh ? "分析记录" : "Analyses"}</span>
+            <span className="label">
+              {isZh ? "分析记录" : "Analyses"}
+              {selectedSubject ? (
+                <span className="muted" style={{ marginLeft: 8, fontFamily: "var(--mono)" }}>
+                  · {selectedSubject.display_name}
+                </span>
+              ) : null}
+            </span>
             <span className="muted">{recentRecords.length}</span>
           </header>
           {recentRecords.length === 0 ? (
