@@ -175,6 +175,70 @@ def _project_relation(
     }
 
 
+def _anchor_neighborhood(
+    *,
+    entities: dict[str, dict[str, Any]],
+    relations: dict[str, dict[str, Any]],
+    anchor: str,
+    depth: int,
+) -> dict[str, Any]:
+    """Reusable BFS + projection over any state dict (current or reconstructed).
+
+    Used by ``/export?anchor=…`` and ``/subjects/{id}/versions/{v}/graph``.
+    """
+    if anchor not in entities:
+        return {
+            "nodes": [],
+            "edges": [],
+            "meta": {
+                "node_count": 0,
+                "edge_count": 0,
+                "anchor": anchor,
+                "error": "anchor_not_in_state",
+            },
+        }
+    src_lookup = {
+        eid: e for eid, e in entities.items() if e.get("kind") == "Source"
+    }
+    keep: set[str] = {anchor}
+    frontier = {anchor}
+    for _ in range(max(0, depth)):
+        next_frontier: set[str] = set()
+        for r in relations.values():
+            if r.get("deprecated_at"):
+                continue
+            a, b = r["source_id"], r["target_id"]
+            if a in frontier and b not in keep:
+                next_frontier.add(b)
+            if b in frontier and a not in keep:
+                next_frontier.add(a)
+        if not next_frontier:
+            break
+        keep.update(next_frontier)
+        frontier = next_frontier
+
+    nodes_raw = [
+        entities[i] for i in keep if i in entities and not entities[i].get("deprecated_at")
+    ]
+    nodes = [_project_entity(e, src_lookup) for e in nodes_raw]
+    edges: list[dict[str, Any]] = []
+    for r in relations.values():
+        if r.get("deprecated_at"):
+            continue
+        if r["source_id"] in keep and r["target_id"] in keep:
+            edges.append(_project_relation(r, src_lookup))
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "meta": {
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+            "anchor": anchor,
+            "depth": depth,
+        },
+    }
+
+
 @router.get("/stats")
 async def stats() -> dict[str, Any]:
     store = await _get_store()
@@ -215,55 +279,16 @@ async def export(
     by_id = store.index.by_id
 
     if anchor:
-        if anchor not in by_id:
-            return {
-                "nodes": [],
-                "edges": [],
-                "meta": {
-                    "node_count": 0,
-                    "edge_count": 0,
-                    "anchor": anchor,
-                    "error": "anchor_not_found",
-                },
-            }
-        # BFS up to `depth` hops over non-deprecated relations.
-        keep: set[str] = {anchor}
-        frontier = {anchor}
-        for _ in range(max(0, depth)):
-            next_frontier: set[str] = set()
-            for r in store.index.relations_by_id.values():
-                if r.get("deprecated_at"):
-                    continue
-                a, b = r["source_id"], r["target_id"]
-                if a in frontier and b not in keep:
-                    next_frontier.add(b)
-                if b in frontier and a not in keep:
-                    next_frontier.add(a)
-            if not next_frontier:
-                break
-            keep.update(next_frontier)
-            frontier = next_frontier
-
-        nodes_raw = [by_id[i] for i in keep if i in by_id and not by_id[i].get("deprecated_at")]
-        nodes = [_project_entity(e, src_lookup) for e in nodes_raw]
-        node_ids = set(keep)
-        edges = []
-        for r in store.index.relations_by_id.values():
-            if r.get("deprecated_at"):
-                continue
-            if r["source_id"] in node_ids and r["target_id"] in node_ids:
-                edges.append(_project_relation(r, src_lookup))
-        return {
-            "nodes": nodes,
-            "edges": edges,
-            "meta": {
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-                "anchor": anchor,
-                "depth": depth,
-                "snapshot_version": await store.snapshots.latest_version(),
-            },
-        }
+        out = _anchor_neighborhood(
+            entities=dict(by_id),
+            relations=dict(store.index.relations_by_id),
+            anchor=anchor,
+            depth=depth,
+        )
+        if out["meta"].get("error") == "anchor_not_in_state":
+            out["meta"]["error"] = "anchor_not_found"
+        out["meta"]["snapshot_version"] = await store.snapshots.latest_version()
+        return out
 
     # Catalog mode.
     nodes: list[dict[str, Any]] = []
@@ -388,6 +413,77 @@ async def get_subject(subject_id: str) -> dict[str, Any]:
         **_subject_to_dict(subj),
         "versions": [_version_to_dict(v) for v in versions],
     }
+
+
+async def _resolve_version(
+    subject_id: str, version_no: int
+) -> tuple[Subject, SubjectVersion]:
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+    versions = await ss.list_versions(subject_id)
+    target = next((v for v in versions if v.version_no == version_no), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    return subj, target
+
+
+@router.get("/subjects/{subject_id}/versions/{version_no}")
+async def get_subject_version(subject_id: str, version_no: int) -> dict[str, Any]:
+    """Detail card for one version, including the change list rolled up to
+    the scope frontier."""
+    _, target = await _resolve_version(subject_id, version_no)
+    graph = await _get_store()
+    changes: list[dict[str, Any]] = []
+    scope = set(target.scope_node_ids)
+    if scope and target.snapshot_to > target.snapshot_from:
+        for v in range(target.snapshot_from + 1, target.snapshot_to + 1):
+            cs = await graph.snapshots.load_changes(v)
+            for c in cs:
+                if c.kind == "entity" and c.id in scope:
+                    changes.append(c.model_dump(mode="json"))
+                elif c.kind == "relation":
+                    rec = c.after or c.before or {}
+                    if (
+                        c.id in scope
+                        or rec.get("source_id") in scope
+                        or rec.get("target_id") in scope
+                    ):
+                        changes.append(c.model_dump(mode="json"))
+    return {**_version_to_dict(target), "changes": changes}
+
+
+@router.get("/subjects/{subject_id}/versions/{version_no}/graph")
+async def get_subject_version_graph(
+    subject_id: str, version_no: int, depth: int = 1
+) -> dict[str, Any]:
+    """Reconstructed graph at the version's snapshot, anchored on the
+    Subject's target_entity_id with a 1-hop neighborhood by default."""
+    subj, target = await _resolve_version(subject_id, version_no)
+    graph = await _get_store()
+
+    current_state = {
+        "entities": dict(graph.index.by_id),
+        "relations": dict(graph.index.relations_by_id),
+    }
+    state = await graph.snapshots.reconstruct_state(current_state, target.snapshot_to)
+
+    out = _anchor_neighborhood(
+        entities=state["entities"],
+        relations=state["relations"],
+        anchor=subj.target_entity_id,
+        depth=depth,
+    )
+    out["meta"].update(
+        {
+            "snapshot_version": target.snapshot_to,
+            "subject_version": version_no,
+            "subject_id": subject_id,
+            "subject_type": subj.type,
+        }
+    )
+    return out
 
 
 @router.post("/subjects/{subject_id}/run", status_code=status.HTTP_202_ACCEPTED)
