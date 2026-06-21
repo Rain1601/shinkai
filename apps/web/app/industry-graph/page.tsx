@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ActivityFeed } from "../../components/industry-graph/ActivityFeed";
 import { PortalShell } from "../../components/portal/PortalShell";
 import { type Locale } from "../../lib/i18n";
 
@@ -123,13 +125,29 @@ function categoryLabel(c: string, locale: Locale): string {
   return (locale === "zh" ? zh : en)[c] ?? c;
 }
 
+type ViewMode = "subjects" | "activity";
+
 export default function IndustryGraphListPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialView: ViewMode =
+    searchParams.get("view") === "activity" ? "activity" : "subjects";
+  const [view, setView] = useState<ViewMode>(initialView);
   const [subjects, setSubjects] = useState<SubjectListRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<SubjectType>("all");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  function switchView(next: ViewMode) {
+    setView(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "subjects") params.delete("view");
+    else params.set("view", next);
+    const qs = params.toString();
+    router.replace(qs ? `/industry-graph?${qs}` : "/industry-graph", { scroll: false });
+  }
   const [events, setEvents] = useState<ThemeEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [selectedVersions, setSelectedVersions] = useState<SubjectVersion[]>([]);
@@ -293,6 +311,48 @@ export default function IndustryGraphListPage() {
     >
       {error ? <p className="muted error-copy">{error}</p> : null}
 
+      <div className="ig-tabs">
+        <button
+          type="button"
+          className={`ig-tab ${view === "subjects" ? "active" : ""}`}
+          onClick={() => switchView("subjects")}
+        >
+          {isZh ? "Subjects" : "Subjects"}
+          <span className="ig-tab-count">{subjects.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`ig-tab ${view === "activity" ? "active" : ""}`}
+          onClick={() => switchView("activity")}
+        >
+          {isZh ? "Activity" : "Activity"}
+        </button>
+      </div>
+
+      {view === "activity" ? (
+        <section className="ig-activity-tab">
+          <header className="ig-activity-tab-head">
+            <h2>{isZh ? "全部分析活动" : "All analytical activity"}</h2>
+            <p className="muted">
+              {isZh
+                ? "Mode B / Mode A 历次跑过的 dossier / 深析 / 判断,按时间倒序。"
+                : "Dossiers, deep analyses and judgments from past Mode B / Mode A runs, newest first."}
+            </p>
+          </header>
+          <ActivityFeed
+            locale={locale}
+            limit={80}
+            subjectLookup={
+              new Map(
+                subjects.map((s) => [
+                  s.id,
+                  { id: s.id, display_name: s.display_name, type: s.type },
+                ]),
+              )
+            }
+          />
+        </section>
+      ) : (
       <div className="live-workspace">
         <aside className="live-themes">
           <div className="live-themes-header">
@@ -506,6 +566,7 @@ export default function IndustryGraphListPage() {
           )}
         </aside>
       </div>
+      )}
     </PortalShell>
   );
 }
