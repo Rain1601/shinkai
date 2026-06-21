@@ -5398,3 +5398,77 @@ select {
   letter-spacing: 0.06em;
   color: var(--pearl-dim);
 }
+
+/* Detail page Activity section — Stage 5 of the merge. Sits below the
+   version detail card; reuses ActivityFeed so the row markup matches
+   the list-page Activity tab. */
+
+.ig-detail-activity {
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+  margin-top: 18px;
+}
+
+.ig-detail-activity-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ig-detail-activity-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+/* When ActivityFeed renders inside the detail page (subjectId set), the
+   row link should NOT navigate away — clicking just scrolls the row
+   into view if it has a matching ?event= query. The href is harmless
+   to follow though (self-link), so we leave it. */
+
+.ig-detail-activity .ig-activity.focused {
+  background: var(--teal-soft);
+  border-color: var(--teal-line);
+}
+
+/* Company anchor pane — 参与主题 chips. Linked to Theme subjects. */
+.ig-anchor-themes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.ig-anchor-themes-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-anchor-themes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ig-theme-chip {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid var(--role-buyer);
+  color: var(--role-buyer);
+  text-decoration: none;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
+}
+
+.ig-theme-chip:hover {
+  background: var(--role-buyer);
+  color: var(--abyss);
+}

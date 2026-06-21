@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { PortalShell } from "../../../components/portal/PortalShell";
+import { ActivityFeed } from "../../../components/industry-graph/ActivityFeed";
 import { SubjectGraph } from "../../../components/industry-graph/SubjectGraph";
 import { ThemeMembersGrid } from "../../../components/industry-graph/ThemeMembersGrid";
 import type { GraphPayload } from "../../../components/industry-graph/cytoscape-helpers";
@@ -47,6 +49,13 @@ type SubjectDetail = {
   versions: SubjectVersion[];
 };
 
+type SubjectListRow = {
+  id: string;
+  type: "company" | "theme";
+  display_name: string;
+  target_entity_id: string;
+};
+
 function formatRelative(iso: string | null, locale: Locale): string {
   if (!iso) return locale === "zh" ? "尚未运行" : "never";
   const t = new Date(iso).getTime();
@@ -82,6 +91,25 @@ export default function IndustryGraphSubjectDetail({
 }) {
   const { subjectId: rawId } = use(params);
   const subjectId = decodeURIComponent(rawId);
+  const searchParams = useSearchParams();
+  const focusEventId = searchParams.get("event");
+
+  // When arriving with ?event=<id>, scroll the matching row into view
+  // once the feed has loaded. The ActivityFeed renders a <li> keyed on
+  // event_id-subject_id, so a querySelectorAll is enough — no ref dance.
+  useEffect(() => {
+    if (!focusEventId) return;
+    const handle = setTimeout(() => {
+      const el = document.querySelector(
+        `.ig-detail-activity .ig-activity [href*="event=${focusEventId}"]`,
+      );
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.closest(".ig-activity")?.classList.add("focused");
+      }
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [focusEventId, subjectId]);
 
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +119,7 @@ export default function IndustryGraphSubjectDetail({
   const [graphLoading, setGraphLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [allSubjects, setAllSubjects] = useState<SubjectListRow[]>([]);
   const [locale, setLocale] = useState<Locale>("zh");
   const isZh = locale === "zh";
 
@@ -131,6 +160,28 @@ export default function IndustryGraphSubjectDetail({
   useEffect(() => {
     void fetchSubject();
   }, [fetchSubject]);
+
+  // Pull the full Subject catalog once — used by the AnchorPane to render
+  // "参与主题" chips that link to the matching Theme subjects.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch(`${API_URL}/api/v1/industry_graph/subjects`, {
+          cache: "no-store",
+        });
+        if (!r.ok) return;
+        const d: { subjects: SubjectListRow[] } = await r.json();
+        if (!cancelled) setAllSubjects(d.subjects);
+      } catch {
+        // best effort — missing catalog just suppresses the chips
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!subject || selectedVersion === null) return;
@@ -386,12 +437,25 @@ export default function IndustryGraphSubjectDetail({
               <p className="muted">{isZh ? "选一个版本查看详情" : "Pick a version"}</p>
             )}
           </div>
+
+          {/* Historical Run events that touched this Subject. Replaces /live's
+              right-rail Analyses list. Only renders when there's something
+              to show — empty state lives inside ActivityFeed. */}
+          <div className="ig-detail-activity">
+            <header className="ig-detail-activity-head">
+              <span className="ig-detail-activity-eyebrow">
+                {isZh ? "历史分析活动" : "Past analytical activity"}
+              </span>
+            </header>
+            <ActivityFeed subjectId={subjectId} locale={locale} limit={30} />
+          </div>
         </section>
 
         {/* RIGHT — Anchor card with downstream / upstream relation lists */}
         <AnchorPane
           subject={subject}
           graph={graph}
+          allSubjects={allSubjects}
           locale={locale}
         />
       </div>
@@ -402,10 +466,11 @@ export default function IndustryGraphSubjectDetail({
 type AnchorPaneProps = {
   subject: SubjectDetail | null;
   graph: GraphPayload | null;
+  allSubjects: SubjectListRow[];
   locale: Locale;
 };
 
-function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
+function AnchorPane({ subject, graph, allSubjects, locale }: AnchorPaneProps) {
   const isZh = locale === "zh";
   if (!subject) {
     return (
@@ -520,6 +585,47 @@ function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
           </>
         ) : null}
       </dl>
+
+      {/* Cross-link to Theme subjects this Company is filed under.
+          Pulled from anchorNode.facets.subtheme; chips link to the
+          matching Theme subject. Only rendered for type=company since
+          themes themselves render their members list instead. */}
+      {subject.type === "company" ? (() => {
+        const subFacet = (anchorNode?.facets as Record<string, unknown> | undefined)?.[
+          "subtheme"
+        ];
+        const targets = Array.isArray(subFacet)
+          ? subFacet.filter((v): v is string => typeof v === "string")
+          : typeof subFacet === "string"
+            ? [subFacet]
+            : [];
+        if (!targets.length) return null;
+        const themeByTarget = new Map(
+          allSubjects.filter((s) => s.type === "theme").map((s) => [s.target_entity_id, s]),
+        );
+        const chips = targets
+          .map((t) => themeByTarget.get(t))
+          .filter((s): s is SubjectListRow => Boolean(s));
+        if (!chips.length) return null;
+        return (
+          <div className="ig-anchor-themes">
+            <span className="ig-anchor-themes-label">
+              {isZh ? "参与主题" : "Member of"}
+            </span>
+            <span className="ig-anchor-themes-chips">
+              {chips.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/industry-graph/${encodeURIComponent(s.id)}`}
+                  className="ig-theme-chip"
+                >
+                  {s.display_name}
+                </Link>
+              ))}
+            </span>
+          </div>
+        );
+      })() : null}
 
       {/* Downstream / Upstream / Competes only meaningful for Company subjects.
           Theme subjects show their member companies in the middle area
