@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { SubjectVersionDetail } from "../../../components/agent/SubjectVersionDetail";
 import { CockpitTab } from "../../../components/portal/CockpitTab";
 import { DossierTab } from "../../../components/portal/DossierTab";
 import { EvalTab } from "../../../components/portal/EvalTab";
@@ -95,6 +96,25 @@ function isValidTab(value: string | null): value is TabId {
 }
 
 export default function RunDetailPage() {
+  const params = useParams<{ id: string }>();
+  const raw = params.id;
+  // Next.js routing percent-encodes colons in dynamic segments, so a URL
+  // like /runs/sv:nvda:1 may surface as either "sv:nvda:1" or
+  // "sv%3Anvda%3A1" depending on how the user arrived. Decode defensively.
+  const runId = typeof raw === "string" ? decodeURIComponent(raw) : raw;
+
+  // SubjectVersion ids (e.g. "sv:nvda:1") route to the new agent-run detail
+  // — different data source, different render shape. Legacy Mode B Run ids
+  // continue to fall through to the existing tabbed view below. The early
+  // dispatch lives in a wrapper so React's Rules of Hooks aren't violated
+  // by the legacy component's many hook calls.
+  if (typeof runId === "string" && runId.startsWith("sv:")) {
+    return <SubjectVersionDetail svId={runId} />;
+  }
+  return <LegacyRunDetailPage />;
+}
+
+function LegacyRunDetailPage() {
   const params = useParams<{ id: string }>();
   const runId = params.id;
   const router = useRouter();
