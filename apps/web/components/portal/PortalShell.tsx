@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Activity,
-  Compass,
   Moon,
   Network,
   PanelLeftClose,
@@ -15,6 +14,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
+import { AgentIdentityStrip } from "../agent/AgentIdentityStrip";
 import { CheckpointBanner } from "./CheckpointBanner";
 import { ShinkaiMark } from "./ShinkaiMark";
 
@@ -36,7 +36,6 @@ type PortalShellProps = {
     | "history"
     | "results"
     | "themes"
-    | "industry"
     | "a2a";
   actions?: ReactNode;
   children: ReactNode;
@@ -52,42 +51,21 @@ type NavItem = {
   external?: boolean;
 };
 
-type NavSection = {
-  label: string;
-  labelZh: string;
-  items: NavItem[];
-};
 
-const navSections: NavSection[] = [
-  {
-    label: "Workspace",
-    labelZh: "工作区",
-    items: [
-      { id: "agent", href: "/agent", label: "Overview", icon: Compass },
-      {
-        id: "industry",
-        href: "/agent",
-        label: "Industry Graph",
-        icon: Network,
-      },
-    ],
-  },
-  {
-    label: "Engine",
-    labelZh: "引擎",
-    items: [
-      { id: "history", href: "/runs", label: "History", icon: Activity },
-      { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
-    ],
-  },
+// Flat nav — three items. The agent IS the workspace, so we don't need
+// a "Workspace" section heading housing a single Workspace item; the
+// /runs log + /a2a sit alongside it.
+const navItems: NavItem[] = [
+  { id: "agent", href: "/agent", label: "Workspace", icon: Network },
+  { id: "history", href: "/runs", label: "Run log", icon: Activity },
+  { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
 ];
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
-  agent: "总览",
-  history: "历史记录",
+  agent: "工作区",
+  history: "运行日志",
   results: "产出",
   themes: "主题",
-  industry: "产业图谱",
   a2a: "A2A",
 };
 
@@ -139,52 +117,45 @@ export function PortalShell({
           <small>{isZh ? "深海 · 投研引擎" : "Deep Research"}</small>
         </Link>
         <nav className="portal-nav" aria-label={isZh ? "导航" : "Navigation"}>
-          {navSections.map((section) => (
-            <div className="portal-nav-section" key={section.label}>
-              <div className="portal-nav-section-label">
-                {isZh ? section.labelZh : section.label}
-              </div>
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const itemClass =
-                  active === item.id ? "portal-nav-item active" : "portal-nav-item";
-                const iconNode = (
-                  <span className="portal-nav-icon" aria-hidden="true">
-                    <Icon size={17} strokeWidth={active === item.id ? 2 : 1.75} />
-                  </span>
-                );
-                const labelNode = (
-                  <span className="portal-nav-label">
-                    {isZh ? zhNavLabels[item.id] : item.label}
-                  </span>
-                );
-                if (item.external) {
-                  return (
-                    <a
-                      aria-current={active === item.id ? "page" : undefined}
-                      className={itemClass}
-                      href={item.href}
-                      key={item.id}
-                    >
-                      {iconNode}
-                      {labelNode}
-                    </a>
-                  );
-                }
-                return (
-                  <Link
-                    aria-current={active === item.id ? "page" : undefined}
-                    className={itemClass}
-                    href={item.href}
-                    key={item.id}
-                  >
-                    {iconNode}
-                    {labelNode}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const itemClass =
+              active === item.id ? "portal-nav-item active" : "portal-nav-item";
+            const iconNode = (
+              <span className="portal-nav-icon" aria-hidden="true">
+                <Icon size={17} strokeWidth={active === item.id ? 2 : 1.75} />
+              </span>
+            );
+            const labelNode = (
+              <span className="portal-nav-label">
+                {isZh ? zhNavLabels[item.id] : item.label}
+              </span>
+            );
+            if (item.external) {
+              return (
+                <a
+                  aria-current={active === item.id ? "page" : undefined}
+                  className={itemClass}
+                  href={item.href}
+                  key={item.id}
+                >
+                  {iconNode}
+                  {labelNode}
+                </a>
+              );
+            }
+            return (
+              <Link
+                aria-current={active === item.id ? "page" : undefined}
+                className={itemClass}
+                href={item.href}
+                key={item.id}
+              >
+                {iconNode}
+                {labelNode}
+              </Link>
+            );
+          })}
         </nav>
         <div className="portal-sidebar-footer">
           <button
@@ -257,6 +228,9 @@ export function PortalShell({
       </aside>
       <main className="portal-main">
         <CheckpointBanner locale={locale} />
+        {active === "agent" || active === "history" ? (
+          <AgentIdentityStrip locale={locale} />
+        ) : null}
         <header className="portal-header">
           <div>
             <h1>{title}</h1>

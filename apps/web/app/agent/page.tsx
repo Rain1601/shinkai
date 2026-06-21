@@ -356,7 +356,7 @@ export default function IndustryGraphListPage() {
 
   return (
     <PortalShell
-      active="industry"
+      active="agent"
       locale={locale}
       onLocaleChange={changeLocale}
       title={isZh ? "产业图谱" : "Industry Graph"}

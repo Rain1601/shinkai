@@ -291,7 +291,7 @@ export default function IndustryGraphSubjectDetail({
 
   return (
     <PortalShell
-      active="industry"
+      active="agent"
       locale={locale}
       onLocaleChange={changeLocale}
       title={subject?.display_name ?? (isZh ? "加载中…" : "Loading…")}

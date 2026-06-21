@@ -6148,3 +6148,68 @@ select {
   width: auto;
   padding: 9px 18px;
 }
+
+/* ── Agent identity strip ──────────────────────────────────────────────
+   Thin row above the page header on every workspace + run-log route.
+   Brands the surface as the agent's own and shows a live idle/running
+   status dot polled from /subjects every 30s. */
+
+.agent-identity-strip {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 28px 12px;
+  border-bottom: 1px solid var(--hair);
+  background: var(--abyss-1);
+}
+
+.agent-identity-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.agent-identity-display {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.005em;
+  color: var(--pearl);
+}
+
+.agent-identity-sublabel {
+  font-family: var(--body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--pearl-mute);
+}
+
+.agent-identity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.agent-identity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pearl-dim);
+}
+
+.agent-identity-dot.running {
+  background: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-soft);
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+.agent-identity-strip[data-status="running"] .agent-identity-status-text {
+  color: var(--teal);
+}
