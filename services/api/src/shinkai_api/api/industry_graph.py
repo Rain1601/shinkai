@@ -494,6 +494,94 @@ def _parse_day(s: str | None) -> float | None:
         ) from exc
 
 
+def _theme_members(
+    theme_subject: Subject,
+    entities: dict[str, dict[str, Any]],
+    company_subjects_by_target: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Resolve the Company members of a Theme subject.
+
+    Two attribution paths, in order — first that yields hits wins:
+    1. **Explicit link**: any Company entity whose ``facets.subtheme``
+       contains the Theme's ``target_entity_id`` (e.g. ``st:hbm``).
+       This is the canonical path agents are taught to populate.
+    2. **chain_layers keyword fallback**: substring match between the
+       theme's slug (``hbm``, ``optical``, …) and the Company's
+       ``facets.chain_layers`` strings. Lets the V0 seed data — which
+       never populated ``facets.subtheme`` — still surface real members.
+
+    Each result row carries ``has_subject_id`` populated when the
+    Company itself has a Subject record, so the React grid can render a
+    `<Link>` to that company's own Detail page.
+    """
+    target = theme_subject.target_entity_id
+    slug = target.split(":", 1)[-1].lower() if ":" in target else target.lower()
+
+    def _to_row(entity: dict[str, Any]) -> dict[str, Any]:
+        eid = entity["id"]
+        labels = entity.get("labels") or []
+        return {
+            "id": eid,
+            "label": labels[0] if labels else eid,
+            "kind": entity.get("kind"),
+            "layer": derive_supply_layer(entity.get("facets"), entity.get("kind")),
+            "target_entity_id": eid,
+            "has_subject_id": company_subjects_by_target.get(eid),
+        }
+
+    explicit: list[dict[str, Any]] = []
+    for entity in entities.values():
+        if entity.get("kind") != "Company" or entity.get("deprecated_at"):
+            continue
+        sub = (entity.get("facets") or {}).get("subtheme")
+        if not sub:
+            continue
+        sub_list = sub if isinstance(sub, list) else [sub]
+        if target in sub_list:
+            explicit.append(_to_row(entity))
+    if explicit:
+        explicit.sort(key=lambda r: r["label"])
+        return explicit
+
+    needle = slug
+    fallback: list[dict[str, Any]] = []
+    for entity in entities.values():
+        if entity.get("kind") != "Company" or entity.get("deprecated_at"):
+            continue
+        cl = (entity.get("facets") or {}).get("chain_layers") or []
+        cl_list = cl if isinstance(cl, list) else [cl]
+        if any(needle in str(c).lower() for c in cl_list):
+            fallback.append(_to_row(entity))
+    fallback.sort(key=lambda r: r["label"])
+    return fallback
+
+
+@router.get("/subjects/{subject_id}/members")
+async def list_subject_members(subject_id: str) -> dict[str, Any]:
+    """Members of a Theme subject — Companies attached to it via
+    ``facets.subtheme`` (canonical) or via ``chain_layers`` keyword
+    match (V0 fallback for un-migrated seed data).
+
+    Returns an empty list for Company subjects (they have no members).
+    """
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+    if subj.type != "theme":
+        return {"subject_id": subject_id, "members": []}
+
+    graph = await _get_store()
+    subjects = await ss.list_subjects()
+    company_subjects_by_target: dict[str, str] = {
+        s.target_entity_id: s.id for s in subjects if s.type == "company"
+    }
+    members = _theme_members(
+        subj, dict(graph.index.by_id), company_subjects_by_target
+    )
+    return {"subject_id": subject_id, "members": members, "count": len(members)}
+
+
 @router.get("/activity")
 async def list_activity(limit: int = 60) -> dict[str, Any]:
     """Cross-subject Activity feed — the merger replacement for /live's

@@ -277,3 +277,79 @@ def _index(subs: list[Subject]):
     from shinkai_api.industry_graph.activity import _index_subjects
 
     return _index_subjects(subs)
+
+
+# ── Theme members resolver (api._theme_members) ─────────────────────────
+def test_theme_members_explicit_link_wins() -> None:
+    from shinkai_api.api.industry_graph import _theme_members
+
+    theme = _theme_subject("hbm", "st:hbm")
+    entities = {
+        "co:SK": {
+            "id": "co:SK", "kind": "Company", "labels": ["SK Hynix"],
+            "facets": {"subtheme": ["st:hbm"]},
+        },
+        "co:MU": {
+            "id": "co:MU", "kind": "Company", "labels": ["Micron"],
+            "facets": {"chain_layers": ["HBM 内存"]},  # would match fallback
+        },
+        "co:OTHER": {
+            "id": "co:OTHER", "kind": "Company", "labels": ["Other"],
+            "facets": {},
+        },
+    }
+    company_subjects_by_target = {"co:SK": "subj:sk"}
+    members = _theme_members(theme, entities, company_subjects_by_target)
+    # Explicit hit wins → only SK Hynix; Micron is ignored even though its
+    # chain_layers would have matched the fallback.
+    assert [m["id"] for m in members] == ["co:SK"]
+    assert members[0]["has_subject_id"] == "subj:sk"
+
+
+def test_theme_members_chain_layers_fallback() -> None:
+    from shinkai_api.api.industry_graph import _theme_members
+
+    theme = _theme_subject("hbm", "st:hbm")
+    entities = {
+        "co:SK": {
+            "id": "co:SK", "kind": "Company", "labels": ["SK Hynix"],
+            "facets": {"chain_layers": ["HBM 内存 (High-Bandwidth Memory)"]},
+        },
+        "co:MU": {
+            "id": "co:MU", "kind": "Company", "labels": ["Micron"],
+            "facets": {"chain_layers": ["hbm production"]},  # case-insensitive
+        },
+        "co:OTHER": {
+            "id": "co:OTHER", "kind": "Company", "labels": ["Other"],
+            "facets": {"chain_layers": ["Foundry"]},
+        },
+    }
+    members = _theme_members(theme, entities, {})
+    assert sorted(m["id"] for m in members) == ["co:MU", "co:SK"]
+    # Alphabetically by label.
+    assert [m["label"] for m in members] == ["Micron", "SK Hynix"]
+    # No Subject record for these companies in this test fixture.
+    assert all(m["has_subject_id"] is None for m in members)
+
+
+def test_theme_members_excludes_deprecated_and_non_company() -> None:
+    from shinkai_api.api.industry_graph import _theme_members
+
+    theme = _theme_subject("hbm", "st:hbm")
+    entities = {
+        "co:SK": {
+            "id": "co:SK", "kind": "Company", "labels": ["SK Hynix"],
+            "facets": {"chain_layers": ["HBM"]},
+            "deprecated_at": "2026-06-21T00:00:00Z",  # deprecated → skipped
+        },
+        "co:MU": {
+            "id": "co:MU", "kind": "Company", "labels": ["Micron"],
+            "facets": {"chain_layers": ["HBM"]},
+        },
+        "st:hbm": {
+            "id": "st:hbm", "kind": "SubTheme", "labels": ["HBM"],
+            "facets": {},  # SubTheme itself: never a member
+        },
+    }
+    members = _theme_members(theme, entities, {})
+    assert [m["id"] for m in members] == ["co:MU"]
