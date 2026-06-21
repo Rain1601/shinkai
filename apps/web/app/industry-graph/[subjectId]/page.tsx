@@ -5,9 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { PortalShell } from "../../../components/portal/PortalShell";
 import { ActivityFeed } from "../../../components/industry-graph/ActivityFeed";
+import { EdgePane } from "../../../components/industry-graph/EdgePane";
 import { SubjectGraph } from "../../../components/industry-graph/SubjectGraph";
 import { ThemeMembersGrid } from "../../../components/industry-graph/ThemeMembersGrid";
-import type { GraphPayload } from "../../../components/industry-graph/cytoscape-helpers";
+import type {
+  GraphEdge,
+  GraphPayload,
+} from "../../../components/industry-graph/cytoscape-helpers";
 import { type Locale } from "../../../lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
@@ -120,6 +124,7 @@ export default function IndustryGraphSubjectDetail({
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [allSubjects, setAllSubjects] = useState<SubjectListRow[]>([]);
+  const [selectedEdge, setSelectedEdge] = useState<GraphEdge | null>(null);
   const [locale, setLocale] = useState<Locale>("zh");
   const isZh = locale === "zh";
 
@@ -185,6 +190,9 @@ export default function IndustryGraphSubjectDetail({
 
   useEffect(() => {
     if (!subject || selectedVersion === null) return;
+    // Switching versions invalidates any selected edge — the new snapshot
+    // may not even contain the same edge id.
+    setSelectedEdge(null);
     // Theme subjects don't have a meaningful anchor BFS — Stage 3 renders
     // ThemeMembersGrid instead, no cytoscape — so skip the fetch entirely.
     if (subject.type === "theme") {
@@ -369,6 +377,9 @@ export default function IndustryGraphSubjectDetail({
                 anchorId={subject?.target_entity_id ?? ""}
                 showOrphans={false}
                 showLabels={true}
+                onEdgeClick={(edge) => setSelectedEdge(edge)}
+                onBackgroundClick={() => setSelectedEdge(null)}
+                onNodeClick={() => setSelectedEdge(null)}
               />
             )}
           </div>
@@ -451,13 +462,30 @@ export default function IndustryGraphSubjectDetail({
           </div>
         </section>
 
-        {/* RIGHT — Anchor card with downstream / upstream relation lists */}
-        <AnchorPane
-          subject={subject}
-          graph={graph}
-          allSubjects={allSubjects}
-          locale={locale}
-        />
+        {/* RIGHT — Anchor card or Edge inspection, whichever the user has
+            focused. Click an edge in the graph to swap. */}
+        {selectedEdge && graph ? (
+          <EdgePane
+            edge={selectedEdge}
+            graph={graph}
+            subjectMap={
+              new Map(
+                allSubjects
+                  .filter((s) => s.type === "company")
+                  .map((s) => [s.target_entity_id, s.id]),
+              )
+            }
+            locale={locale}
+            onClear={() => setSelectedEdge(null)}
+          />
+        ) : (
+          <AnchorPane
+            subject={subject}
+            graph={graph}
+            allSubjects={allSubjects}
+            locale={locale}
+          />
+        )}
       </div>
     </PortalShell>
   );

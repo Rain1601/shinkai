@@ -4883,6 +4883,181 @@ select {
   cursor: pointer;
 }
 
+/* ── EdgePane (right pane when an edge is tapped) ──────────────────────
+   Renders inside .ig-anchor-pane so the outer chrome (border + padding)
+   matches the anchor pane. The .ig-edge-pane variant overrides the
+   anchor-specific bits and adds the relation arrow + per-period weights
+   table. */
+
+.ig-edge-pane .ig-anchor-name { display: none; }
+.ig-edge-pane .ig-anchor-aliases,
+.ig-edge-pane .ig-anchor-desc,
+.ig-edge-pane .ig-anchor-dl:first-of-type,
+.ig-edge-pane .ig-anchor-themes,
+.ig-edge-pane .ig-rel-list,
+.ig-edge-pane .ig-rel-head-row + .ig-rel-list { display: none; }
+
+.ig-edge-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ig-edge-type-pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  color: var(--teal);
+}
+
+.ig-edge-type-pill.type-supplies_to { color: var(--teal); }
+.ig-edge-type-pill.type-competes_with {
+  color: var(--warn);
+  font-style: italic;
+}
+.ig-edge-type-pill.type-themed_under { color: var(--role-buyer); }
+
+.ig-edge-arrow {
+  margin: 12px 0 18px;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.25;
+  color: var(--pearl);
+  letter-spacing: -0.01em;
+}
+
+.ig-edge-arrow .arrow {
+  color: var(--teal);
+  font-style: italic;
+  margin: 0 8px;
+}
+
+.ig-edge-node {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hair);
+}
+
+.ig-edge-node-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-edge-node-name {
+  margin: 4px 0 4px;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--pearl);
+  letter-spacing: -0.005em;
+}
+
+.ig-edge-node-name a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 160ms var(--ease), color 160ms var(--ease);
+}
+
+.ig-edge-node-name a:hover {
+  color: var(--teal);
+  border-color: var(--teal-line);
+}
+
+.ig-edge-node-go {
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.ig-edge-node-meta {
+  margin: 0 0 6px;
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 2px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.ig-edge-node-meta dt {
+  color: var(--pearl-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 9px;
+}
+
+.ig-edge-node-meta dd {
+  margin: 0;
+  color: var(--pearl);
+}
+
+.ig-edge-node-desc {
+  margin: 4px 0 0;
+  font-family: var(--body);
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--pearl-soft);
+}
+
+.ig-edge-weights {
+  margin-top: 20px;
+}
+
+.ig-edge-weights-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-edge-weights-table th {
+  text-align: left;
+  padding: 4px 0;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+  border-bottom: 1px solid var(--hair);
+}
+
+.ig-edge-weights-table td {
+  padding: 5px 0;
+  font-size: 12.5px;
+  color: var(--pearl);
+  border-bottom: 1px dotted var(--hair-strong);
+}
+
+.ig-edge-weights-table td.y {
+  color: var(--pearl-dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.ig-edge-evidence {
+  margin-top: 20px;
+}
+
+.ig-edge-evidence .ig-anchor-dl {
+  margin-top: 6px;
+}
+
+.ig-edge-evid.hard { color: var(--role-buyer); }
+.ig-edge-evid.soft {
+  color: var(--warn);
+  font-style: italic;
+}
+
 .ig-version-card {
   border-top: 1px solid var(--hair);
   padding-top: 14px;
