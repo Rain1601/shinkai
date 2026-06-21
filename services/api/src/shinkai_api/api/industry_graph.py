@@ -36,6 +36,7 @@ from shinkai_api.industry_graph import (
     SubjectStore,
     SubjectVersion,
 )
+from shinkai_api.industry_graph.activity import build_activity_rows
 from shinkai_api.industry_graph.layer_map import derive_supply_layer
 from shinkai_api.industry_graph.subjects import (
     SubjectLockBusy,
@@ -43,6 +44,7 @@ from shinkai_api.industry_graph.subjects import (
     prepare_subject_run,
 )
 from shinkai_api.llm.deepseek import DeepSeekClient
+from shinkai_api.runs.store import default_run_store
 from shinkai_api.themes import default_theme_event_store
 from shinkai_api.themes.events import ThemeEvent
 
@@ -490,6 +492,38 @@ def _parse_day(s: str | None) -> float | None:
         raise HTTPException(
             status_code=400, detail=f"invalid date '{s}', expected YYYY-MM-DD"
         ) from exc
+
+
+@router.get("/activity")
+async def list_activity(limit: int = 60) -> dict[str, Any]:
+    """Cross-subject Activity feed — the merger replacement for /live's
+    right-rail Analyses list. See industry_graph/activity.py for the
+    Run-event → Subject attribution rules.
+    """
+    ss = await _get_subject_store()
+    subjects = await ss.list_subjects()
+    runs = await default_run_store.list()
+    rows = build_activity_rows(runs, subjects, subject_filter=None, limit=limit)
+    return {"rows": rows, "count": len(rows)}
+
+
+@router.get("/subjects/{subject_id}/activity")
+async def list_subject_activity(subject_id: str, limit: int = 40) -> dict[str, Any]:
+    """Activity feed for ONE Subject — drives the Detail page Activity
+    section. Returns the same row shape as the cross-subject endpoint,
+    pre-filtered to events that match this Subject under the attribution
+    rules.
+    """
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+    subjects = await ss.list_subjects()
+    runs = await default_run_store.list()
+    rows = build_activity_rows(
+        runs, subjects, subject_filter=subject_id, limit=limit,
+    )
+    return {"subject_id": subject_id, "rows": rows, "count": len(rows)}
 
 
 @router.get("/subjects/{subject_id}/events")
