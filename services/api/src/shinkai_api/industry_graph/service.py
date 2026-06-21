@@ -19,6 +19,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from .layer_map import derive_supply_layer
 from .schemas import (
     ChangeEntry,
     EntityBase,
@@ -140,6 +141,20 @@ class IndustryGraphStore:
         now = datetime.now(UTC).isoformat()
         record.setdefault("created_at", now)
         record.setdefault("updated_at", now)
+        # Canonicalize facets.supply_layer so downstream queries can trust the
+        # field without re-deriving. Explicit value wins; otherwise infer from
+        # chain_layers; else fall back to a kind-based default. Stored as a
+        # single string (not list) so the agent's later upserts can extend
+        # chain_layers without touching the canonical layer.
+        derived = derive_supply_layer(record.get("facets"), record.get("kind"))
+        if derived is not None:
+            facets = record.get("facets")
+            if not isinstance(facets, dict):
+                facets = {}
+                record["facets"] = facets
+            sl = facets.get("supply_layer")
+            if not sl:
+                facets["supply_layer"] = derived
         # Pydantic re-check — catches bad kind, malformed facets, out-of-range
         # confidence etc. before they pollute the index. extra='allow' on the
         # base model means new fields still pass through.

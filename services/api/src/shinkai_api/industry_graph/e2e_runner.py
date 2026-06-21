@@ -209,8 +209,13 @@ Rules:
    bottleneck_at, affects, key_data_about, watched_in.
 5. Bottleneck.type ∈ {capacity, geopolitical, technology, demand, regulation}.
 6. Bottleneck.severity ∈ {high, medium, low}.
-7. End with create_snapshot{"rationale": "..."} so changes are committed.
-8. Output JUST the JSON, no prose. Do NOT wrap in ```.
+7. For Company entities, set facets.supply_layer to one of:
+   designer, foundry, advanced_packaging, memory, testing, assembly, optical,
+   robotics, battery, power, cooling, materials, passive, ai_model,
+   infrastructure, buyer, theme. The store will auto-derive it from
+   chain_layers if you omit it, but explicit is better.
+8. End with create_snapshot{"rationale": "..."} so changes are committed.
+9. Output JUST the JSON, no prose. Do NOT wrap in ```.
 """
 
 

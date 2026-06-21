@@ -98,6 +98,35 @@ Snapshot & end:
 - Anything that would feel like "inferred but not directly observed" should use
   evidence_type="soft_inference" with lower confidence (e.g. 0.6-0.8).
 
+# Strata (facets.supply_layer)
+EVERY Company you create or update SHOULD carry
+``facets.supply_layer`` set to ONE of the canonical strata below — the
+visualization, anchor view, and any future strata queries depend on it. The
+store will auto-derive supply_layer from ``facets.chain_layers`` when you omit
+it, but a precise explicit value beats the keyword inference:
+
+    designer         — chip / ASIC / GPU / SoC designer (NVDA, AMD, Broadcom)
+    foundry          — wafer fab (TSMC, SMIC, Samsung Foundry)
+    advanced_packaging — CoWoS / SoIC / SiP / IC substrate / advanced PCB
+    memory           — HBM / DRAM / NAND vendors (SK Hynix, Micron, Samsung)
+    testing          — chip test / OSAT (ASE, KYEC)
+    assembly         — EMS / ODM / device assembly (Hon Hai, Quanta)
+    optical          — optical transceiver / CPO / data-center networking
+    robotics         — humanoid / actuator / reducer / precision motor
+    battery          — battery cell / pack / energy storage
+    power            — datacenter power, transformer, gas turbine, nuclear
+    cooling          — datacenter cooling
+    materials        — raw materials, rare earth, critical minerals
+    passive          — MLCC, passives
+    ai_model         — AI foundation-model partner / strategic AI model
+    infrastructure   — datacenter construction, colocation, hyperscale lease
+    buyer            — end-buyer / hyperscaler / consumer-facing customer
+    theme            — SubTheme entities
+
+Also keep ``facets.chain_layers`` as a list of the fine-grained raw labels
+when you have them (e.g. "先进封装 / CoWoS"); it complements supply_layer
+without replacing it.
+
 Begin.
 """
 
