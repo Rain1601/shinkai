@@ -1472,6 +1472,34 @@
       { selector: 'edge.hidden', style: { 'opacity': 0, 'events': 'no' } },
       { selector: 'node.satellite', style: { 'opacity': 0.55, 'text-opacity': 0.85 } },
       { selector: 'edge.satellite', style: { 'opacity': 0.32 } },
+      // ====== Edge selection (click to highlight) ======
+      { selector: 'edge.selected', style: {
+        'opacity': 1,
+        'width': 'mapData(currentWidth, 0.6, 8, 3.5, 10)',
+        'underlay-color': 'data(lineColor)',
+        'underlay-opacity': 0.18,
+        'underlay-padding': 8,
+        'z-index': 999,
+        'font-size': 13,
+        'font-weight': 700,
+        'min-zoomed-font-size': 12,
+        'text-background-opacity': 1,
+        'text-background-padding': '5px',
+      }},
+      { selector: 'edge.dimmed', style: {
+        'opacity': 0.08,
+        'text-opacity': 0,
+      }},
+      { selector: 'node.dimmed', style: {
+        'opacity': 0.32,
+        'text-opacity': 0.45,
+      }},
+      { selector: 'node.endpoint-hi', style: {
+        'underlay-color': '#C8941F',
+        'underlay-opacity': 0.28,
+        'underlay-padding': 10,
+        'z-index': 998,
+      }},
     ],
     layout: { name: 'preset', positions: POSITIONS, fit: true, padding: 30 },
     wheelSensitivity: 0.18,
@@ -1512,7 +1540,7 @@
   }
 
   function applyView() {
-    cy.elements().removeClass('faded hi anchor-hi satellite');
+    cy.elements().removeClass('faded hi anchor-hi satellite selected dimmed endpoint-hi');
 
     // 方案 C:Mark satellite nodes/edges(parent/child of anchor)— 方案 A 不 mark
     if (SCHEME === 'C' && currentView === 'entity') {
@@ -2321,10 +2349,35 @@
     </div>`;
   }
 
-  cy.on('tap', 'node', (evt) => renderNode(evt.target.id()));
-  cy.on('tap', 'edge', (evt) => renderEdgeDetails(evt.target));
+  // ============ EDGE SELECTION HIGHLIGHT ============
+  function selectEdge(edge) {
+    clearEdgeSelection();
+    edge.addClass('selected');
+    // 两端节点光晕
+    edge.source().addClass('endpoint-hi');
+    edge.target().addClass('endpoint-hi');
+    // 其他可见边/节点淡化
+    const visibleEdges = cy.edges().filter(e => !e.hasClass('hidden') && e.id() !== edge.id());
+    visibleEdges.addClass('dimmed');
+    const involvedNodes = edge.source().union(edge.target());
+    cy.nodes().filter(n => !n.hasClass('hidden') && !involvedNodes.has(n)).addClass('dimmed');
+  }
+  function clearEdgeSelection() {
+    cy.edges().removeClass('selected dimmed');
+    cy.nodes().removeClass('endpoint-hi dimmed');
+  }
+
+  cy.on('tap', 'node', (evt) => {
+    clearEdgeSelection();
+    renderNode(evt.target.id());
+  });
+  cy.on('tap', 'edge', (evt) => {
+    selectEdge(evt.target);
+    renderEdgeDetails(evt.target);
+  });
   cy.on('tap', (evt) => {
     if (evt.target === cy) {
+      clearEdgeSelection();
       document.getElementById('side').innerHTML = `<div class="side-empty">Tap any node or edge to inspect its evidence.</div>`;
     }
   });
