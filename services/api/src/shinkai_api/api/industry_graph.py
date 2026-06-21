@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from datetime import UTC
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
@@ -42,6 +43,8 @@ from shinkai_api.industry_graph.subjects import (
     prepare_subject_run,
 )
 from shinkai_api.llm.deepseek import DeepSeekClient
+from shinkai_api.themes import default_theme_event_store
+from shinkai_api.themes.events import ThemeEvent
 
 router = APIRouter(prefix="/industry_graph", tags=["industry_graph"])
 
@@ -452,6 +455,75 @@ async def get_subject_version(subject_id: str, version_no: int) -> dict[str, Any
                     ):
                         changes.append(c.model_dump(mode="json"))
     return {**_version_to_dict(target), "changes": changes}
+
+
+async def _events_for_subject(subject: Subject) -> list[ThemeEvent]:
+    """Resolve the event feed for one Subject.
+
+    - Theme subject: feed is ``ThemeEventStore.list_by_theme(<slug>)`` where
+      the slug is the ``target_entity_id`` stripped of its ``st:`` prefix.
+    - Company subject: scan all events and keep those whose ``tickers``
+      list contains the Company's ticker (the part after ``co:``).
+    """
+    raw = subject.target_entity_id
+    slug = raw.split(":", 1)[-1] if ":" in raw else raw
+    if subject.type == "theme":
+        return await default_theme_event_store.list_by_theme(slug)
+    # Company: filter all events by ticker membership. We pull a wide-ish
+    # window (limit=2000) which is plenty for V0 traffic; the existing
+    # ThemeEventStore has no by-ticker index so we scan in process.
+    ticker_match = slug.upper()
+    all_events = await default_theme_event_store.list_all(limit=2000)
+    return [e for e in all_events if any(t.upper() == ticker_match for t in (e.tickers or []))]
+
+
+def _parse_day(s: str | None) -> float | None:
+    """Parse a ``YYYY-MM-DD`` string into a POSIX timestamp at UTC midnight."""
+    if not s:
+        return None
+    try:
+        from datetime import datetime as _dt
+
+        dt = _dt.strptime(s, "%Y-%m-%d").replace(tzinfo=UTC)
+        return dt.timestamp()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"invalid date '{s}', expected YYYY-MM-DD"
+        ) from exc
+
+
+@router.get("/subjects/{subject_id}/events")
+async def list_subject_events(
+    subject_id: str,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict[str, Any]:
+    """ThemeEvents narrowed to one Subject's lens.
+
+    Optional ``date_from`` / ``date_to`` are inclusive day boundaries in
+    UTC; they filter on ``event_ts`` (when the real-world event happened,
+    not when the agent ingested it).
+    """
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+
+    events = await _events_for_subject(subj)
+    lo = _parse_day(date_from)
+    hi = _parse_day(date_to)
+    if hi is not None:
+        hi += 86400.0  # make `date_to` inclusive of the whole day
+    if lo is not None or hi is not None:
+        events = [
+            e for e in events
+            if (lo is None or e.event_ts >= lo) and (hi is None or e.event_ts < hi)
+        ]
+    return {
+        "subject_id": subject_id,
+        "events": [e.model_dump(mode="json") for e in events],
+        "count": len(events),
+    }
 
 
 @router.get("/subjects/{subject_id}/versions/{version_no}/graph")
