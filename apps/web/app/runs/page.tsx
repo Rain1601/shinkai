@@ -1,472 +1,279 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PortalShell } from "../../components/portal/PortalShell";
-import type { Locale } from "../../lib/i18n";
-import {
-  localizeMode,
-  localizeStage,
-  localizeStatus,
-  localizeText,
-} from "../../lib/i18n";
-
-type ViewMode = "theme" | "time";
-const VALID_VIEWS: ViewMode[] = ["theme", "time"];
-
-type RunEvent = {
-  event_id?: string;
-  type?: string;
-  ts?: number;
-  data?: Record<string, unknown>;
-};
-
-type Run = {
-  id: string;
-  mode: "mode_a_company" | "mode_b_narrative";
-  anchor: string;
-  status: string;
-  lifecycle_stage: string;
-  graph_id?: string | null;
-  events: RunEvent[];
-};
-
-type AuthSession = {
-  auth_required: boolean;
-  role: "admin" | "subscriber" | "viewer";
-  read_scope: "admin" | "subscriber" | "public";
-  capabilities: string[];
-};
+import { type Locale } from "../../lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8100";
-const DEFAULT_ANCHOR_ZH = "自主发现";
-const DEFAULT_ANCHOR_EN = "Autonomous Discovery";
-const DEFAULT_AUTH_SESSION: AuthSession = {
-  auth_required: true,
-  role: "viewer",
-  read_scope: "public",
-  capabilities: ["read_results", "read_run_process"],
+
+type RunRow = {
+  id: string;
+  subject_id: string;
+  subject_display_name: string;
+  subject_type: "company" | "theme";
+  target_entity_id: string;
+  version_no: number;
+  run_id: string;
+  snapshot_from: number;
+  snapshot_to: number;
+  triggered_by: "manual" | "schedule" | "agent" | "migration";
+  status: "pending" | "running" | "completed" | "failed";
+  started_at: string;
+  ended_at: string | null;
+  rationale: string;
+  change_summary: {
+    entities_added: number;
+    relations_added: number;
+    highlights: string[];
+  } | null;
 };
 
-const TERMINAL_STATUSES = new Set(["completed", "failed", "aborted", "cancelled"]);
-
-async function apiFetch(
-  path: string,
-  init?: RequestInit,
-  adminToken?: string,
-): Promise<Response> {
-  const headers = new Headers(init?.headers);
-  if (adminToken) headers.set("Authorization", `Bearer ${adminToken}`);
-  return fetch(`${API_URL}${path}`, { ...init, headers });
-}
-
-function eventTs(event: RunEvent): number | null {
-  return typeof event.ts === "number" ? event.ts : null;
-}
-
-function lastActivityTs(run: Run): number {
-  const stamps = run.events.map(eventTs).filter((ts): ts is number => ts !== null);
-  return stamps.length > 0 ? Math.max(...stamps) : 0;
-}
-
-function isTerminalRun(run: Run): boolean {
-  return TERMINAL_STATUSES.has(run.status);
-}
-
-function themeKey(title: string): string {
-  return title.trim().toLowerCase().replace(/\s+/g, " ") || "autonomous-discovery";
-}
-
-function formatActivityTime(ts: number, locale: Locale): string {
-  if (!ts) return locale === "zh" ? "暂无" : "n/a";
-  return new Date(ts * 1000).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function hasCapability(session: AuthSession, capability: string): boolean {
-  return session.capabilities.includes(capability);
-}
-
-type ThemeGroup = {
-  key: string;
-  title: string;
-  runs: Run[];
-  latestRun: Run;
-  runningCount: number;
-  completedCount: number;
-  lastActivity: number;
+type RunsResponse = {
+  rows: RunRow[];
+  count: number;
+  total: number;
 };
 
-function groupRunsByTheme(runs: Run[], locale: Locale): ThemeGroup[] {
-  const groups = new Map<string, Run[]>();
-  for (const run of runs) {
-    const title = localizeText(run.anchor, locale);
-    const key = themeKey(title);
-    groups.set(key, [...(groups.get(key) ?? []), run]);
+type SubjectListRow = {
+  id: string;
+  display_name: string;
+  type: "company" | "theme";
+};
+
+type StatusFilter = "all" | "pending" | "running" | "completed" | "failed";
+
+function formatRelative(iso: string | null, locale: Locale): string {
+  if (!iso) return locale === "zh" ? "—" : "—";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const delta = (Date.now() - t) / 1000;
+  if (delta < 60) return locale === "zh" ? "刚刚" : "just now";
+  const units: [number, string, string][] = [
+    [86400, "天", "d"],
+    [3600, "小时", "h"],
+    [60, "分钟", "m"],
+  ];
+  for (const [s, zh, en] of units) {
+    if (delta >= s) {
+      const n = Math.floor(delta / s);
+      return locale === "zh" ? `${n}${zh}前` : `${n}${en} ago`;
+    }
   }
-  return Array.from(groups.entries())
-    .map(([key, themeRuns]) => {
-      const sorted = [...themeRuns].sort((a, b) => lastActivityTs(b) - lastActivityTs(a));
-      const latestRun = sorted[0];
-      return {
-        key,
-        title: localizeText(latestRun.anchor, locale),
-        runs: sorted,
-        latestRun,
-        runningCount: sorted.filter((run) => !isTerminalRun(run)).length,
-        completedCount: sorted.filter((run) => run.status === "completed").length,
-        lastActivity: lastActivityTs(latestRun),
-      };
-    })
-    .sort((a, b) => b.lastActivity - a.lastActivity);
+  return locale === "zh" ? "刚刚" : "just now";
 }
 
 export default function RunsPage() {
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [locale, setLocale] = useState<Locale>("zh");
-  const [anchor, setAnchor] = useState(DEFAULT_ANCHOR_ZH);
-  const [mode, setMode] = useState<Run["mode"]>("mode_b_narrative");
-  const [adminToken, setAdminToken] = useState("");
-  const [adminTokenInput, setAdminTokenInput] = useState("");
-  const [authSession, setAuthSession] = useState<AuthSession>(DEFAULT_AUTH_SESSION);
+  const [rows, setRows] = useState<RunRow[]>([]);
+  const [subjects, setSubjects] = useState<SubjectListRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [locale, setLocale] = useState<Locale>("zh");
   const isZh = locale === "zh";
-  const isAdmin = authSession.role === "admin";
-  const canCreateRuns = hasCapability(authSession, "create_runs");
 
-  function changeLocale(nextLocale: Locale) {
-    setLocale(nextLocale);
-    window.localStorage.setItem("shinkai.locale", nextLocale);
-    setAnchor((current) => {
-      if (current === DEFAULT_ANCHOR_ZH || current === DEFAULT_ANCHOR_EN) {
-        return nextLocale === "zh" ? DEFAULT_ANCHOR_ZH : DEFAULT_ANCHOR_EN;
-      }
-      return current;
-    });
-  }
-
-  async function loadRuns() {
+  function changeLocale(next: Locale) {
+    setLocale(next);
     try {
-      const response = await apiFetch("/api/v1/runs", { cache: "no-store" });
-      if (!response.ok) throw new Error(`${response.status}`);
-      setRuns((await response.json()) as Run[]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  async function loadAuthSession(token = adminToken) {
-    try {
-      const response = await apiFetch(
-        "/api/v1/auth/session",
-        { cache: "no-store" },
-        token,
-      );
-      if (!response.ok) return;
-      setAuthSession((await response.json()) as AuthSession);
-    } catch {
-      // silent
-    }
-  }
-
-  async function saveAdminToken() {
-    const token = adminTokenInput.trim();
-    window.localStorage.setItem("shinkai.adminToken", token);
-    setAdminToken(token);
-    await loadAuthSession(token);
-  }
-
-  async function clearAdminToken() {
-    window.localStorage.removeItem("shinkai.adminToken");
-    setAdminToken("");
-    setAdminTokenInput("");
-    await loadAuthSession("");
-  }
-
-  async function createRun() {
-    if (!canCreateRuns) return;
-    try {
-      const response = await apiFetch(
-        "/api/v1/runs",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode, anchor, scope: { language: locale } }),
-        },
-        adminToken,
-      );
-      if (!response.ok) return;
-      const run = (await response.json()) as Run;
-      setRuns((current) => [run, ...current]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  async function createAndStartAutonomousRun() {
-    if (!canCreateRuns) return;
-    try {
-      const response = await apiFetch(
-        "/api/v1/runs",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "mode_b_narrative",
-            anchor: isZh ? DEFAULT_ANCHOR_ZH : DEFAULT_ANCHOR_EN,
-            scope: {
-              autonomy: true,
-              max_spirals: 2,
-              spiral_index: 1,
-              language: locale,
-              allow_live_sources: true,
-              checkpoints_enabled: true,
-              objective: isZh
-                ? "挖掘具体、低覆盖的主题与候选公司"
-                : "surface concrete under-covered themes and candidates",
-            },
-          }),
-        },
-        adminToken,
-      );
-      if (!response.ok) return;
-      const run = (await response.json()) as Run;
-      setRuns((current) => [run, ...current]);
-      await apiFetch(`/api/v1/runs/${run.id}/start`, { method: "POST" }, adminToken);
-      loadRuns();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+      window.localStorage.setItem("shinkai.locale", next);
+    } catch {}
   }
 
   useEffect(() => {
-    const storedLocale = window.localStorage.getItem("shinkai.locale");
-    if (storedLocale === "zh" || storedLocale === "en") changeLocale(storedLocale);
-    const storedToken = window.localStorage.getItem("shinkai.adminToken") ?? "";
-    setAdminToken(storedToken);
-    setAdminTokenInput(storedToken);
-    loadAuthSession(storedToken);
-    loadRuns();
-    const interval = window.setInterval(loadRuns, 8000);
-    return () => window.clearInterval(interval);
+    try {
+      const stored = window.localStorage.getItem("shinkai.locale");
+      if (stored === "zh" || stored === "en") setLocale(stored);
+    } catch {}
   }, []);
 
-  const themeGroups = useMemo(() => groupRunsByTheme(runs, locale), [runs, locale]);
-  const runningRuns = runs.filter((run) => !isTerminalRun(run)).length;
-
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const viewParam = searchParams.get("view");
-  const view: ViewMode = VALID_VIEWS.includes(viewParam as ViewMode)
-    ? (viewParam as ViewMode)
-    : "theme";
-
-  function switchView(next: ViewMode) {
-    const params = new URLSearchParams(window.location.search);
-    if (next === "theme") {
-      params.delete("view");
-    } else {
-      params.set("view", next);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    async function load() {
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", "120");
+        if (subjectFilter) params.set("subject_id", subjectFilter);
+        if (statusFilter !== "all") params.set("status", statusFilter);
+        const [rRes, sRes] = await Promise.all([
+          fetch(`${API_URL}/api/v1/industry_graph/runs?${params}`, {
+            cache: "no-store",
+          }),
+          fetch(`${API_URL}/api/v1/industry_graph/subjects`, {
+            cache: "no-store",
+          }),
+        ]);
+        if (!rRes.ok) throw new Error(`runs ${rRes.status}`);
+        if (!sRes.ok) throw new Error(`subjects ${sRes.status}`);
+        const runs: RunsResponse = await rRes.json();
+        const subs: { subjects: SubjectListRow[] } = await sRes.json();
+        if (cancelled) return;
+        setRows(runs.rows);
+        setSubjects(subs.subjects);
+        setError(null);
+      } catch (e) {
+        if (cancelled) return;
+        setError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    const qs = params.toString();
-    router.replace(qs ? `/runs?${qs}` : "/runs", { scroll: false });
-  }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [subjectFilter, statusFilter]);
 
-  const flatRuns = useMemo(
-    () => [...runs].sort((a, b) => lastActivityTs(b) - lastActivityTs(a)),
-    [runs],
-  );
+  const counts = useMemo(() => {
+    const running = rows.filter(
+      (r) => r.status === "running" || r.status === "pending",
+    ).length;
+    const completed = rows.filter((r) => r.status === "completed").length;
+    const failed = rows.filter((r) => r.status === "failed").length;
+    return { running, completed, failed };
+  }, [rows]);
+
+  const STATUS_OPTIONS: StatusFilter[] = [
+    "all",
+    "running",
+    "completed",
+    "failed",
+  ];
 
   return (
     <PortalShell
       active="history"
       locale={locale}
       onLocaleChange={changeLocale}
-      title={isZh ? "运行历史" : "Run History"}
+      title={isZh ? "运行日志 · Run log" : "Run log"}
       subtitle={
         isZh
-          ? "Agent 跑过的每次研究 — 按主题聚合或按时间排序查看。"
-          : "Every research run the agent has produced — view grouped by theme or by time."
+          ? "Agent 历次跑过的 SubjectVersion,按时间倒序。"
+          : "Every SubjectVersion the agent has produced, newest first."
       }
       actions={
-        <>
-          <div className="admin-auth-control">
-            {isAdmin ? (
-              <button className="button secondary" onClick={clearAdminToken} type="button">
-                {isZh ? "退出管理员" : "Sign out admin"}
-              </button>
-            ) : (
-              <>
-                <input
-                  aria-label={isZh ? "管理员 Token" : "Admin token"}
-                  onChange={(event) => setAdminTokenInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") void saveAdminToken();
-                  }}
-                  placeholder={isZh ? "管理员 token" : "admin token"}
-                  type="password"
-                  value={adminTokenInput}
-                />
-                <button className="button secondary" onClick={saveAdminToken} type="button">
-                  {isZh ? "登录" : "Sign in"}
-                </button>
-              </>
-            )}
-          </div>
-          <button
-            className="button"
-            disabled={!canCreateRuns}
-            onClick={createAndStartAutonomousRun}
-            type="button"
-          >
-            {isZh ? "启动自主扫描" : "Start Autonomous Scan"}
-          </button>
-        </>
+        <Link href="/agent" className="live-pill">
+          {isZh ? "← 返回工作区" : "← Workspace"}
+        </Link>
       }
     >
-      <section className="runs-list-summary">
-        <article className="surface metric-tile">
-          <span className="label">{isZh ? "主题" : "Themes"}</span>
-          <strong>{themeGroups.length}</strong>
-        </article>
-        <article className="surface metric-tile">
-          <span className="label">{isZh ? "运行中" : "Running"}</span>
-          <strong>{runningRuns}</strong>
-        </article>
-        <article className="surface metric-tile">
-          <span className="label">{isZh ? "历史运行" : "Total Runs"}</span>
-          <strong>{runs.length}</strong>
-        </article>
-      </section>
-
       {error ? <p className="muted error-copy">{error}</p> : null}
 
-      <div className="history-view-switch">
-        <button
-          type="button"
-          className={view === "theme" ? "active" : ""}
-          onClick={() => switchView("theme")}
-        >
-          {isZh ? "按主题" : "By theme"}
-        </button>
-        <button
-          type="button"
-          className={view === "time" ? "active" : ""}
-          onClick={() => switchView("time")}
-        >
-          {isZh ? "按时间" : "By time"}
-        </button>
+      <div className="runs-toolbar">
+        <div className="runs-toolbar-field">
+          <label htmlFor="runs-subject-filter">
+            {isZh ? "Subject" : "Subject"}
+          </label>
+          <select
+            id="runs-subject-filter"
+            value={subjectFilter}
+            onChange={(e) => setSubjectFilter(e.target.value)}
+          >
+            <option value="">{isZh ? "全部" : "All"}</option>
+            {[...subjects]
+              .sort((a, b) => a.display_name.localeCompare(b.display_name))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.display_name}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className="runs-toolbar-pills">
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              type="button"
+              key={s}
+              className={`live-pill ${statusFilter === s ? "active" : ""}`}
+              onClick={() => setStatusFilter(s)}
+            >
+              {s === "all"
+                ? isZh
+                  ? "全部"
+                  : "All"
+                : s === "running"
+                  ? isZh
+                    ? "运行中"
+                    : "Running"
+                  : s === "completed"
+                    ? isZh
+                      ? "完成"
+                      : "Completed"
+                    : isZh
+                      ? "失败"
+                      : "Failed"}
+            </button>
+          ))}
+        </div>
+
+        <div className="runs-toolbar-summary">
+          {isZh
+            ? `${rows.length} 条 · ${counts.running} 在跑 · ${counts.completed} 完成 · ${counts.failed} 失败`
+            : `${rows.length} entries · ${counts.running} running · ${counts.completed} done · ${counts.failed} failed`}
+        </div>
       </div>
 
-      {view === "theme" ? (
-        <section className="theme-grid">
-          {themeGroups.length === 0 ? (
-            <p className="muted">
-              {isZh
-                ? "暂无主题。点上方“启动自主扫描”开始。"
-                : "No themes yet — start an autonomous scan."}
-            </p>
-          ) : null}
-          {themeGroups.map((group) => (
-            <article className="surface theme-tile" key={group.key}>
-              <header>
-                <h2>{group.title}</h2>
-                <span className="label">
-                  {isZh
-                    ? `${group.runs.length} 次 · ${group.runningCount} 运行中`
-                    : `${group.runs.length} runs · ${group.runningCount} active`}
-                </span>
-              </header>
-              <p className="muted">{formatActivityTime(group.lastActivity, locale)}</p>
-              <div className="theme-tile-runs">
-                {group.runs.slice(0, 6).map((run, index) => (
-                  <Link
-                    className="theme-run-chip"
-                    href={`/runs/${run.id}`}
-                    key={run.id}
-                  >
-                    <span>
-                      {isZh
-                        ? `第 ${group.runs.length - index} 次`
-                        : `Run ${group.runs.length - index}`}
-                    </span>
-                    <strong>{localizeStatus(run.status, locale)}</strong>
-                    <small>{localizeStage(run.lifecycle_stage, locale)}</small>
-                  </Link>
-                ))}
-              </div>
-            </article>
-          ))}
-        </section>
+      {loading ? (
+        <p className="muted">{isZh ? "加载中…" : "Loading…"}</p>
+      ) : rows.length === 0 ? (
+        <p className="muted runs-empty">
+          {isZh
+            ? "Agent 还没跑过这种条件下的 SubjectVersion。打开一个 Subject → 「+ 新分析」可以触发一次。"
+            : "No SubjectVersions match these filters. Open a Subject and press '+ Run new' to trigger one."}
+        </p>
       ) : (
-        <section className="surface history-time-list">
-          <div className="panel-heading">
-            <h2>{isZh ? "按时间倒序" : "Reverse chronological"}</h2>
-            <span className="label">{flatRuns.length}</span>
-          </div>
-          {flatRuns.length === 0 ? (
-            <p className="muted">
-              {isZh ? "暂无运行。" : "No runs yet."}
-            </p>
-          ) : (
-            <div className="history-time-rows">
-              {flatRuns.map((run) => (
-                <Link
-                  className="history-time-row"
-                  href={`/runs/${run.id}`}
-                  key={run.id}
-                >
-                  <div className="history-time-row-main">
-                    <strong>{localizeText(run.anchor, locale)}</strong>
-                    <span>
-                      {localizeStatus(run.status, locale)} ·{" "}
-                      {localizeStage(run.lifecycle_stage, locale)}
-                    </span>
-                  </div>
-                  <div className="history-time-row-meta">
-                    <span>
-                      {formatActivityTime(lastActivityTs(run), locale)}
-                    </span>
-                    <code>#{run.id.slice(0, 8)}</code>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+        <ul className="runs-list">
+          {rows.map((r) => (
+            <li key={r.id} className="runs-row">
+              <Link href={`/runs/${encodeURIComponent(r.id)}`} className="runs-row-link">
+                <span className={`runs-row-status status-${r.status}`}>
+                  {r.status === "running" || r.status === "pending" ? (
+                    <span className="runs-row-pulse" aria-hidden />
+                  ) : null}
+                  {r.status}
+                </span>
+                <span className="runs-row-version">v{r.version_no}</span>
+                <span className="runs-row-subject">
+                  {r.subject_display_name}
+                  <span className={`runs-row-type type-${r.subject_type}`}>
+                    {r.subject_type === "company"
+                      ? isZh
+                        ? "公司"
+                        : "co"
+                      : isZh
+                        ? "主题"
+                        : "th"}
+                  </span>
+                </span>
+                <span className="runs-row-trigger">{r.triggered_by}</span>
+                <span className="runs-row-time">
+                  {formatRelative(r.ended_at ?? r.started_at, locale)}
+                </span>
+                <span className="runs-row-diff">
+                  {r.change_summary ? (
+                    <>
+                      {r.change_summary.entities_added > 0
+                        ? `+${r.change_summary.entities_added} ent`
+                        : ""}
+                      {r.change_summary.entities_added > 0 &&
+                      r.change_summary.relations_added > 0
+                        ? " · "
+                        : ""}
+                      {r.change_summary.relations_added > 0
+                        ? `+${r.change_summary.relations_added} rel`
+                        : ""}
+                    </>
+                  ) : r.triggered_by === "migration" ? (
+                    <span className="muted">{isZh ? "基线" : "baseline"}</span>
+                  ) : null}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
-
-      <section className="surface manual-run-section">
-        <div className="panel-heading">
-          <h2>{isZh ? "手动创建" : "Manual Create"}</h2>
-        </div>
-        <div className="manual-run-form">
-          <label className="field compact">
-            <span className="label">{isZh ? "模式" : "Mode"}</span>
-            <select value={mode} onChange={(event) => setMode(event.target.value as Run["mode"])}>
-              <option value="mode_b_narrative">{localizeMode("mode_b_narrative", locale)}</option>
-              <option value="mode_a_company">{localizeMode("mode_a_company", locale)}</option>
-            </select>
-          </label>
-          <label className="field compact">
-            <span className="label">{isZh ? "主题锚点" : "Anchor"}</span>
-            <input value={anchor} onChange={(event) => setAnchor(event.target.value)} />
-          </label>
-          <button
-            className="button secondary"
-            disabled={!canCreateRuns}
-            onClick={createRun}
-            type="button"
-          >
-            {isZh ? "创建任务" : "Create"}
-          </button>
-        </div>
-      </section>
     </PortalShell>
   );
 }

@@ -6213,3 +6213,198 @@ select {
 .agent-identity-strip[data-status="running"] .agent-identity-status-text {
   color: var(--teal);
 }
+
+/* ── /runs — SubjectVersion log ─────────────────────────────────────────
+   Refactored from the old Mode B run list. Shows every SubjectVersion
+   the agent has produced, newest first, with a filter strip (Subject
+   select + status pills) up top. */
+
+.runs-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 12px;
+}
+
+.runs-toolbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.runs-toolbar-field label {
+  color: var(--pearl-mute);
+}
+
+.runs-toolbar-field select {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  background: transparent;
+  color: var(--pearl);
+  border: 1px solid var(--hair-strong);
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 160ms var(--ease);
+}
+
+.runs-toolbar-field select:focus {
+  border-color: var(--teal-line);
+}
+
+.runs-toolbar-field select option {
+  background: var(--abyss-1);
+  color: var(--pearl);
+}
+
+.runs-toolbar-pills {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.runs-toolbar-summary {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--pearl-mute);
+}
+
+.runs-empty {
+  margin-top: 24px;
+}
+
+.runs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.runs-row {
+  border-bottom: 1px dotted var(--hair-strong);
+}
+
+.runs-row-link {
+  display: grid;
+  grid-template-columns: 110px 60px minmax(0, 1fr) 88px 110px 140px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 160ms var(--ease), padding-left 160ms var(--ease);
+}
+
+.runs-row-link:hover {
+  background: var(--abyss-1);
+  padding-left: 10px;
+}
+
+.runs-row-status {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--hair-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+}
+
+.runs-row-status.status-completed {
+  color: var(--teal);
+  border-color: var(--teal-line);
+}
+
+.runs-row-status.status-failed {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.runs-row-status.status-running,
+.runs-row-status.status-pending {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.runs-row-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+.runs-row-version {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pearl);
+  letter-spacing: 0.04em;
+}
+
+.runs-row-subject {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--pearl);
+  letter-spacing: -0.005em;
+  min-width: 0;
+}
+
+.runs-row-type {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+  padding: 1px 5px;
+  border: 1px solid var(--hair-bright);
+}
+
+.runs-row-type.type-theme {
+  color: var(--role-buyer);
+  border-color: var(--role-buyer);
+}
+
+.runs-row-trigger {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--pearl-mute);
+}
+
+.runs-row-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--pearl-mute);
+  text-align: right;
+}
+
+.runs-row-diff {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.runs-row-diff .muted {
+  color: var(--pearl-dim);
+  font-style: italic;
+}
+
