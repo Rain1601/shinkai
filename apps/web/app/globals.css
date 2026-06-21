@@ -4537,12 +4537,11 @@ select {
   padding-left: 28px;
   border-left: 1px solid var(--hair);
   display: grid;
-  /* Graph gets the lion's share of vertical space.
-     `minmax(420px, 1fr)` guarantees ~420px even on shorter laptops, but
-     can grow to fill the viewport on bigger screens.
+  /* Focus breadcrumb (auto) on top.
+     Graph gets the lion's share of vertical space.
      Version card + Activity (collapsed by default) trail below. */
-  grid-template-rows: minmax(420px, 1fr) auto auto;
-  gap: 16px;
+  grid-template-rows: auto minmax(420px, 1fr) auto auto;
+  gap: 12px;
 }
 
 /* Timeline (left rail) */
@@ -4677,6 +4676,176 @@ select {
 .ig-run-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Focus breadcrumb — borrowed from industry-graph-demo.html, adapted to
+   the Manganese palette. Sits above the graph, shows the kind hierarchy
+   (L1 Theme ▸ L2 SubTheme ▸ L4 Company) plus parent alternates as
+   chips. Clickable segments navigate to that node's Subject when one
+   exists; the synthetic L1 root is presentational only. */
+
+.ig-focus-bar {
+  display: grid;
+  gap: 8px;
+}
+
+.ig-focus-bc {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--hair-strong);
+  padding: 8px 14px;
+  background: var(--abyss-1);
+}
+
+.ig-focus-eyebrow {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-focus-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  font-family: var(--body);
+}
+
+.ig-focus-trail-seg {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bc-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 2px;
+  color: var(--pearl-soft);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+  white-space: nowrap;
+}
+
+.bc-item:hover {
+  background: var(--teal-soft);
+  color: var(--pearl);
+}
+
+.bc-item.current {
+  color: var(--pearl);
+  font-weight: 600;
+  cursor: default;
+}
+
+.bc-item.current:hover {
+  background: transparent;
+}
+
+.bc-item.virtual {
+  color: var(--pearl-dim);
+  cursor: default;
+  font-style: italic;
+}
+
+.bc-item.virtual:hover {
+  background: transparent;
+  color: var(--pearl-dim);
+}
+
+.bc-item-kind {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--pearl-mute);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.bc-item.current .bc-item-kind {
+  color: var(--role-anchor);
+}
+
+.bc-sep {
+  color: var(--pearl-dim);
+  font-size: 10px;
+  margin: 0 -2px;
+}
+
+.bc-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--role-anchor);
+  padding: 2px 6px;
+  border: 1px solid var(--role-anchor);
+  border-radius: 9px;
+  cursor: pointer;
+  background: transparent;
+  letter-spacing: 0.06em;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.bc-chip:hover {
+  background: var(--role-anchor);
+  color: var(--abyss);
+}
+
+.ig-focus-alts {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 6px 14px 8px;
+}
+
+.ig-focus-alts-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-focus-alts-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ig-focus-alt-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--hair-bright);
+  border-radius: 14px;
+  font-family: var(--body);
+  font-size: 12px;
+  color: var(--pearl-soft);
+  text-decoration: none;
+  transition: background 120ms var(--ease), color 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+
+.ig-focus-alt-chip:hover {
+  background: var(--teal-soft);
+  border-color: var(--teal-line);
+  color: var(--pearl);
+}
+
+.ig-focus-alt-chip.active {
+  background: var(--abyss-1);
+  border-color: var(--teal-line);
+  color: var(--pearl);
 }
 
 /* Graph area + version detail card */

@@ -6,6 +6,7 @@ import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { PortalShell } from "../../../components/portal/PortalShell";
 import { ActivityFeed } from "../../../components/industry-graph/ActivityFeed";
 import { EdgePane } from "../../../components/industry-graph/EdgePane";
+import { FocusBreadcrumb } from "../../../components/industry-graph/FocusBreadcrumb";
 import { SubjectGraph } from "../../../components/industry-graph/SubjectGraph";
 import { ThemeMembersGrid } from "../../../components/industry-graph/ThemeMembersGrid";
 import type {
@@ -369,8 +370,16 @@ export default function IndustryGraphSubjectDetail({
           )}
         </aside>
 
-        {/* MIDDLE — graph + version details */}
+        {/* MIDDLE — focus breadcrumb + graph + version details */}
         <section className="ig-detail-main">
+          {subject ? (
+            <FocusBreadcrumb
+              subject={subject}
+              graph={graph}
+              allSubjects={allSubjects}
+              locale={locale}
+            />
+          ) : null}
           <div className="ig-graph-area">
             {subject?.type === "theme" ? (
               // Theme subjects don't BFS-anchor cleanly (SubTheme edges are
