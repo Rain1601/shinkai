@@ -582,6 +582,68 @@ async def list_subject_members(subject_id: str) -> dict[str, Any]:
     return {"subject_id": subject_id, "members": members, "count": len(members)}
 
 
+@router.get("/runs")
+async def list_runs(
+    limit: int = 80,
+    subject_id: str | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """Chronological SubjectVersion log — the agent's run history.
+
+    Each row joins Subject metadata onto the version so the React feed can
+    render `subject_display_name`, `subject_type`, `target_entity_id`
+    without per-row lookups. Sorted newest-first by ``ended_at`` (with
+    ``started_at`` as fallback for versions still in flight).
+
+    Filters compose:
+    - ``subject_id``: restrict to one Subject's history
+    - ``status``: one of ``pending|running|completed|failed``
+    """
+    ss = await _get_subject_store()
+    subjects = await ss.list_subjects()
+    rows: list[dict[str, Any]] = []
+    for subj in subjects:
+        if subject_id is not None and subj.id != subject_id:
+            continue
+        versions = await ss.list_versions(subj.id)
+        for v in versions:
+            if status is not None and v.status != status:
+                continue
+            rows.append(
+                {
+                    **_version_to_dict(v),
+                    "subject_id": subj.id,
+                    "subject_display_name": subj.display_name,
+                    "subject_type": subj.type,
+                    "target_entity_id": subj.target_entity_id,
+                }
+            )
+
+    def _ts(row: dict[str, Any]) -> str:
+        return row.get("ended_at") or row.get("started_at") or ""
+
+    rows.sort(key=_ts, reverse=True)
+    return {"rows": rows[:limit], "count": min(len(rows), limit), "total": len(rows)}
+
+
+@router.get("/runs/{sv_id}")
+async def get_run(sv_id: str) -> dict[str, Any]:
+    """Single SubjectVersion enriched with subject context — powers
+    /runs/sv:<id>."""
+    ss = await _get_subject_store()
+    v = await ss.get_version(sv_id)
+    if v is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    subj = await ss.get_subject(v.subject_id)
+    return {
+        **_version_to_dict(v),
+        "subject_id": v.subject_id,
+        "subject_display_name": subj.display_name if subj else v.subject_id,
+        "subject_type": subj.type if subj else None,
+        "target_entity_id": subj.target_entity_id if subj else None,
+    }
+
+
 @router.get("/activity")
 async def list_activity(limit: int = 60) -> dict[str, Any]:
     """Cross-subject Activity feed — the merger replacement for /live's
