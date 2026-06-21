@@ -41,7 +41,6 @@ from shinkai_api.industry_graph.schemas import (
     thesis_id,
 )
 
-
 THEME_TARGETS = {"HBM", "OPTICAL", "POWER", "ROBOTICS"}
 
 
@@ -391,7 +390,7 @@ async def _ingest_target(
         slug = f"{target_key}_investment_thesis"
         thid = thesis_id(slug)
         thesis_source = _resolve_source(
-            (stocks_to_watch[0].get("source_report") if stocks_to_watch else None)
+            stocks_to_watch[0].get("source_report") if stocks_to_watch else None
         )
         await store.upsert_entity(
             {

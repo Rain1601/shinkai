@@ -262,6 +262,63 @@ def test_run_lock_serializes_within_subject(tmp_path: Path) -> None:
     asyncio.run(run())
 
 
+def test_backfill_subjects_is_idempotent(tmp_path: Path) -> None:
+    """Running the migration twice creates each Subject exactly once."""
+    import os
+    import subprocess
+
+    # Use the real seed so the test exercises the discovery logic end-to-end.
+    seed_path = Path(
+        "/Users/rain/ResearchGraph/data/sop_v1/supply_chain_graph.json"
+    )
+    if not seed_path.exists():
+        import pytest
+        pytest.skip("seed file unavailable in this environment")
+
+    root = tmp_path / "ig"
+    env = os.environ.copy()
+    env["SHINKAI_INDUSTRY_GRAPH_PATH"] = str(root)
+    repo = Path(__file__).resolve().parent.parent
+
+    # Seed the store first.
+    seed_cmd = [
+        "uv", "run", "python", "scripts/ingest_supply_chain_graph_seed.py",
+        str(seed_path),
+    ]
+    r = subprocess.run(seed_cmd, cwd=repo, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+    backfill = [
+        "uv", "run", "python", "scripts/backfill_subjects.py",
+    ]
+    first = subprocess.run(backfill, cwd=repo, env=env, capture_output=True, text=True)
+    assert first.returncode == 0, first.stderr
+    second = subprocess.run(backfill, cwd=repo, env=env, capture_output=True, text=True)
+    assert second.returncode == 0, second.stderr
+
+    # The second run must skip everything.
+    assert "Created 0 subjects" in second.stdout
+    assert "skipped" in second.stdout
+
+    async def run_check() -> None:
+        from shinkai_api.industry_graph.store.file_store import IndustryGraphFileStore
+        fs = IndustryGraphFileStore(root=root)
+        s = SubjectStore(fs=fs)
+        await s.load()
+        rows = await s.list_subjects()
+        assert len(rows) >= 11  # at least the 11 high-degree companies
+        # Every subject must have a v1 SubjectVersion.
+        for subj in rows:
+            versions = await s.list_versions(subj.id)
+            assert len(versions) == 1
+            assert versions[0].version_no == 1
+            assert versions[0].triggered_by == "migration"
+            assert versions[0].status == "completed"
+            assert versions[0].change_summary is None
+
+    asyncio.run(run_check())
+
+
 def test_run_lock_isolated_per_subject(tmp_path: Path) -> None:
     """Different Subjects share NO locking."""
     store = _make_store(tmp_path)

@@ -27,7 +27,6 @@ from shinkai_api.industry_graph import (  # noqa: E402
 )
 from shinkai_api.llm.deepseek import DeepSeekClient  # noqa: E402
 
-
 EXCERPT = """
 Source: Morgan Stanley equity research, "Build for future AI infrastructure", May 8 2026.
 
@@ -107,7 +106,7 @@ async def main() -> int:
     print("\n--- Store state ---")
     s = store.stats()
     print(json.dumps(s, indent=2))
-    print(f"\nEntities by kind:")
+    print("\nEntities by kind:")
     for kind in sorted(store.index.by_kind):
         ents = store.index.list_by_kind(kind)
         print(f"  {kind:>20}: {len(ents):>3}")
