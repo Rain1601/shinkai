@@ -64,6 +64,12 @@ const navSections: NavSection[] = [
     labelZh: "工作区",
     items: [
       { id: "agent", href: "/agent", label: "Overview", icon: Compass },
+      {
+        id: "industry",
+        href: "/industry-graph",
+        label: "Industry Graph",
+        icon: Network,
+      },
     ],
   },
   {
@@ -72,18 +78,6 @@ const navSections: NavSection[] = [
     items: [
       { id: "history", href: "/runs", label: "History", icon: Activity },
       { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
-    ],
-  },
-  {
-    label: "Knowledge",
-    labelZh: "知识",
-    items: [
-      {
-        id: "industry",
-        href: "/industry-graph",
-        label: "Industry Graph",
-        icon: Network,
-      },
     ],
   },
 ];
