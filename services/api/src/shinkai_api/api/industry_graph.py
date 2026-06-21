@@ -165,13 +165,17 @@ async def export(
     kind: str | None = None,
     layer: str | None = None,
     limit: int | None = None,
+    anchor: str | None = None,
+    depth: int = 1,
 ) -> dict[str, Any]:
     """Return the store as ``{nodes: [...], edges: [...]}`` for the live demo.
 
-    Optional filters:
-    - ``kind``: only include entities of this kind (e.g. ``Company``).
-    - ``layer``: only include entities in this supply layer.
-    - ``limit``: cap entity count for quick visual checks.
+    Two modes:
+    - **Anchor mode** (``anchor`` set): returns the entity plus its ``depth``-hop
+      neighborhood via undirected BFS over non-deprecated relations. Other
+      filters are ignored. This is the demo's anchor-focused view.
+    - **Catalog mode** (default): returns entities optionally filtered by kind
+      and layer, capped by ``limit``. Edges restricted to the visible nodes.
     """
     store = await _get_store()
     src_lookup = {
@@ -179,8 +183,62 @@ async def export(
         for e in store.index.by_id.values()
         if (e.get("kind") == "Source")
     }
+    by_id = store.index.by_id
+
+    if anchor:
+        if anchor not in by_id:
+            return {
+                "nodes": [],
+                "edges": [],
+                "meta": {
+                    "node_count": 0,
+                    "edge_count": 0,
+                    "anchor": anchor,
+                    "error": "anchor_not_found",
+                },
+            }
+        # BFS up to `depth` hops over non-deprecated relations.
+        keep: set[str] = {anchor}
+        frontier = {anchor}
+        for _ in range(max(0, depth)):
+            next_frontier: set[str] = set()
+            for r in store.index.relations_by_id.values():
+                if r.get("deprecated_at"):
+                    continue
+                a, b = r["source_id"], r["target_id"]
+                if a in frontier and b not in keep:
+                    next_frontier.add(b)
+                if b in frontier and a not in keep:
+                    next_frontier.add(a)
+            if not next_frontier:
+                break
+            keep.update(next_frontier)
+            frontier = next_frontier
+
+        nodes_raw = [by_id[i] for i in keep if i in by_id and not by_id[i].get("deprecated_at")]
+        nodes = [_project_entity(e, src_lookup) for e in nodes_raw]
+        node_ids = set(keep)
+        edges = []
+        for r in store.index.relations_by_id.values():
+            if r.get("deprecated_at"):
+                continue
+            if r["source_id"] in node_ids and r["target_id"] in node_ids:
+                edges.append(_project_relation(r, src_lookup))
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "meta": {
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+                "anchor": anchor,
+                "depth": depth,
+                "snapshot_version": await store.snapshots.latest_version(),
+            },
+        }
+
+    # Catalog mode.
     nodes: list[dict[str, Any]] = []
-    for e in store.index.by_id.values():
+    for e in by_id.values():
         if e.get("deprecated_at"):
             continue
         if kind and e.get("kind") != kind:
@@ -208,6 +266,33 @@ async def export(
             "snapshot_version": await store.snapshots.latest_version(),
         },
     }
+
+
+@router.get("/anchors")
+async def anchors(limit: int = 80) -> dict[str, Any]:
+    """Companies ranked by edge degree — feeds the anchor selector dropdown."""
+    store = await _get_store()
+    counts: dict[str, int] = {}
+    for r in store.index.relations_by_id.values():
+        if r.get("deprecated_at"):
+            continue
+        counts[r["source_id"]] = counts.get(r["source_id"], 0) + 1
+        counts[r["target_id"]] = counts.get(r["target_id"], 0) + 1
+    rows = []
+    for eid, ent in store.index.by_id.items():
+        if ent.get("kind") != "Company" or ent.get("deprecated_at"):
+            continue
+        labels = ent.get("labels") or []
+        rows.append(
+            {
+                "id": eid,
+                "label": labels[0] if labels else eid,
+                "degree": counts.get(eid, 0),
+                "ticker": (ent.get("attributes") or {}).get("ticker"),
+            }
+        )
+    rows.sort(key=lambda r: (-r["degree"], r["label"]))
+    return {"anchors": rows[:limit]}
 
 
 @router.post("/_reload")
