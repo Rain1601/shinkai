@@ -17,6 +17,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from .schemas import (
     ChangeEntry,
     EntityBase,
@@ -32,6 +34,36 @@ from .store import (
 
 ENTITIES_SHARD = "entities"
 RELATIONS_SHARD = "relations"
+
+
+class SchemaValidationError(ValueError):
+    """Raised by the store when an entity/relation dict fails Pydantic checks.
+
+    Carries a single, short, agent-readable message describing the offending
+    field and acceptable values; the dispatcher surfaces it directly to the
+    LLM so it can self-correct on the next turn.
+    """
+
+
+def _flatten_pydantic_error(e: ValidationError, kind: str) -> SchemaValidationError:
+    """Reduce a Pydantic ValidationError to a one-line message the LLM can act on.
+
+    We take the first issue (Pydantic reports in declared order) because LLMs
+    react better to one clear instruction than to a long error dump.
+    """
+    issues = e.errors()
+    if not issues:
+        return SchemaValidationError(f"{kind} failed schema validation.")
+    first = issues[0]
+    field_path = ".".join(str(p) for p in first.get("loc", ())) or "<root>"
+    msg = first.get("msg") or "invalid"
+    # Pydantic Literal errors carry the allowed values in ctx; surface them
+    ctx = first.get("ctx") or {}
+    expected = ctx.get("expected")
+    detail = f"{kind} field `{field_path}`: {msg}"
+    if expected:
+        detail += f" (expected one of: {expected})"
+    return SchemaValidationError(detail)
 
 
 def _as_dict(obj: Any) -> dict[str, Any]:
@@ -102,12 +134,21 @@ class IndustryGraphStore:
         ingesting a Source itself (chicken-and-egg).
         """
         record = _as_dict(entity)
-        eid = record["id"]
+        eid = record.get("id")
+        if not isinstance(eid, str) or not eid:
+            raise SchemaValidationError("entity field `id`: must be a non-empty string")
         now = datetime.now(UTC).isoformat()
+        record.setdefault("created_at", now)
+        record.setdefault("updated_at", now)
+        # Pydantic re-check — catches bad kind, malformed facets, out-of-range
+        # confidence etc. before they pollute the index. extra='allow' on the
+        # base model means new fields still pass through.
+        try:
+            EntityBase.model_validate(record)
+        except ValidationError as e:
+            raise _flatten_pydantic_error(e, "entity") from e
         existing = self.index.by_id.get(eid)
         if existing is None:
-            record.setdefault("created_at", now)
-            record.setdefault("updated_at", now)
             self.index.add_entity(record)
             await self._persist_entities()
             change = make_change(
@@ -181,12 +222,20 @@ class IndustryGraphStore:
         actor: str | None = None,
     ) -> dict[str, Any]:
         record = _as_dict(relation)
-        rid = record["id"]
+        rid = record.get("id")
+        if not isinstance(rid, str) or not rid:
+            raise SchemaValidationError(
+                "relation field `id`: must be a non-empty string"
+            )
         now = datetime.now(UTC).isoformat()
+        record.setdefault("created_at", now)
+        record.setdefault("updated_at", now)
+        try:
+            RelationBase.model_validate(record)
+        except ValidationError as e:
+            raise _flatten_pydantic_error(e, "relation") from e
         existing = self.index.relations_by_id.get(rid)
         if existing is None:
-            record.setdefault("created_at", now)
-            record.setdefault("updated_at", now)
             self.index.add_relation(record)
             await self._persist_relations()
             change = make_change(
