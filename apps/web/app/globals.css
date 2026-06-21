@@ -5921,3 +5921,230 @@ select {
   background: var(--role-buyer);
   color: var(--abyss);
 }
+
+/* ── /agent — Subject-centric overview dashboard ─────────────────────
+   Replaces the old Mode B heartrate page. Everything here is derived
+   from /industry_graph/stats + /industry_graph/subjects; no new
+   endpoints. Layout: 4-up KPI strip, In-flight panel, Recent activity,
+   footer CTA back to Industry Graph. */
+
+.agent-page {
+  display: grid;
+  gap: 28px;
+  padding: 22px 0 40px;
+}
+
+.agent-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  border: 1px solid var(--hair);
+  padding: 22px 24px;
+  background: var(--abyss-1);
+}
+
+.agent-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-kpi-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.agent-kpi-big {
+  font-family: var(--display);
+  font-weight: 300;
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -0.022em;
+  color: var(--pearl);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.agent-kpi-foot {
+  font-family: var(--body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--pearl-mute);
+  margin-top: 2px;
+}
+
+.agent-status-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pearl-mute);
+}
+
+.agent-status-dot.idle {
+  background: var(--pearl-dim);
+}
+
+.agent-status-dot.running {
+  background: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-soft);
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes agent-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.92); }
+}
+
+.agent-kpi.status-running .agent-kpi-big {
+  color: var(--teal);
+}
+
+.agent-section {
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+}
+
+.agent-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.agent-section-head h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 20px;
+  color: var(--pearl);
+  letter-spacing: -0.005em;
+}
+
+/* In-flight rows */
+.agent-flight-list,
+.agent-recent-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.agent-flight {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px dotted var(--hair-strong);
+}
+
+.agent-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  flex-shrink: 0;
+  animation: agent-pulse 1.6s ease-in-out infinite;
+}
+
+.agent-flight-name {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--pearl);
+  text-decoration: none;
+  flex: 1;
+  letter-spacing: -0.005em;
+}
+
+.agent-flight-name:hover {
+  color: var(--teal);
+}
+
+.agent-flight-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--pearl-mute);
+}
+
+/* Recent activity rows */
+.agent-recent {
+  border-bottom: 1px dotted var(--hair-strong);
+}
+
+.agent-recent-link {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 4px;
+  text-decoration: none;
+  color: inherit;
+  transition: padding-left 160ms var(--ease), background 160ms var(--ease);
+}
+
+.agent-recent-link:hover {
+  padding-left: 10px;
+  background: var(--abyss-1);
+}
+
+.agent-recent-name {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--pearl);
+  flex: 1;
+  letter-spacing: -0.005em;
+}
+
+.agent-recent-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--pearl-mute);
+}
+
+.agent-recent-diff {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+  min-width: 120px;
+  text-align: right;
+}
+
+.agent-recent-diff.muted {
+  color: var(--pearl-dim);
+  font-style: italic;
+}
+
+/* Footer CTA */
+.agent-cta {
+  border-top: 1px solid var(--hair);
+  padding-top: 22px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.agent-cta p {
+  margin: 0;
+  font-family: var(--body);
+  font-style: italic;
+  color: var(--pearl-soft);
+  font-size: 14px;
+}
+
+.agent-cta .ig-run-btn {
+  width: auto;
+  padding: 9px 18px;
+}
