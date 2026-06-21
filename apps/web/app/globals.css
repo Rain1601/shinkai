@@ -4508,7 +4508,7 @@ select {
 
 .ig-detail-workspace {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr) 348px;
   gap: 0;
   border-top: 1px solid var(--hair);
   margin-top: 8px;
@@ -4684,10 +4684,127 @@ select {
   overflow: hidden;
 }
 
+.ig-cy-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
 .ig-cy {
   width: 100%;
   height: 100%;
   min-height: 320px;
+}
+
+/* Strata rail — typographic strata labels projected from cytoscape's
+   virtual Y coords. Sits on the left edge of the canvas, transparent
+   except for the labels themselves so the graph remains the focus. */
+.ig-strata-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 148px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    var(--abyss-1) 0%,
+    var(--abyss-1) 55%,
+    transparent 100%
+  );
+  border-right: 1px solid var(--hair);
+}
+
+.ig-strata-row {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.ig-strata-row::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.ig-strata-row .count {
+  color: var(--pearl-dim);
+  margin-left: 4px;
+  font-size: 9px;
+}
+
+.ig-strata-buyer { color: var(--role-buyer); }
+.ig-strata-anchor {
+  color: var(--role-anchor);
+  font-weight: 600;
+}
+.ig-strata-competitor { color: var(--role-competitor); }
+.ig-strata-layer { color: var(--role-supplier); }
+
+/* Bottom legend strip — semantics of edge styles + role swatches. */
+.ig-graph-legend {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 8px 18px 8px 156px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+  background: linear-gradient(to top, var(--abyss-1), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.ig-graph-legend .group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ig-graph-legend .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ig-graph-legend .sw {
+  width: 18px;
+  height: 2px;
+  display: inline-block;
+  background: currentColor;
+}
+
+.ig-graph-legend .sw.dashed {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  background: transparent;
+}
+
+.ig-graph-legend .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
 }
 
 .ig-version-card {
@@ -4782,4 +4899,197 @@ select {
   position: absolute;
   left: 0;
   color: var(--teal);
+}
+
+/* Anchor pane (right rail) — Subject card + downstream/upstream/competes
+   relation lists, mirroring the demo's NVIDIA card without the ribbon and
+   focus breadcrumb (those land in a later iteration). */
+
+.ig-anchor-pane {
+  border-left: 1px solid var(--hair);
+  padding: 22px 24px 28px 24px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ig-anchor-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-anchor-name {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.018em;
+  margin: 8px 0 6px;
+  color: var(--pearl);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ig-anchor-bar {
+  display: inline-block;
+  width: 4px;
+  height: 22px;
+  background: var(--role-anchor);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.ig-anchor-aliases {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--pearl-dim);
+  letter-spacing: 0.04em;
+}
+
+.ig-anchor-desc {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--hair);
+  font-family: var(--body);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--pearl-soft);
+}
+
+.ig-anchor-dl {
+  margin: 16px 0 0;
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 6px 14px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.ig-anchor-dl dt {
+  color: var(--pearl-mute);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.ig-anchor-dl dd {
+  margin: 0;
+  color: var(--pearl);
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.ig-rel-head-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 24px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--pearl-faint);
+}
+
+.ig-rel-head-row h3 {
+  margin: 0;
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl);
+}
+
+.ig-rel-head-arrow {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--teal);
+}
+
+.ig-rel-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--pearl-mute);
+}
+
+.ig-rel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ig-rel {
+  padding: 9px 0;
+  border-bottom: 1px dotted var(--hair-strong);
+}
+
+.ig-rel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ig-rel-arrow {
+  font-family: var(--display);
+  font-style: italic;
+  color: var(--pearl-dim);
+}
+
+.ig-rel-name {
+  flex: 1;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--pearl);
+  line-height: 1.3;
+}
+
+.ig-rel-evid {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+}
+
+.ig-rel-evid.hard {
+  color: var(--role-buyer);
+}
+
+.ig-rel-evid.soft {
+  color: var(--warn);
+  font-style: italic;
+}
+
+.ig-rel-weights {
+  display: flex;
+  gap: 14px;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-rel-cell {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+}
+
+.ig-rel-y {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--pearl-dim);
+}
+
+.ig-rel-v {
+  font-size: 13px;
+  color: var(--pearl);
+  letter-spacing: -0.01em;
 }

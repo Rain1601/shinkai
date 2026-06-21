@@ -374,7 +374,170 @@ export default function IndustryGraphSubjectDetail({
             )}
           </div>
         </section>
+
+        {/* RIGHT — Anchor card with downstream / upstream relation lists */}
+        <AnchorPane
+          subject={subject}
+          graph={graph}
+          locale={locale}
+        />
       </div>
     </PortalShell>
+  );
+}
+
+type AnchorPaneProps = {
+  subject: SubjectDetail | null;
+  graph: GraphPayload | null;
+  locale: Locale;
+};
+
+function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
+  const isZh = locale === "zh";
+  if (!subject || !graph) {
+    return (
+      <aside className="ig-anchor-pane">
+        <p className="muted live-empty">{isZh ? "加载中…" : "Loading…"}</p>
+      </aside>
+    );
+  }
+  const anchorId = subject.target_entity_id;
+  const anchorNode = graph.nodes.find((n) => n.id === anchorId) ?? null;
+
+  type EdgeWithOther = {
+    edge: GraphPayload["edges"][number];
+    other: GraphPayload["nodes"][number] | null;
+  };
+  const downstream: EdgeWithOther[] = [];
+  const upstream: EdgeWithOther[] = [];
+  const competes: EdgeWithOther[] = [];
+
+  function nodeOf(id: string): GraphPayload["nodes"][number] | null {
+    return graph!.nodes.find((n) => n.id === id) ?? null;
+  }
+
+  for (const e of graph.edges) {
+    if (e.type === "supplies_to") {
+      if (e.source === anchorId) downstream.push({ edge: e, other: nodeOf(e.target) });
+      else if (e.target === anchorId) upstream.push({ edge: e, other: nodeOf(e.source) });
+    } else if (e.type === "competes_with") {
+      const otherId = e.source === anchorId ? e.target : e.target === anchorId ? e.source : null;
+      if (otherId) competes.push({ edge: e, other: nodeOf(otherId) });
+    }
+  }
+  // Sort by latest year share descending so the most material relations rise.
+  function latestShare(e: GraphPayload["edges"][number]): number {
+    const years = Object.keys(e.wbp).sort();
+    if (!years.length) return 0;
+    const v = e.wbp[years[years.length - 1]];
+    return v?.[0] ?? 0;
+  }
+  downstream.sort((a, b) => latestShare(b.edge) - latestShare(a.edge));
+  upstream.sort((a, b) => latestShare(b.edge) - latestShare(a.edge));
+
+  function renderList(arr: EdgeWithOther[], arrow: string, side: "to" | "from") {
+    if (!arr.length) return null;
+    return (
+      <ul className="ig-rel-list">
+        {arr.slice(0, 10).map(({ edge, other }) => {
+          const label = other?.label ?? (side === "to" ? edge.target : edge.source);
+          const years = Object.keys(edge.wbp ?? {}).sort();
+          const latest = years[years.length - 1];
+          const cells = years.slice(-3).map((y) => {
+            const vals = edge.wbp[y] ?? [];
+            const share = typeof vals[0] === "number" ? Math.round(vals[0] * 100) : null;
+            return (
+              <span className="ig-rel-cell" key={y}>
+                <span className="ig-rel-y">{y}</span>
+                <span className="ig-rel-v">{share != null ? `${share}%` : "—"}</span>
+              </span>
+            );
+          });
+          const evid = edge.evidence_type === "soft_inference" ? "soft" : "hard";
+          return (
+            <li key={edge.id} className="ig-rel">
+              <div className="ig-rel-head">
+                <span className="ig-rel-arrow">{arrow}</span>
+                <span className="ig-rel-name">{label}</span>
+                <span className={`ig-rel-evid ${evid}`}>{evid}</span>
+              </div>
+              {latest ? <div className="ig-rel-weights">{cells}</div> : null}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
+  return (
+    <aside className="ig-anchor-pane">
+      <span className="ig-anchor-eyebrow">
+        {subject.type === "company" ? (isZh ? "公司" : "Company") : isZh ? "主题" : "Theme"}
+      </span>
+      <h2 className="ig-anchor-name">
+        <span className="ig-anchor-bar" />
+        {subject.display_name}
+      </h2>
+      {anchorNode?.aliases?.length ? (
+        <p className="ig-anchor-aliases">{anchorNode.aliases.join(" · ")}</p>
+      ) : null}
+      {anchorNode?.desc ? <p className="ig-anchor-desc">{anchorNode.desc}</p> : null}
+
+      <dl className="ig-anchor-dl">
+        <dt>id</dt>
+        <dd>{anchorId}</dd>
+        {anchorNode?.layer ? (
+          <>
+            <dt>{isZh ? "层位" : "stratum"}</dt>
+            <dd>{anchorNode.layer}</dd>
+          </>
+        ) : null}
+        {anchorNode?.confidence != null ? (
+          <>
+            <dt>{isZh ? "置信" : "confidence"}</dt>
+            <dd>{Math.round((anchorNode.confidence ?? 0) * 100)}%</dd>
+          </>
+        ) : null}
+        {anchorNode?.source ? (
+          <>
+            <dt>{isZh ? "来源" : "source"}</dt>
+            <dd>{anchorNode.source}</dd>
+          </>
+        ) : null}
+      </dl>
+
+      {downstream.length > 0 ? (
+        <>
+          <div className="ig-rel-head-row">
+            <span className="ig-rel-head-arrow">↓</span>
+            <h3>{isZh ? "下游 · 客户" : "Downstream"}</h3>
+            <span className="ig-rel-count">{downstream.length}</span>
+          </div>
+          {renderList(downstream, "→", "to")}
+        </>
+      ) : null}
+
+      {upstream.length > 0 ? (
+        <>
+          <div className="ig-rel-head-row">
+            <span className="ig-rel-head-arrow">↑</span>
+            <h3>{isZh ? "上游 · 供应商" : "Upstream"}</h3>
+            <span className="ig-rel-count">{upstream.length}</span>
+          </div>
+          {renderList(upstream, "←", "from")}
+        </>
+      ) : null}
+
+      {competes.length > 0 ? (
+        <>
+          <div className="ig-rel-head-row">
+            <span className="ig-rel-head-arrow">↔</span>
+            <h3>{isZh ? "竞争对手" : "Competes"}</h3>
+            <span className="ig-rel-count">{competes.length}</span>
+          </div>
+          {renderList(competes, "↔", "to")}
+        </>
+      ) : null}
+    </aside>
   );
 }

@@ -8,9 +8,22 @@ import {
   colorForRole,
   computePositions,
   cssVar,
+  type ComputedPositions,
+  type GraphNode,
   type GraphPayload,
+  LAYER_LABEL,
+  type Role,
   strongestWeight,
 } from "./cytoscape-helpers";
+
+type RailEntry = {
+  klass: "buyer" | "anchor" | "competitor" | "layer";
+  label: string;
+  count: number;
+  virtualY: number;
+};
+
+const H_VIRT = 1100;
 
 const MORPH_DURATION = 650;
 const FADE_DURATION = 260;
@@ -31,7 +44,10 @@ export function SubjectGraph({
   onNodeClick,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
+  const railEntriesRef = useRef<RailEntry[]>([]);
 
   useEffect(() => {
     return () => {
@@ -41,6 +57,53 @@ export function SubjectGraph({
       }
     };
   }, []);
+
+  function computeRailEntries(
+    visibleNodes: GraphNode[],
+    roles: Map<string, Role>,
+    layoutOut: ComputedPositions,
+  ): RailEntry[] {
+    const entries: RailEntry[] = [];
+    const buyerCount = visibleNodes.filter((n) => roles.get(n.id) === "buyer").length;
+    if (buyerCount > 0) {
+      entries.push({ klass: "buyer", label: "Buyers", count: buyerCount, virtualY: H_VIRT * 0.14 });
+    }
+    entries.push({ klass: "anchor", label: "Anchor", count: 1, virtualY: H_VIRT * 0.4 });
+    const compCount = visibleNodes.filter((n) => roles.get(n.id) === "competitor").length;
+    if (compCount > 0) {
+      entries.push({ klass: "competitor", label: "Competes", count: compCount, virtualY: H_VIRT * 0.32 });
+    }
+    for (const layer of layoutOut.supplierLayers) {
+      const y = layoutOut.layerYByName.get(layer)!;
+      const cnt = visibleNodes.filter(
+        (n) => roles.get(n.id) === "supplier" && (n.layer ?? "other") === layer,
+      ).length;
+      entries.push({
+        klass: "layer",
+        label: LAYER_LABEL[layer] ?? layer,
+        count: cnt,
+        virtualY: y,
+      });
+    }
+    return entries;
+  }
+
+  function syncRail() {
+    const cy = cyRef.current;
+    const rail = railRef.current;
+    const wrap = wrapRef.current;
+    if (!cy || !rail || !wrap) return;
+    const wrapBox = wrap.getBoundingClientRect();
+    const pan = cy.pan();
+    const z = cy.zoom();
+    rail.innerHTML = railEntriesRef.current
+      .map((r) => {
+        const screenY = r.virtualY * z + pan.y;
+        if (screenY < 8 || screenY > wrapBox.height - 8) return "";
+        return `<div class="ig-strata-row ig-strata-${r.klass}" style="top:${screenY}px;">${r.label}<span class="count">${r.count}</span></div>`;
+      })
+      .join("");
+  }
 
   useEffect(() => {
     if (!containerRef.current || !payload) return;
@@ -54,9 +117,16 @@ export function SubjectGraph({
       (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
     );
 
-    const { positions } = computePositions(visibleNodes, roles, visibleEdges, anchorId);
+    const layoutOut = computePositions(visibleNodes, roles, visibleEdges, anchorId);
+    const { positions } = layoutOut;
+    railEntriesRef.current = computeRailEntries(visibleNodes, roles, layoutOut);
 
+    // Edge widths: many seed relations carry no weight data (wbp empty), so
+    // a naïve weight→width map collapses everything to the 0.6 px baseline.
+    // Push the baseline up so edges are always visible, and scale generously
+    // when weights ARE present.
     const maxW = Math.max(...visibleEdges.map(strongestWeight), 0.001);
+    const hasAnyWeight = maxW > 0.01;
     const cyNodes = visibleNodes.map((n) => {
       const role = roles.get(n.id) ?? "other";
       const isAnchor = role === "anchor";
@@ -71,17 +141,23 @@ export function SubjectGraph({
       if (isAnchor) data.isAnchor = true;
       return { data, position: positions.get(n.id) };
     });
-    const cyEdges = visibleEdges.map((e) => ({
-      data: {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: e.type,
-        weight: strongestWeight(e),
-        normWidth: 0.6 + 3.2 * (strongestWeight(e) / maxW),
-        raw: e,
-      },
-    }));
+    const cyEdges = visibleEdges.map((e) => {
+      const w = strongestWeight(e);
+      const normWidth = hasAnyWeight
+        ? 1.4 + 4.6 * (w / maxW)
+        : 1.6; // flat fallback when seed data carries no weights
+      return {
+        data: {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: e.type,
+          weight: w,
+          normWidth,
+          raw: e,
+        },
+      };
+    });
 
     const surface = cssVar("--abyss-1");
     const ink = cssVar("--pearl");
@@ -114,14 +190,18 @@ export function SubjectGraph({
       {
         selector: "node[isAnchor]",
         style: {
-          width: 96,
-          height: 96,
-          "border-width": 3.2,
+          width: 112,
+          height: 112,
+          "border-width": 5,
           "border-color": cssVar("--role-anchor"),
+          "background-color": cssVar("--role-anchor"),
+          "background-opacity": 0.18,
           "font-family": "Fraunces, Songti SC, Georgia, serif",
-          "font-size": 16,
-          "font-weight": 500,
-          "background-color": cssVar("--abyss"),
+          "font-size": 17,
+          "font-weight": 600,
+          color: cssVar("--pearl"),
+          "text-outline-color": cssVar("--abyss"),
+          "text-outline-width": 1.5,
         },
       },
       {
@@ -201,6 +281,7 @@ export function SubjectGraph({
     // Morph path: when the cy instance already exists, update in place.
     if (cyRef.current) {
       morphInto(cyRef.current, cyNodes, cyEdges, positions);
+      setTimeout(syncRail, MORPH_DURATION + 40);
       return;
     }
 
@@ -232,10 +313,53 @@ export function SubjectGraph({
       });
     }
 
-    cyRef.current.fit(undefined, 60);
+    cyRef.current.on("zoom pan", syncRail);
+    cyRef.current.fit(undefined, 80);
+    syncRail();
   }, [payload, anchorId, showOrphans, showLabels, onNodeClick]);
 
-  return <div ref={containerRef} className="ig-cy" />;
+  // Re-project the rail on container resize too.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const ro = new ResizeObserver(() => syncRail());
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="ig-cy-wrap">
+      <div ref={railRef} className="ig-strata-rail" aria-hidden="true" />
+      <div ref={containerRef} className="ig-cy" />
+      <div className="ig-graph-legend" aria-hidden="true">
+        <div className="group">
+          <span className="item" style={{ color: "var(--teal)" }}>
+            <span className="sw" /> supplies_to
+          </span>
+          <span className="item" style={{ color: "var(--warn)" }}>
+            <span className="sw dashed" /> competes_with
+          </span>
+          <span className="item" style={{ color: "var(--role-buyer)" }}>
+            <span className="sw" /> themed_under
+          </span>
+        </div>
+        <div className="group">
+          <span className="item">
+            <span className="dot" style={{ background: "var(--role-anchor)" }} /> anchor
+          </span>
+          <span className="item">
+            <span className="dot" style={{ background: "var(--role-buyer)" }} /> buyer
+          </span>
+          <span className="item">
+            <span className="dot" style={{ background: "var(--role-supplier)" }} /> supplier
+          </span>
+          <span className="item">
+            <span className="dot" style={{ background: "var(--role-competitor)" }} /> competitor
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function morphInto(
