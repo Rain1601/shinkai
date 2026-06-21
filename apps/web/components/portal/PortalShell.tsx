@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Activity,
+  Gauge,
   Moon,
   Network,
   PanelLeftClose,
@@ -32,6 +33,7 @@ type PortalShellProps = {
   title: string;
   subtitle?: string;
   active:
+    | "overview"
     | "agent"
     | "history"
     | "results"
@@ -52,16 +54,18 @@ type NavItem = {
 };
 
 
-// Flat nav — three items. The agent IS the workspace, so we don't need
-// a "Workspace" section heading housing a single Workspace item; the
-// /runs log + /a2a sit alongside it.
+// Flat nav — four items. 概览 is the agent's at-a-glance dashboard;
+// 工作区 is where Subject + version work happens; 运行日志 is the
+// SubjectVersion history; A2A is the cross-agent channel.
 const navItems: NavItem[] = [
+  { id: "overview", href: "/overview", label: "Overview", icon: Gauge },
   { id: "agent", href: "/agent", label: "Workspace", icon: Network },
   { id: "history", href: "/runs", label: "Run log", icon: Activity },
   { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
 ];
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
+  overview: "概览",
   agent: "工作区",
   history: "运行日志",
   results: "产出",
@@ -228,7 +232,7 @@ export function PortalShell({
       </aside>
       <main className="portal-main">
         <CheckpointBanner locale={locale} />
-        {active === "agent" || active === "history" ? (
+        {active === "overview" || active === "agent" || active === "history" ? (
           <AgentIdentityStrip locale={locale} />
         ) : null}
         <header className="portal-header">
