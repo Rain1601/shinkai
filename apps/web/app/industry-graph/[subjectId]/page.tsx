@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { use, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { PortalShell } from "../../../components/portal/PortalShell";
 import { ActivityFeed } from "../../../components/industry-graph/ActivityFeed";
 import { EdgePane } from "../../../components/industry-graph/EdgePane";
@@ -95,6 +95,7 @@ export default function IndustryGraphSubjectDetail({
 }) {
   const { subjectId: rawId } = use(params);
   const subjectId = decodeURIComponent(rawId);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const focusEventId = searchParams.get("event");
 
@@ -274,6 +275,19 @@ export default function IndustryGraphSubjectDetail({
       ? subject.versions.find((v) => v.version_no === selectedVersion) ?? null
       : null;
 
+  // Entity-id → Subject-id lookup for "this node is also a Subject" — drives
+  // both the graph's linkable affordance + dbltap navigation, and the
+  // EdgePane's per-endpoint Subject links.
+  const subjectMap = useMemo(
+    () =>
+      new Map(
+        allSubjects
+          .filter((s) => s.type === "company")
+          .map((s) => [s.target_entity_id, s.id]),
+      ),
+    [allSubjects],
+  );
+
   return (
     <PortalShell
       active="industry"
@@ -377,9 +391,13 @@ export default function IndustryGraphSubjectDetail({
                 anchorId={subject?.target_entity_id ?? ""}
                 showOrphans={false}
                 showLabels={true}
+                subjectMap={subjectMap}
                 onEdgeClick={(edge) => setSelectedEdge(edge)}
                 onBackgroundClick={() => setSelectedEdge(null)}
                 onNodeClick={() => setSelectedEdge(null)}
+                onNodeDoubleClick={(targetSubjectId) =>
+                  router.push(`/industry-graph/${encodeURIComponent(targetSubjectId)}`)
+                }
               />
             )}
           </div>
@@ -468,13 +486,7 @@ export default function IndustryGraphSubjectDetail({
           <EdgePane
             edge={selectedEdge}
             graph={graph}
-            subjectMap={
-              new Map(
-                allSubjects
-                  .filter((s) => s.type === "company")
-                  .map((s) => [s.target_entity_id, s.id]),
-              )
-            }
+            subjectMap={subjectMap}
             locale={locale}
             onClear={() => setSelectedEdge(null)}
           />
