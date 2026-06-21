@@ -5093,3 +5093,139 @@ select {
   color: var(--pearl);
   letter-spacing: -0.01em;
 }
+
+/* ── Theme detail · members grid ────────────────────────────────────────
+   Replaces the cytoscape anchor view for type=theme subjects. Strata
+   columns mirror the supply-chain vocabulary; each member card is a
+   <Link> when the company has its own Subject record. */
+
+.ig-members {
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ig-members-empty {
+  padding: 32px 26px;
+}
+
+.ig-members-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pearl-faint);
+}
+
+.ig-members-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.ig-members-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--pearl);
+  letter-spacing: 0.06em;
+}
+
+.ig-members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px 22px;
+}
+
+.ig-members-stratum {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ig-members-stratum-head {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--hair-strong);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl);
+}
+
+.ig-members-stratum-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--pearl-mute);
+  letter-spacing: 0.16em;
+}
+
+.ig-members-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.ig-member-link {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: var(--body);
+  font-size: 13px;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease),
+    padding-left 160ms var(--ease);
+}
+
+.ig-member-link:not(.disabled):hover {
+  background: var(--teal-soft);
+  border-color: var(--teal-line);
+  padding-left: 14px;
+}
+
+.ig-member-link.disabled {
+  color: var(--pearl-mute);
+  cursor: default;
+}
+
+.ig-member-name {
+  flex: 1;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--pearl);
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+}
+
+.ig-member-link.disabled .ig-member-name {
+  color: var(--pearl-mute);
+}
+
+.ig-member-id {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--pearl-dim);
+  letter-spacing: 0.08em;
+}
+
+.ig-member-go {
+  font-family: var(--mono);
+  color: var(--teal);
+  font-size: 12px;
+}

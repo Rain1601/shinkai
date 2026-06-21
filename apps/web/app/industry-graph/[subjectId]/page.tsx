@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 import { PortalShell } from "../../../components/portal/PortalShell";
 import { SubjectGraph } from "../../../components/industry-graph/SubjectGraph";
+import { ThemeMembersGrid } from "../../../components/industry-graph/ThemeMembersGrid";
 import type { GraphPayload } from "../../../components/industry-graph/cytoscape-helpers";
 import { type Locale } from "../../../lib/i18n";
 
@@ -133,6 +134,13 @@ export default function IndustryGraphSubjectDetail({
 
   useEffect(() => {
     if (!subject || selectedVersion === null) return;
+    // Theme subjects don't have a meaningful anchor BFS — Stage 3 renders
+    // ThemeMembersGrid instead, no cytoscape — so skip the fetch entirely.
+    if (subject.type === "theme") {
+      setGraph(null);
+      setGraphLoading(false);
+      return;
+    }
     let cancelled = false;
     setGraphLoading(true);
     async function load() {
@@ -291,7 +299,12 @@ export default function IndustryGraphSubjectDetail({
         {/* MIDDLE — graph + version details */}
         <section className="ig-detail-main">
           <div className="ig-graph-area">
-            {graphLoading ? (
+            {subject?.type === "theme" ? (
+              // Theme subjects don't BFS-anchor cleanly (SubTheme edges are
+              // semantically different from supply_to / competes_with). Render
+              // the member companies grid instead — Stage 3 of the merge plan.
+              <ThemeMembersGrid subjectId={subjectId} locale={locale} />
+            ) : graphLoading ? (
               <p className="muted live-empty">{isZh ? "渲染中…" : "Rendering…"}</p>
             ) : !graph || graph.nodes.length === 0 ? (
               <p className="muted live-empty">
@@ -394,15 +407,17 @@ type AnchorPaneProps = {
 
 function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
   const isZh = locale === "zh";
-  if (!subject || !graph) {
+  if (!subject) {
     return (
       <aside className="ig-anchor-pane">
         <p className="muted live-empty">{isZh ? "加载中…" : "Loading…"}</p>
       </aside>
     );
   }
+  // Theme subjects never fetch a graph (see effect guard) — render the
+  // header card and skip the relations tables. Members live in the middle.
   const anchorId = subject.target_entity_id;
-  const anchorNode = graph.nodes.find((n) => n.id === anchorId) ?? null;
+  const anchorNode = graph?.nodes.find((n) => n.id === anchorId) ?? null;
 
   type EdgeWithOther = {
     edge: GraphPayload["edges"][number];
@@ -413,10 +428,10 @@ function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
   const competes: EdgeWithOther[] = [];
 
   function nodeOf(id: string): GraphPayload["nodes"][number] | null {
-    return graph!.nodes.find((n) => n.id === id) ?? null;
+    return graph?.nodes.find((n) => n.id === id) ?? null;
   }
 
-  for (const e of graph.edges) {
+  for (const e of graph?.edges ?? []) {
     if (e.type === "supplies_to") {
       if (e.source === anchorId) downstream.push({ edge: e, other: nodeOf(e.target) });
       else if (e.target === anchorId) upstream.push({ edge: e, other: nodeOf(e.source) });
@@ -506,36 +521,43 @@ function AnchorPane({ subject, graph, locale }: AnchorPaneProps) {
         ) : null}
       </dl>
 
-      {downstream.length > 0 ? (
+      {/* Downstream / Upstream / Competes only meaningful for Company subjects.
+          Theme subjects show their member companies in the middle area
+          instead — listing them here too would just duplicate the surface. */}
+      {subject.type === "company" ? (
         <>
-          <div className="ig-rel-head-row">
-            <span className="ig-rel-head-arrow">↓</span>
-            <h3>{isZh ? "下游 · 客户" : "Downstream"}</h3>
-            <span className="ig-rel-count">{downstream.length}</span>
-          </div>
-          {renderList(downstream, "→", "to")}
-        </>
-      ) : null}
+          {downstream.length > 0 ? (
+            <>
+              <div className="ig-rel-head-row">
+                <span className="ig-rel-head-arrow">↓</span>
+                <h3>{isZh ? "下游 · 客户" : "Downstream"}</h3>
+                <span className="ig-rel-count">{downstream.length}</span>
+              </div>
+              {renderList(downstream, "→", "to")}
+            </>
+          ) : null}
 
-      {upstream.length > 0 ? (
-        <>
-          <div className="ig-rel-head-row">
-            <span className="ig-rel-head-arrow">↑</span>
-            <h3>{isZh ? "上游 · 供应商" : "Upstream"}</h3>
-            <span className="ig-rel-count">{upstream.length}</span>
-          </div>
-          {renderList(upstream, "←", "from")}
-        </>
-      ) : null}
+          {upstream.length > 0 ? (
+            <>
+              <div className="ig-rel-head-row">
+                <span className="ig-rel-head-arrow">↑</span>
+                <h3>{isZh ? "上游 · 供应商" : "Upstream"}</h3>
+                <span className="ig-rel-count">{upstream.length}</span>
+              </div>
+              {renderList(upstream, "←", "from")}
+            </>
+          ) : null}
 
-      {competes.length > 0 ? (
-        <>
-          <div className="ig-rel-head-row">
-            <span className="ig-rel-head-arrow">↔</span>
-            <h3>{isZh ? "竞争对手" : "Competes"}</h3>
-            <span className="ig-rel-count">{competes.length}</span>
-          </div>
-          {renderList(competes, "↔", "to")}
+          {competes.length > 0 ? (
+            <>
+              <div className="ig-rel-head-row">
+                <span className="ig-rel-head-arrow">↔</span>
+                <h3>{isZh ? "竞争对手" : "Competes"}</h3>
+                <span className="ig-rel-count">{competes.length}</span>
+              </div>
+              {renderList(competes, "↔", "to")}
+            </>
+          ) : null}
         </>
       ) : null}
     </aside>
