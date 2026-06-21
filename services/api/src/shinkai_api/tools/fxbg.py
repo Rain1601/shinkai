@@ -36,6 +36,23 @@ _API_KEY_ENV = "SHINKAI_FXBAOGAO_API_KEY"
 _ENDPOINT_ENV = "SHINKAI_FXBAOGAO_ENDPOINT"
 _REQUEST_TIMEOUT_SECONDS = 30.0
 
+# Default issuer whitelist. Empirically (2026-06) the three foreign houses
+# consistently produce the deepest, most actionable single-stock and
+# conference-driven research in the fxbaogao corpus. We bias toward them by
+# default; callers can override by passing org_names explicitly, or pass
+# org_names=["*"] / use_default_orgs=False to disable the bias entirely.
+PREFERRED_ORG_NAMES: tuple[str, ...] = ("摩根士丹利", "高盛", "野村")
+
+# Hard noise filter — always applied even when caller provides org_names.
+# fxbaogao mixes legitimate broker research with short "盘中宝" / "风口研报"
+# style speculation that has no analyst attribution; those land under this
+# placeholder. We never want them in shinkai's research graph.
+NOISE_ORG_NAMES: frozenset[str] = frozenset({"未知机构", ""})
+
+# Minimum page count — anything shorter is typically a chart pack or a
+# rumor blast, not a thesis-carrying report.
+MIN_PAGES_DEFAULT = 3
+
 
 def _get_api_key() -> str | None:
     return os.environ.get(_API_KEY_ENV) or None
@@ -102,7 +119,9 @@ class FxbgSearchTool(Tool):
     description = (
         "Search 发现报告 (fxbaogao) Chinese sell-side research by keyword, "
         "issuing institution, and time window. Returns matching reportIds, "
-        "titles, publishers, and hit-paragraph previews — no download cost."
+        "titles, publishers, and hit-paragraph previews — no download cost. "
+        "Defaults to the MS / GS / Nomura issuer whitelist plus a noise / "
+        "min-pages filter; override via org_names + use_default_orgs."
     )
     parameters: dict[str, Any] = {
         "type": "object",
@@ -111,7 +130,22 @@ class FxbgSearchTool(Tool):
             "org_names": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Optional issuer whitelist (e.g. ['摩根士丹利','野村'])",
+                "description": (
+                    "Issuer whitelist (e.g. ['摩根士丹利','野村']). When omitted, "
+                    "defaults to MS/GS/Nomura unless use_default_orgs is False."
+                ),
+            },
+            "use_default_orgs": {
+                "type": "boolean",
+                "description": (
+                    "When False, skip the default MS/GS/Nomura bias and query "
+                    "the full publisher set."
+                ),
+            },
+            "min_pages": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Drop hits whose pageNum is below this (default 3).",
             },
             "start_time": {
                 "type": "string",
@@ -130,9 +164,22 @@ class FxbgSearchTool(Tool):
         if not keywords:
             return ToolResult(ok=False, error="keywords is required")
 
+        use_default_orgs = bool(kwargs.get("use_default_orgs", True))
+        explicit_orgs = kwargs.get("org_names")
+        if explicit_orgs:
+            effective_orgs: list[str] | None = list(explicit_orgs)
+        elif use_default_orgs:
+            effective_orgs = list(PREFERRED_ORG_NAMES)
+        else:
+            effective_orgs = None
+        try:
+            min_pages = int(kwargs.get("min_pages", MIN_PAGES_DEFAULT))
+        except (TypeError, ValueError):
+            min_pages = MIN_PAGES_DEFAULT
+
         arguments: dict[str, Any] = {"keywords": keywords}
-        if org_names := kwargs.get("org_names"):
-            arguments["orgNames"] = list(org_names)
+        if effective_orgs:
+            arguments["orgNames"] = effective_orgs
         if start_time := kwargs.get("start_time"):
             arguments["startTime"] = start_time
         if end_time := kwargs.get("end_time"):
@@ -145,13 +192,43 @@ class FxbgSearchTool(Tool):
 
         hits_raw = payload.get("data") or []
         hits = hits_raw if isinstance(hits_raw, list) else []
+        # Always drop noise issuers and tiny page counts, even when the caller
+        # provided their own org_names — protects shinkai's research graph
+        # from rumor blasts and chart packs that creep in.
+        clean: list[dict[str, Any]] = []
+        dropped_noise = 0
+        dropped_tiny = 0
+        for hit in hits:
+            if not isinstance(hit, dict):
+                continue
+            org = str(hit.get("orgName") or "").strip()
+            if org in NOISE_ORG_NAMES:
+                dropped_noise += 1
+                continue
+            try:
+                pages = int(hit.get("pageNum") or 0)
+            except (TypeError, ValueError):
+                pages = 0
+            if pages and pages < min_pages:
+                dropped_tiny += 1
+                continue
+            clean.append(hit)
+
         return ToolResult(
             ok=True,
-            summary=f"fxbg search '{keywords}': {len(hits)} hits",
+            summary=(
+                f"fxbg search '{keywords}': {len(clean)} kept "
+                f"({len(hits)} raw - {dropped_noise} noise - {dropped_tiny} <{min_pages}p)"
+            ),
             data={
                 "keywords": keywords,
-                "hits": hits,
-                "hit_count": len(hits),
+                "hits": clean,
+                "hit_count": len(clean),
+                "raw_count": len(hits),
+                "dropped_noise": dropped_noise,
+                "dropped_tiny": dropped_tiny,
+                "effective_orgs": effective_orgs,
+                "min_pages": min_pages,
             },
         )
 

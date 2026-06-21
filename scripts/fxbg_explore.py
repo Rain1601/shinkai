@@ -50,6 +50,8 @@ async def cmd_search(args: argparse.Namespace) -> int:
     result = await tool.run(
         keywords=args.keywords,
         org_names=args.org or None,
+        use_default_orgs=not args.all_orgs,
+        min_pages=args.min_pages,
         start_time=args.since,
     )
     if not result.ok:
@@ -57,9 +59,11 @@ async def cmd_search(args: argparse.Namespace) -> int:
         return 2
 
     hits = result.data.get("hits") or []
-    print(f"\n{result.summary}\n")
+    effective_orgs = result.data.get("effective_orgs") or "(all)"
+    print(f"\n{result.summary}")
+    print(f"  orgs={effective_orgs}  min_pages={result.data.get('min_pages')}\n")
     if not hits:
-        print("(no hits)")
+        print("(no hits after filter)")
         return 0
     for i, h in enumerate(hits[: args.limit], 1):
         title = (h.get("title") or "").replace("<em>", "").replace("</em>", "")
@@ -138,7 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = subs.add_parser("search", help="search reports")
     s.add_argument("keywords")
-    s.add_argument("--org", action="append", default=[], help="repeatable issuer filter")
+    s.add_argument("--org", action="append", default=[],
+                   help="repeatable issuer filter (overrides MS/GS/Nomura default)")
+    s.add_argument("--all-orgs", action="store_true",
+                   help="disable the MS/GS/Nomura default whitelist")
+    s.add_argument("--min-pages", type=int, default=3,
+                   help="drop hits with pageNum below this (default 3)")
     s.add_argument("--since", default="last3mon",
                    help="last7day|last1mon|last3mon|last1year (default last3mon)")
     s.add_argument("--limit", type=int, default=10)

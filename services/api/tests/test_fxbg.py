@@ -237,3 +237,79 @@ def test_pdf_url_bad_id_rejects() -> None:
     result = asyncio.run(tool.run(report_id=0))
     assert result.ok is False
     assert "report_id" in (result.error or "")
+
+
+# ---------------------------------------------------------------------------
+# default org whitelist + noise filter
+# ---------------------------------------------------------------------------
+def _mk_instance(hits: list[dict[str, Any]]) -> _FakeAsyncClient:
+    instance = _FakeAsyncClient()
+    instance.response = _FakeResponse(
+        200,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {"content": [{"type": "text", "text": json.dumps(hits)}]},
+        },
+    )
+    return instance
+
+
+def test_search_default_org_whitelist_is_applied(fake_httpx) -> None:  # noqa: ARG001
+    instance = _mk_instance([])
+    fxbg.httpx.AsyncClient = lambda *a, **k: instance  # type: ignore[assignment]
+    tool = fxbg.FxbgSearchTool()
+    asyncio.run(tool.run(keywords="HBM"))
+    assert instance.last_body is not None
+    assert instance.last_body["params"]["arguments"]["orgNames"] == list(
+        fxbg.PREFERRED_ORG_NAMES
+    )
+
+
+def test_search_explicit_org_overrides_default(fake_httpx) -> None:  # noqa: ARG001
+    instance = _mk_instance([])
+    fxbg.httpx.AsyncClient = lambda *a, **k: instance  # type: ignore[assignment]
+    tool = fxbg.FxbgSearchTool()
+    asyncio.run(tool.run(keywords="HBM", org_names=["东方财富"]))
+    assert instance.last_body is not None
+    assert instance.last_body["params"]["arguments"]["orgNames"] == ["东方财富"]
+
+
+def test_search_use_default_orgs_false_omits_filter(fake_httpx) -> None:  # noqa: ARG001
+    instance = _mk_instance([])
+    fxbg.httpx.AsyncClient = lambda *a, **k: instance  # type: ignore[assignment]
+    tool = fxbg.FxbgSearchTool()
+    asyncio.run(tool.run(keywords="HBM", use_default_orgs=False))
+    assert instance.last_body is not None
+    assert "orgNames" not in instance.last_body["params"]["arguments"]
+
+
+def test_noise_org_and_tiny_pages_filtered(fake_httpx) -> None:  # noqa: ARG001
+    hits = [
+        {"reportId": 1, "title": "real deep", "orgName": "高盛", "pageNum": 30},
+        {"reportId": 2, "title": "rumor", "orgName": "未知机构", "pageNum": 1},
+        {"reportId": 3, "title": "chartpack", "orgName": "摩根士丹利", "pageNum": 2},
+        {"reportId": 4, "title": "real medium", "orgName": "野村", "pageNum": 10},
+    ]
+    instance = _mk_instance(hits)
+    fxbg.httpx.AsyncClient = lambda *a, **k: instance  # type: ignore[assignment]
+    tool = fxbg.FxbgSearchTool()
+    result = asyncio.run(tool.run(keywords="HBM"))
+    assert result.ok is True
+    assert result.data["hit_count"] == 2
+    assert {h["reportId"] for h in result.data["hits"]} == {1, 4}
+    assert result.data["dropped_noise"] == 1
+    assert result.data["dropped_tiny"] == 1
+    assert result.data["raw_count"] == 4
+
+
+def test_min_pages_override(fake_httpx) -> None:  # noqa: ARG001
+    hits = [
+        {"reportId": 1, "title": "two pager", "orgName": "高盛", "pageNum": 2},
+        {"reportId": 2, "title": "five pager", "orgName": "高盛", "pageNum": 5},
+    ]
+    instance = _mk_instance(hits)
+    fxbg.httpx.AsyncClient = lambda *a, **k: instance  # type: ignore[assignment]
+    tool = fxbg.FxbgSearchTool()
+    result = asyncio.run(tool.run(keywords="HBM", min_pages=0))
+    assert result.data["hit_count"] == 2  # both kept when threshold is 0
