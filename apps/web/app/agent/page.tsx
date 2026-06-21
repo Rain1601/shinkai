@@ -125,14 +125,26 @@ function categoryLabel(c: string, locale: Locale): string {
   return (locale === "zh" ? zh : en)[c] ?? c;
 }
 
-type ViewMode = "subjects" | "activity";
+type ViewMode = "subjects" | "activity" | "overview";
 
 export default function IndustryGraphListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialView: ViewMode =
-    searchParams.get("view") === "activity" ? "activity" : "subjects";
+  const initialView: ViewMode = (() => {
+    const v = searchParams.get("view");
+    if (v === "activity") return "activity";
+    if (v === "overview") return "overview";
+    return "subjects";
+  })();
   const [view, setView] = useState<ViewMode>(initialView);
+  const [stats, setStats] = useState<{
+    entities: number;
+    relations: number;
+    kinds: number;
+    facets: number;
+    tickers: number;
+    snapshot_version: number;
+  } | null>(null);
   const [subjects, setSubjects] = useState<SubjectListRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,18 +180,23 @@ export default function IndustryGraphListPage() {
     } catch {}
   }, []);
 
-  // Load subjects
+  // Load subjects + stats in parallel — stats feeds the Overview tab,
+  // subjects feeds everything else.
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const r = await fetch(`${API_URL}/api/v1/industry_graph/subjects`, {
-          cache: "no-store",
-        });
-        if (!r.ok) throw new Error(`subjects ${r.status}`);
-        const d: ListResponse = await r.json();
+        const [sRes, stRes] = await Promise.all([
+          fetch(`${API_URL}/api/v1/industry_graph/subjects`, { cache: "no-store" }),
+          fetch(`${API_URL}/api/v1/industry_graph/stats`, { cache: "no-store" }),
+        ]);
+        if (!sRes.ok) throw new Error(`subjects ${sRes.status}`);
+        if (!stRes.ok) throw new Error(`stats ${stRes.status}`);
+        const d: ListResponse = await sRes.json();
+        const stat = await stRes.json();
         if (cancelled) return;
         setSubjects(d.subjects);
+        setStats(stat);
         setError(null);
       } catch (e) {
         if (cancelled) return;
@@ -288,6 +305,47 @@ export default function IndustryGraphListPage() {
     (s) => s.latest_version?.status === "running",
   ).length;
 
+  // ── Overview derivations (KPI strip + In flight + Recent activity) ──
+  const overviewCounts = useMemo(() => {
+    const versions = subjects.reduce((acc, s) => acc + (s.version_count || 0), 0);
+    const completed = subjects.filter(
+      (s) => s.latest_version?.status === "completed",
+    ).length;
+    const failed = subjects.filter(
+      (s) => s.latest_version?.status === "failed",
+    ).length;
+    const dayAgo = Date.now() - 86400 * 1000;
+    const today = subjects.filter((s) => {
+      const t = s.latest_version?.ended_at;
+      return t ? new Date(t).getTime() >= dayAgo : false;
+    }).length;
+    return { versions, completed, failed, today };
+  }, [subjects]);
+
+  const inFlight = useMemo(
+    () =>
+      subjects.filter(
+        (s) =>
+          s.latest_version?.status === "running" ||
+          s.latest_version?.status === "pending",
+      ),
+    [subjects],
+  );
+
+  const recentTop = useMemo(() => {
+    const rows = subjects
+      .filter((s) => s.latest_version)
+      .map((s) => ({ subject: s, version: s.latest_version! }));
+    rows.sort((a, b) => {
+      const at = a.version.ended_at ?? a.version.started_at;
+      const bt = b.version.ended_at ?? b.version.started_at;
+      return new Date(bt).getTime() - new Date(at).getTime();
+    });
+    return rows.slice(0, 8);
+  }, [subjects]);
+
+  const agentStatus: "idle" | "running" = inFlight.length > 0 ? "running" : "idle";
+
   const headerCounts = isZh
     ? `${subjects.length} subjects · ${totals.company} 公司 · ${totals.theme} 主题${
         runningCount ? ` · ${runningCount} 在跑` : ""
@@ -327,6 +385,13 @@ export default function IndustryGraphListPage() {
         >
           {isZh ? "Activity" : "Activity"}
         </button>
+        <button
+          type="button"
+          className={`ig-tab ${view === "overview" ? "active" : ""}`}
+          onClick={() => switchView("overview")}
+        >
+          {isZh ? "Overview" : "Overview"}
+        </button>
       </div>
 
       {view === "activity" ? (
@@ -352,6 +417,152 @@ export default function IndustryGraphListPage() {
             }
           />
         </section>
+      ) : view === "overview" ? (
+        <div className="agent-page">
+          <section className="agent-kpis">
+            <div className={`agent-kpi status-${agentStatus}`}>
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "状态 · STATUS" : "Status"}
+              </div>
+              <div className="agent-kpi-big">
+                <span className={`agent-status-dot ${agentStatus}`} />
+                {agentStatus === "running"
+                  ? isZh ? "运行中" : "Running"
+                  : isZh ? "空闲" : "Idle"}
+              </div>
+              <div className="agent-kpi-foot">
+                {inFlight.length > 0
+                  ? isZh
+                    ? `${inFlight.length} 个 Subject 跑分析中`
+                    : `${inFlight.length} subject(s) analyzing`
+                  : isZh ? "无 SubjectVersion 在跑" : "no active SubjectVersion"}
+              </div>
+            </div>
+
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "Subjects · 追踪中" : "Subjects · tracked"}
+              </div>
+              <div className="agent-kpi-big">{subjects.length}</div>
+              <div className="agent-kpi-foot">
+                {isZh
+                  ? `${totals.company} 公司 · ${totals.theme} 主题`
+                  : `${totals.company} co · ${totals.theme} th`}
+              </div>
+            </div>
+
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "SubjectVersions · 累计" : "Versions · lifetime"}
+              </div>
+              <div className="agent-kpi-big">{overviewCounts.versions}</div>
+              <div className="agent-kpi-foot">
+                {isZh
+                  ? `${overviewCounts.completed} 完成 · ${overviewCounts.failed} 失败 · ${overviewCounts.today} 24h 内`
+                  : `${overviewCounts.completed} done · ${overviewCounts.failed} failed · ${overviewCounts.today} in 24h`}
+              </div>
+            </div>
+
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "图谱 · 覆盖" : "Store · coverage"}
+              </div>
+              <div className="agent-kpi-big">{stats?.entities ?? "—"}</div>
+              <div className="agent-kpi-foot">
+                {stats
+                  ? isZh
+                    ? `${stats.relations} 关系 · v${stats.snapshot_version} · ${stats.tickers} ticker`
+                    : `${stats.relations} relations · v${stats.snapshot_version} · ${stats.tickers} tickers`
+                  : ""}
+              </div>
+            </div>
+          </section>
+
+          <section className="agent-section">
+            <header className="agent-section-head">
+              <h2>{isZh ? "进行中 · In flight" : "In flight"}</h2>
+            </header>
+            {inFlight.length === 0 ? (
+              <p className="muted">
+                {isZh
+                  ? "目前没有 SubjectVersion 在跑。打开一个 Subject → 「+ 新分析」可以触发一次。"
+                  : "Nothing analyzing right now. Open a Subject and press '+ Run new' to start."}
+              </p>
+            ) : (
+              <ul className="agent-flight-list">
+                {inFlight.map((s) => (
+                  <li key={s.id} className="agent-flight">
+                    <span className="agent-pulse" aria-hidden />
+                    <Link
+                      href={`/agent/${encodeURIComponent(s.id)}`}
+                      className="agent-flight-name"
+                    >
+                      {s.display_name}
+                    </Link>
+                    <span className="agent-flight-meta">
+                      v{s.latest_version!.version_no} ·{" "}
+                      {s.latest_version!.triggered_by} ·{" "}
+                      {formatRelative(s.latest_version!.started_at, locale)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="agent-section">
+            <header className="agent-section-head">
+              <h2>{isZh ? "最近活动 · Recent" : "Recent activity"}</h2>
+              <button
+                type="button"
+                className="live-pill"
+                onClick={() => switchView("activity")}
+              >
+                {isZh ? "全部 →" : "All →"}
+              </button>
+            </header>
+            {recentTop.length === 0 ? (
+              <p className="muted">
+                {isZh ? "尚无活动记录。" : "No activity yet."}
+              </p>
+            ) : (
+              <ul className="agent-recent-list">
+                {recentTop.map(({ subject, version }) => (
+                  <li key={version.id} className="agent-recent">
+                    <Link
+                      href={`/agent/${encodeURIComponent(subject.id)}`}
+                      className="agent-recent-link"
+                    >
+                      <span className="agent-recent-name">{subject.display_name}</span>
+                      <span className="agent-recent-meta">
+                        v{version.version_no} · {version.triggered_by} ·{" "}
+                        {formatRelative(version.ended_at ?? version.started_at, locale)}
+                      </span>
+                      {version.change_summary ? (
+                        <span className="agent-recent-diff">
+                          {version.change_summary.entities_added > 0
+                            ? `+${version.change_summary.entities_added} ent`
+                            : ""}
+                          {version.change_summary.entities_added > 0 &&
+                          version.change_summary.relations_added > 0
+                            ? " · "
+                            : ""}
+                          {version.change_summary.relations_added > 0
+                            ? `+${version.change_summary.relations_added} rel`
+                            : ""}
+                        </span>
+                      ) : version.triggered_by === "migration" ? (
+                        <span className="agent-recent-diff muted">
+                          {isZh ? "基线" : "baseline"}
+                        </span>
+                      ) : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       ) : (
       <div className="live-workspace">
         <aside className="live-themes">
