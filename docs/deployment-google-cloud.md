@@ -91,6 +91,23 @@ printf '%s' '<google-cse-cx>' | gcloud secrets versions add google-search-engine
 Then set `SHINKAI_WEB_SEARCH_STRATEGY=google` and bind the two secrets in the
 Cloud Run env.
 
+### fxbaogao Premium VIP (optional, phase 1: manual use only)
+
+The `fxbg_*` tools talk to 发现报告's MCP HTTP endpoint and need a Premium
+VIP API key. Phase 1 keeps this **manual** — the harness does not auto-call
+fxbg, so this is only required if you intend to drive `scripts/fxbg_explore.py`
+or invoke the tools by hand. Quota is **300 PDF downloads / month**;
+`fxbg_search` + `fxbg_paragraphs` are free.
+
+```bash
+gcloud secrets create shinkai-fxbaogao-api-key --replication-policy=automatic
+printf '%s' '<sk-...>' | gcloud secrets versions add shinkai-fxbaogao-api-key --data-file=-
+```
+
+Cloud Run receives it as `SHINKAI_FXBAOGAO_API_KEY`. Override the endpoint
+with `SHINKAI_FXBAOGAO_ENDPOINT` if needed (default
+`https://api.fxbaogao.com/mcp/`).
+
 For durable backend state, provision a Postgres-compatible database such as Cloud SQL for
 PostgreSQL and set `SHINKAI_DATABASE_URL` on the API service. When
 `SHINKAI_PERSISTENCE_JSON_FALLBACK=true`, the API falls back to `SHINKAI_STATE_PATH` if Postgres is

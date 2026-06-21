@@ -116,6 +116,7 @@ Setting `scope.force_llm_planner: true` on top of `auto` raises the same fail-fa
 | `web_extract` | direct HTTP + HTML parsing | extracts a compact text excerpt from a URL |
 | `ticker_validate` | yfinance + SEC EDGAR `company_tickers.json` fallback | resolves a ticker to sector / industry / business summary and returns `industry_eligible` after the hard filter against `INELIGIBLE_SECTORS` (Healthcare, Real Estate, Financial Services, Utilities, Consumer Defensive, Communication Services) and `INELIGIBLE_INDUSTRIES` (Resorts & Casinos, Lodging, etc.) — catches LLM hallucinations like "ATYR Pharma for HBM" or "BOYD Gaming for liquid cooling" |
 | `sec_filings` | SEC EDGAR submissions endpoint (free, requires `User-Agent` header) | pulls recent 10-K / 10-Q filings and returns metadata + primary document URLs ready to become `SourceRef(tier="primary")` |
+| `fxbg_search` / `fxbg_paragraphs` / `fxbg_pdf_url` | 发现报告 (fxbaogao) MCP HTTP API at `api.fxbaogao.com/mcp/` — three tools wrapping `search_reports` / `get_paragraphs` / `get_pdf_url`. Requires `SHINKAI_FXBAOGAO_API_KEY` (Premium VIP, `sk-xxx`). `fxbg_search` + `fxbg_paragraphs` are free; `fxbg_pdf_url` consumes 1 download from the 300/month quota. Used for Chinese sell-side coverage that the public web / Vertex Grounding can't reach. Helper `download_pdf_from_url()` streams the signed CDN URL (`dr.fxbaogao.com`) to disk. Harness does **not** auto-call these in phase 1 — drive via `scripts/fxbg_explore.py` only. |
 
 #### Web search strategies
 
@@ -178,6 +179,8 @@ App Router under `apps/web/app/`. Cross-page UI lives in `components/portal/` (`
 | `SHINKAI_WEB_SEARCH_STRATEGY` | `auto` / `vertex_grounding` / `tavily` / `google` / `duckduckgo` |
 | `SHINKAI_GOOGLE_CLOUD_PROJECT` / `SHINKAI_GOOGLE_APPLICATION_CREDENTIALS` / `SHINKAI_GOOGLE_CLOUD_LOCATION` / `SHINKAI_VERTEX_MODEL` | Vertex Grounding config |
 | `SHINKAI_TAVILY_API_KEY` | Tavily backend for `web_search` |
+| `SHINKAI_FXBAOGAO_API_KEY` | Premium VIP `sk-xxx` key for `fxbg_*` tools (发现报告 MCP) |
+| `SHINKAI_FXBAOGAO_ENDPOINT` | Override the fxbaogao MCP endpoint (default `https://api.fxbaogao.com/mcp/`) |
 | `NEXT_PUBLIC_API_URL` | Web → API base URL (set by dev scripts) |
 
 ## Deployment
