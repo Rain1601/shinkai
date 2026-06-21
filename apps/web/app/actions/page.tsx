@@ -11,5 +11,5 @@ import { redirect } from "next/navigation";
 // CriticPersonas, MemoryLayers, PatchInbox) are retained for reference and
 // can be re-mounted if/when the surface needs to come back.
 export default function ActionsLegacyRedirect(): never {
-  redirect("/industry-graph");
+  redirect("/agent");
 }

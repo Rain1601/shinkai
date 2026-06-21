@@ -57,7 +57,7 @@ export function EdgePane({ edge, graph, subjectMap, locale, onClear }: Props) {
         <span className="ig-edge-node-eyebrow">{eyebrow}</span>
         <h4 className="ig-edge-node-name">
           {subjectId ? (
-            <Link href={`/industry-graph/${encodeURIComponent(subjectId)}`}>
+            <Link href={`/agent/${encodeURIComponent(subjectId)}`}>
               {n.label}
               <span className="ig-edge-node-go"> ↗</span>
             </Link>

@@ -158,7 +158,7 @@ export function ThemeMembersGrid({ subjectId, locale }: Props) {
                     <li key={m.id} className="ig-member">
                       {m.has_subject_id ? (
                         <Link
-                          href={`/industry-graph/${encodeURIComponent(m.has_subject_id)}`}
+                          href={`/agent/${encodeURIComponent(m.has_subject_id)}`}
                           className="ig-member-link"
                           title={isZh ? "进入 Company Detail" : "Open company detail"}
                         >

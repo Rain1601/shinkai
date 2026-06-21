@@ -66,7 +66,7 @@ const navSections: NavSection[] = [
       { id: "agent", href: "/agent", label: "Overview", icon: Compass },
       {
         id: "industry",
-        href: "/industry-graph",
+        href: "/agent",
         label: "Industry Graph",
         icon: Network,
       },

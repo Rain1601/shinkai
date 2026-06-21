@@ -135,7 +135,7 @@ export function ActivityFeed({
         return (
           <li key={`${r.event_id}-${r.subject_id}`} className="ig-activity">
             <Link
-              href={`/industry-graph/${encodeURIComponent(r.subject_id)}?event=${r.event_id}`}
+              href={`/agent/${encodeURIComponent(r.subject_id)}?event=${r.event_id}`}
               className="ig-activity-link"
             >
               <div className="ig-activity-row1">

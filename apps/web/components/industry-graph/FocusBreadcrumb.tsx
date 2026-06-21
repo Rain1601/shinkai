@@ -152,7 +152,7 @@ export function FocusBreadcrumb(props: Props) {
     if (seg.subjectId) {
       return (
         <Link
-          href={`/industry-graph/${encodeURIComponent(seg.subjectId)}`}
+          href={`/agent/${encodeURIComponent(seg.subjectId)}`}
           className={classes.join(" ")}
           key={`${seg.id}-${i}`}
           title={isZh ? `跳到 ${seg.label}` : `Open ${seg.label}`}
@@ -212,7 +212,7 @@ export function FocusBreadcrumb(props: Props) {
             {parent ? (
               parent.subjectId ? (
                 <Link
-                  href={`/industry-graph/${encodeURIComponent(parent.subjectId)}`}
+                  href={`/agent/${encodeURIComponent(parent.subjectId)}`}
                   className="ig-focus-alt-chip active"
                   key={`alt-primary-${parent.id}`}
                 >
@@ -232,7 +232,7 @@ export function FocusBreadcrumb(props: Props) {
             {parentAlts.map((a) =>
               a.subjectId ? (
                 <Link
-                  href={`/industry-graph/${encodeURIComponent(a.subjectId)}`}
+                  href={`/agent/${encodeURIComponent(a.subjectId)}`}
                   className="ig-focus-alt-chip"
                   key={`alt-${a.id}`}
                 >
