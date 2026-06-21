@@ -5,6 +5,7 @@ import {
   Activity,
   Compass,
   Moon,
+  Network,
   PanelLeftClose,
   Pin,
   Radio,
@@ -39,6 +40,7 @@ type PortalShellProps = {
     | "history"
     | "results"
     | "themes"
+    | "industry"
     | "a2a";
   actions?: ReactNode;
   children: ReactNode;
@@ -51,6 +53,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  external?: boolean;
 };
 
 type NavSection = {
@@ -77,6 +80,19 @@ const navSections: NavSection[] = [
       { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
     ],
   },
+  {
+    label: "Knowledge",
+    labelZh: "知识",
+    items: [
+      {
+        id: "industry",
+        href: "/industry-graph-live.html",
+        label: "Industry Graph",
+        icon: Network,
+        external: true,
+      },
+    ],
+  },
 ];
 
 const zhNavLabels: Record<PortalShellProps["active"], string> = {
@@ -86,6 +102,7 @@ const zhNavLabels: Record<PortalShellProps["active"], string> = {
   history: "历史记录",
   results: "产出",
   themes: "主题",
+  industry: "产业图谱",
   a2a: "A2A",
 };
 
@@ -144,17 +161,40 @@ export function PortalShell({
               </div>
               {section.items.map((item) => {
                 const Icon = item.icon;
+                const itemClass =
+                  active === item.id ? "portal-nav-item active" : "portal-nav-item";
+                const iconNode = (
+                  <span className="portal-nav-icon" aria-hidden="true">
+                    <Icon size={17} strokeWidth={active === item.id ? 2 : 1.75} />
+                  </span>
+                );
+                const labelNode = (
+                  <span className="portal-nav-label">
+                    {isZh ? zhNavLabels[item.id] : item.label}
+                  </span>
+                );
+                if (item.external) {
+                  return (
+                    <a
+                      aria-current={active === item.id ? "page" : undefined}
+                      className={itemClass}
+                      href={item.href}
+                      key={item.id}
+                    >
+                      {iconNode}
+                      {labelNode}
+                    </a>
+                  );
+                }
                 return (
                   <Link
                     aria-current={active === item.id ? "page" : undefined}
-                    className={active === item.id ? "portal-nav-item active" : "portal-nav-item"}
+                    className={itemClass}
                     href={item.href}
                     key={item.id}
                   >
-                    <span className="portal-nav-icon" aria-hidden="true">
-                      <Icon size={17} strokeWidth={active === item.id ? 2 : 1.75} />
-                    </span>
-                    <span className="portal-nav-label">{isZh ? zhNavLabels[item.id] : item.label}</span>
+                    {iconNode}
+                    {labelNode}
                   </Link>
                 );
               })}
