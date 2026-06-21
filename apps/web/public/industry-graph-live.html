@@ -2,281 +2,659 @@
 <html lang="zh-Hans">
 <head>
 <meta charset="utf-8" />
-<title>Shinkai · Industry Graph · Live</title>
+<title>shinkai · industry graph · live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@300;400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script>
+  // Read theme before paint to match portal behaviour and avoid flash.
+  (function () {
+    try {
+      var s = localStorage.getItem("shinkai.theme");
+      var t = (s === "day" || s === "night")
+        ? s
+        : (matchMedia("(prefers-color-scheme: light)").matches ? "day" : "night");
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
 <style>
+  /* ── palette · Manganese night (warm sediment) ─────────────────────────── */
   :root {
-    --bg: #0b0d12;
-    --panel: #11141b;
-    --line: #1d222c;
-    --text: #e7ebf0;
-    --muted: #8c95a3;
-    --accent: #6fa8ff;
-    --accent-2: #ff9d6c;
-    --warn: #ffb454;
-    --ok: #7ed957;
+    color-scheme: dark;
+    --abyss: #1a1612;
+    --abyss-1: #231d18;
+    --abyss-2: #2d2620;
+    --abyss-3: #3a3128;
+
+    --pearl: #e6decf;
+    --pearl-soft: #c0b7a4;
+    --pearl-mute: #988e7e;
+    --pearl-dim: #6d6557;
+    --pearl-faint: #4a4339;
+
+    --teal: #7aaaa5;
+    --teal-soft: rgba(122, 170, 165, 0.10);
+    --teal-line: rgba(122, 170, 165, 0.34);
+
+    --warn: #c58658;
+    --danger: #b8624a;
+
+    --hair: rgba(230, 222, 207, 0.08);
+    --hair-strong: rgba(230, 222, 207, 0.16);
+    --hair-bright: rgba(230, 222, 207, 0.24);
+
+    /* ── layer palette (lifted from industry-graph-demo) — for node fills ─ */
+    --L-designer: #4a6a93;
+    --L-foundry: #8474a6;
+    --L-advanced_packaging: #b88896;
+    --L-memory: #d49a4c;
+    --L-testing: #b4a857;
+    --L-assembly: #6e9c80;
+    --L-cooling: #6e9aa6;
+    --L-power: #c8755c;
+    --L-csp: #8a8478;
+    --L-theme: #c8a04a;
+
+    --display: "Fraunces", "Songti SC", "STSong", Iowan Old Style, Georgia, serif;
+    --body: "Newsreader", "Songti SC", "STSong", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", system-ui, sans-serif;
   }
-  * { box-sizing: border-box; }
+
+  /* ── palette · Manganese day (warm sand) ───────────────────────────────── */
+  html[data-theme="day"] {
+    color-scheme: light;
+    --abyss: #f0e9da;
+    --abyss-1: #e6ddc8;
+    --abyss-2: #daceb0;
+    --abyss-3: #c8b998;
+
+    --pearl: #1f1a14;
+    --pearl-soft: #3a332a;
+    --pearl-mute: #6e6354;
+    --pearl-dim: #948872;
+    --pearl-faint: #baae96;
+
+    --teal: #46716b;
+    --teal-soft: rgba(70, 113, 107, 0.10);
+    --teal-line: rgba(70, 113, 107, 0.36);
+
+    --warn: #a45926;
+    --danger: #8a3f1c;
+
+    --hair: rgba(31, 26, 20, 0.10);
+    --hair-strong: rgba(31, 26, 20, 0.18);
+    --hair-bright: rgba(31, 26, 20, 0.28);
+
+    --L-designer: #1f3a5f;
+    --L-foundry: #5e4682;
+    --L-advanced_packaging: #9b5c70;
+    --L-memory: #b97a2d;
+    --L-testing: #8f8334;
+    --L-assembly: #4e7758;
+    --L-cooling: #4f7884;
+    --L-power: #a04e3c;
+    --L-csp: #2d2d2d;
+    --L-theme: #c8941f;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    margin: 0;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    overflow: hidden;
+    font-family: var(--body);
+    color: var(--pearl);
+    background: var(--abyss);
+    font-size: 14px;
+    line-height: 1.55;
+    font-feature-settings: "kern", "liga", "calt", "ss01";
+    font-variant-numeric: oldstyle-nums proportional-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
     display: grid;
-    grid-template-columns: 320px 1fr 360px;
-    grid-template-rows: 48px 1fr;
+    grid-template-columns: 248px 1fr 384px;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "head head head"
+      "ribbon ribbon ribbon"
+      "left main right";
+    overflow: hidden;
   }
+
+  /* ── header ─────────────────────────────────────────────────────────────── */
   header {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--line);
-    background: var(--panel);
+    grid-area: head;
+    padding: 16px 32px 14px;
+    display: flex; align-items: baseline; gap: 18px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--abyss);
   }
+  header .home {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--pearl-mute);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding-right: 14px;
+    border-right: 1px solid var(--hair);
+  }
+  header .home:hover { color: var(--teal); }
   header h1 {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 19px;
+    letter-spacing: -0.005em;
+    color: var(--pearl);
+  }
+  header h1 em {
+    font-style: italic;
+    color: var(--teal);
+    font-weight: 500;
+    margin-left: 5px;
   }
   header .live-tag {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--accent);
-    color: #0b0d12;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--teal);
+    padding: 3px 8px;
+    border: 1px solid var(--teal-line);
   }
+  header .live-tag.offline { color: var(--warn); border-color: var(--warn); }
+  header .h-spacer { flex: 1; }
   header .meta {
-    font-size: 11px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--pearl-mute);
+    letter-spacing: 0.08em;
   }
-  aside.left, aside.right {
-    background: var(--panel);
-    border-right: 1px solid var(--line);
-    overflow-y: auto;
-    font-size: 12px;
-  }
-  aside.right { border-right: none; border-left: 1px solid var(--line); }
-  aside h2 {
-    font-size: 11px;
-    text-transform: uppercase;
-    color: var(--muted);
-    letter-spacing: 1px;
-    margin: 16px 16px 8px;
-    font-weight: 600;
-  }
-  .row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .row label {
+  header .theme-btn {
+    margin-left: 14px;
+    background: transparent;
+    border: 1px solid var(--hair-strong);
+    padding: 5px 10px;
+    font-family: var(--mono);
     font-size: 10px;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: var(--muted);
-    letter-spacing: 0.7px;
+    color: var(--pearl-mute);
+    cursor: pointer;
+    transition: all 160ms;
   }
-  .row select, .row input {
-    background: #161a22;
-    border: 1px solid var(--line);
-    color: var(--text);
-    padding: 6px 8px;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 12px;
+  header .theme-btn:hover { color: var(--pearl); border-color: var(--hair-bright); }
+
+  /* ── ribbon (signature: editorial stats strip) ─────────────────────────── */
+  .ribbon {
+    grid-area: ribbon;
+    padding: 22px 32px 18px;
+    display: flex; gap: 56px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--abyss);
   }
-  .row .stat {
-    display: flex;
-    justify-content: space-between;
+  .stat {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .stat .eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--pearl-mute);
+  }
+  .stat .num {
+    font-family: var(--display);
+    font-weight: 300;
+    font-size: 38px;
+    line-height: 1;
+    letter-spacing: -0.022em;
+    color: var(--pearl);
     font-variant-numeric: tabular-nums;
   }
-  .row .stat span:first-child { color: var(--muted); }
-  #cy {
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(ellipse at center, #131722 0%, #0b0d12 80%);
+  .stat .num em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--teal);
+    font-size: 22px;
+    margin-left: 2px;
   }
-  .empty-cy {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
-    padding: 32px;
-  }
-  .empty-cy code {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    padding: 6px 10px;
-    border-radius: 4px;
-    color: var(--accent);
+  .stat .foot {
+    font-family: var(--body);
+    font-style: italic;
     font-size: 11px;
+    color: var(--pearl-mute);
+    margin-top: 2px;
+  }
+
+  /* ── left rail ─────────────────────────────────────────────────────────── */
+  aside.left {
+    grid-area: left;
+    border-right: 1px solid var(--hair);
+    background: var(--abyss);
+    overflow-y: auto;
+    padding: 24px 24px 32px;
+  }
+  .rail-section { margin-bottom: 28px; }
+  .rail-section > h2 {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--pearl-mute);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--pearl-faint);
+    margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .rail-section > h2 .badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--pearl-dim);
+    letter-spacing: 0.1em;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--pearl-mute);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .field select, .field input[type="number"] {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--pearl);
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--hair-strong);
+    padding: 5px 2px;
+    outline: none;
+    letter-spacing: 0.02em;
+    transition: border-color 160ms;
+  }
+  .field select:focus, .field input[type="number"]:focus {
+    border-color: var(--teal);
+  }
+  /* select option styling — works on Chrome/Edge */
+  .field select option { background: var(--abyss-1); color: var(--pearl); }
+
+  .toggle-row { margin-top: 4px; }
+  .checkbox {
+    display: flex; align-items: center; gap: 9px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--pearl-soft);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .checkbox input[type="checkbox"] {
+    appearance: none;
+    width: 12px; height: 12px;
+    border: 1px solid var(--hair-bright);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 160ms;
+  }
+  .checkbox input[type="checkbox"]:checked {
+    background: var(--teal);
+    border-color: var(--teal);
+  }
+  .checkbox input[type="checkbox"]:checked::after {
+    content: ""; position: absolute;
+    left: 2px; top: -1px;
+    width: 4px; height: 7px;
+    border-right: 1.5px solid var(--abyss);
+    border-bottom: 1.5px solid var(--abyss);
+    transform: rotate(45deg);
   }
   .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 16px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+    font-family: var(--mono);
     font-size: 11px;
+    color: var(--pearl-soft);
+    letter-spacing: 0.04em;
   }
   .legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    width: 9px; height: 9px; border-radius: 50%;
+    flex-shrink: 0;
   }
-  .detail-card {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--line);
-  }
-  .detail-card h3 {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .detail-card .kind-tag {
+  .legend-item .count {
+    margin-left: auto;
+    color: var(--pearl-dim);
     font-size: 10px;
+  }
+
+  /* ── main / canvas ─────────────────────────────────────────────────────── */
+  main {
+    grid-area: main;
+    position: relative;
+    min-width: 0;
+    background:
+      radial-gradient(circle at 30% 25%, var(--teal-soft) 0%, transparent 55%),
+      radial-gradient(circle at 75% 80%, rgba(197, 134, 88, 0.04) 0%, transparent 55%),
+      var(--abyss-1);
+  }
+  #cy { width: 100%; height: 100%; }
+  .empty-cy {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; color: var(--pearl-mute); text-align: center; padding: 48px;
+  }
+  .empty-cy .label {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--pearl-dim);
+  }
+  .empty-cy h3 {
+    font-family: var(--display); font-weight: 400; font-size: 22px;
+    letter-spacing: -0.01em; color: var(--pearl);
+  }
+  .empty-cy code {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--teal);
+    border: 1px solid var(--hair-strong);
+    padding: 8px 14px;
+    background: var(--abyss);
+  }
+
+  /* ── right detail pane ─────────────────────────────────────────────────── */
+  aside.right {
+    grid-area: right;
+    border-left: 1px solid var(--hair);
+    background: var(--abyss);
+    overflow-y: auto;
+    padding: 28px 28px 40px;
+  }
+  .panel-eyebrow {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    background: var(--line);
-    padding: 2px 6px;
-    border-radius: 3px;
-    color: var(--muted);
+    color: var(--pearl-mute);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--pearl-faint);
+    margin-bottom: 18px;
   }
-  .detail-card .desc {
-    margin: 8px 0;
-    color: var(--muted);
-    line-height: 1.5;
-    font-size: 11.5px;
+  .empty-detail {
+    font-family: var(--body);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--pearl-mute);
+    text-align: center;
+    margin-top: 60px;
   }
-  .detail-card dl {
-    margin: 8px 0 0;
-    display: grid;
-    grid-template-columns: 80px 1fr;
-    gap: 4px 8px;
-    font-size: 11px;
+  .s-kind {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--pearl-mute);
   }
-  .detail-card dt { color: var(--muted); }
-  .detail-card dd { margin: 0; word-break: break-word; }
+  .s-name {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.018em;
+    margin-top: 6px;
+    color: var(--pearl);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .s-name .bar {
+    display: inline-block;
+    width: 4px; height: 22px;
+    background: var(--accent, var(--teal));
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .s-aliases {
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--pearl-dim); letter-spacing: 0.05em;
+    margin-top: 6px;
+  }
+  .s-desc {
+    font-family: var(--body);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--pearl-soft);
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hair);
+  }
+  .s-meta { margin-top: 20px; }
+  .s-meta-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px dotted var(--hair-strong);
+  }
+  .s-meta-row .k {
+    font-family: var(--mono); font-size: 9.5px;
+    color: var(--pearl-mute); letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .s-meta-row .v {
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--pearl);
+    max-width: 60%; text-align: right;
+    word-break: break-word;
+  }
+
+  .s-section { margin-top: 28px; }
+  .s-section h3 {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--pearl); letter-spacing: 0.22em;
+    text-transform: uppercase; font-weight: 400;
+    padding-bottom: 8px; border-bottom: 1px solid var(--pearl-faint);
+    margin-bottom: 4px;
+  }
+
+  /* ── edge inspector ─────────────────────────────────────────────────────── */
+  .edge-arrow {
+    font-family: var(--display); font-weight: 400; font-size: 24px;
+    color: var(--pearl); line-height: 1.2;
+    margin-top: 8px;
+    letter-spacing: -0.01em;
+  }
+  .edge-arrow .arrow {
+    color: var(--teal); font-style: italic; margin: 0 8px;
+  }
+  .edge-type-tag {
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--teal); margin-top: 8px;
+  }
+  .edge-weights {
+    margin-top: 18px;
+    display: flex; flex-wrap: wrap; gap: 16px;
+    padding-top: 14px; border-top: 1px solid var(--hair);
+  }
+  .ew-cell { display: flex; flex-direction: column; gap: 2px; min-width: 76px; }
+  .ew-cell .y {
+    font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.16em; color: var(--pearl-dim);
+    text-transform: uppercase;
+  }
+  .ew-cell .v {
+    font-family: var(--display); font-weight: 400; font-size: 18px;
+    color: var(--pearl); letter-spacing: -0.01em;
+  }
+  .ew-cell .extra {
+    font-family: var(--mono); font-size: 9px; color: var(--pearl-mute);
+  }
+
+  /* ── error banner ──────────────────────────────────────────────────────── */
   .err {
-    color: var(--accent-2);
-    padding: 8px 16px;
-    background: rgba(255,157,108,0.08);
-    border-left: 3px solid var(--accent-2);
+    grid-area: main;
+    align-self: start;
+    margin: 36px;
+    padding: 20px 22px;
+    border-left: 3px solid var(--warn);
+    background: var(--abyss-1);
+    font-family: var(--mono); font-size: 11px;
+    color: var(--warn); letter-spacing: 0.04em;
+  }
+  .err strong {
+    display: block; font-weight: 500;
+    font-size: 10px; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--warn);
+    margin-bottom: 8px;
   }
 </style>
 </head>
 <body>
 <header>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" style="color:var(--muted);text-decoration:none;font-size:11px;">← shinkai</a>
-    <h1>industry graph</h1>
-    <span class="live-tag" id="live-tag">LIVE</span>
-  </div>
-  <div class="meta" id="meta-line">connecting…</div>
+  <a href="/" class="home">← shinkai</a>
+  <h1>industry graph <em>· live</em></h1>
+  <span class="live-tag" id="live-tag">live</span>
+  <span class="h-spacer"></span>
+  <span class="meta" id="meta-line">connecting…</span>
+  <button class="theme-btn" id="theme-btn" type="button">day</button>
 </header>
 
+<section class="ribbon" id="ribbon">
+  <div class="stat">
+    <div class="eyebrow">entities</div>
+    <div class="num" id="stat-total-e">—</div>
+    <div class="foot">in store</div>
+  </div>
+  <div class="stat">
+    <div class="eyebrow">relations</div>
+    <div class="num" id="stat-total-r">—</div>
+    <div class="foot">cross-referenced</div>
+  </div>
+  <div class="stat">
+    <div class="eyebrow">visible · filtered</div>
+    <div class="num"><span id="stat-nodes">—</span><em>/<span id="stat-edges">—</span></em></div>
+    <div class="foot">nodes · edges</div>
+  </div>
+  <div class="stat">
+    <div class="eyebrow">snapshot</div>
+    <div class="num"><em>v</em><span id="stat-snap">—</span></div>
+    <div class="foot">audited delta</div>
+  </div>
+</section>
+
 <aside class="left">
-  <h2>filter</h2>
-  <div class="row">
-    <label>kind</label>
-    <select id="kind-filter">
-      <option value="">all</option>
-      <option value="Company" selected>Company</option>
-      <option value="SubTheme">SubTheme</option>
-      <option value="Product">Product</option>
-      <option value="Component">Component</option>
-      <option value="Bottleneck">Bottleneck</option>
-      <option value="KeyDataPoint">KeyDataPoint</option>
-      <option value="InvestmentThesis">InvestmentThesis</option>
-      <option value="Source">Source</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>limit (node count)</label>
-    <input type="number" id="limit-input" value="300" min="10" max="2000" step="10" />
+  <div class="rail-section">
+    <h2>filter <span class="badge" id="filter-badge"></span></h2>
+    <div class="field">
+      <label>kind</label>
+      <select id="kind-filter">
+        <option value="">all kinds</option>
+        <option value="Company" selected>Company</option>
+        <option value="SubTheme">SubTheme</option>
+        <option value="Product">Product</option>
+        <option value="Component">Component</option>
+        <option value="Bottleneck">Bottleneck</option>
+        <option value="KeyDataPoint">KeyDataPoint</option>
+        <option value="InvestmentThesis">InvestmentThesis</option>
+        <option value="Source">Source</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>limit · node cap</label>
+      <input type="number" id="limit-input" value="300" min="20" max="2000" step="20" />
+    </div>
+    <div class="field toggle-row">
+      <label class="checkbox">
+        <input type="checkbox" id="orphans-toggle" />
+        <span>show orphans</span>
+      </label>
+    </div>
   </div>
 
-  <h2>stats</h2>
-  <div class="row">
-    <div class="stat"><span>visible nodes</span><span id="stat-nodes">—</span></div>
-    <div class="stat"><span>visible edges</span><span id="stat-edges">—</span></div>
-    <div class="stat"><span>store total entities</span><span id="stat-total-e">—</span></div>
-    <div class="stat"><span>store total relations</span><span id="stat-total-r">—</span></div>
-    <div class="stat"><span>snapshot</span><span id="stat-snap">—</span></div>
+  <div class="rail-section">
+    <h2>legend · kind</h2>
+    <div id="legend"></div>
   </div>
-
-  <h2>legend (kind)</h2>
-  <div id="legend"></div>
 </aside>
 
-<div id="cy-wrap">
+<main id="cy-wrap">
   <div id="cy"></div>
-</div>
+</main>
 
 <aside class="right" id="detail-pane">
-  <h2>selection</h2>
-  <div class="detail-card" id="empty-detail" style="color:var(--muted);">
-    Click a node or edge to inspect.
-  </div>
+  <div class="panel-eyebrow">selection</div>
+  <div class="empty-detail" id="empty-detail">Click a node or edge to inspect.</div>
 </aside>
 
 <script>
   const API_BASE = (function () {
-    if (typeof window.SHINKAI_API_BASE === 'string') return window.SHINKAI_API_BASE;
-    const meta = document.querySelector('meta[name=api-base]');
+    if (typeof window.SHINKAI_API_BASE === "string") return window.SHINKAI_API_BASE;
+    const meta = document.querySelector("meta[name=api-base]");
     if (meta) return meta.content;
-    // dev fallback — same logic as scripts/dev.sh
-    if (location.port === '3100') return 'http://localhost:8100';
-    if (location.port === '3120') return 'http://localhost:8120';
+    if (location.port === "3100") return "http://localhost:8100";
+    if (location.port === "3120") return "http://localhost:8120";
     return location.origin;
   })();
 
-  // Kind → color (consistent visual mapping)
-  const KIND_COLORS = {
-    Company: '#6fa8ff',
-    SubTheme: '#ff9d6c',
-    Product: '#7ed957',
-    Component: '#c98bff',
-    Bottleneck: '#ff6b6b',
-    KeyDataPoint: '#ffd166',
-    InvestmentThesis: '#5be0c6',
-    Source: '#778294',
-    Entity: '#aaa',
-  };
+  // ── kind palette: warm, desaturated, of-a-piece with manganese floor ──
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  // Resolve once + on theme change.
+  let KIND_COLORS = {};
+  let LAYER_COLORS = {};
+  function refreshPalette() {
+    LAYER_COLORS = {
+      designer: cssVar("--L-designer"),
+      foundry: cssVar("--L-foundry"),
+      advanced_packaging: cssVar("--L-advanced_packaging"),
+      memory: cssVar("--L-memory"),
+      testing: cssVar("--L-testing"),
+      assembly: cssVar("--L-assembly"),
+      cooling: cssVar("--L-cooling"),
+      power: cssVar("--L-power"),
+      csp: cssVar("--L-csp"),
+      theme: cssVar("--L-theme"),
+    };
+    KIND_COLORS = {
+      Company: cssVar("--L-designer"),
+      SubTheme: cssVar("--L-theme"),
+      Product: cssVar("--L-assembly"),
+      Component: cssVar("--L-foundry"),
+      Bottleneck: cssVar("--danger"),
+      KeyDataPoint: cssVar("--L-memory"),
+      InvestmentThesis: cssVar("--teal"),
+      Source: cssVar("--pearl-dim"),
+      Entity: cssVar("--pearl-dim"),
+    };
+  }
+  refreshPalette();
 
   const $ = (id) => document.getElementById(id);
 
-  function pickLayout() {
-    return {
-      name: 'cose',
-      animate: false,
-      idealEdgeLength: 80,
-      nodeRepulsion: 400000,
-      gravity: 0.4,
-      numIter: 1500,
-    };
+  function escapeHTML(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  function renderLegend() {
-    const root = $('legend');
-    root.innerHTML = '';
-    Object.entries(KIND_COLORS).forEach(([k, color]) => {
-      const row = document.createElement('div');
-      row.className = 'legend-item';
-      row.innerHTML = `<span class="legend-dot" style="background:${color}"></span>${k}`;
+  function nodeColor(n) {
+    if (n.layer && LAYER_COLORS[n.layer]) return LAYER_COLORS[n.layer];
+    return KIND_COLORS[n.kind] || KIND_COLORS.Entity;
+  }
+
+  function renderLegend(kindCounts) {
+    const root = $("legend");
+    root.innerHTML = "";
+    const ordered = [
+      "Company", "SubTheme", "Product", "Component",
+      "Bottleneck", "KeyDataPoint", "InvestmentThesis", "Source",
+    ];
+    ordered.forEach((k) => {
+      const c = KIND_COLORS[k];
+      const n = (kindCounts && kindCounts[k]) || 0;
+      const row = document.createElement("div");
+      row.className = "legend-item";
+      row.innerHTML = `<span class="legend-dot" style="background:${c}"></span>${k}<span class="count">${n || ""}</span>`;
       root.appendChild(row);
     });
   }
@@ -286,207 +664,339 @@
       const r = await fetch(`${API_BASE}/api/v1/industry_graph/stats`);
       if (!r.ok) throw new Error(`stats ${r.status}`);
       const s = await r.json();
-      $('stat-total-e').textContent = s.entities;
-      $('stat-total-r').textContent = s.relations;
-      $('stat-snap').textContent = `v${s.snapshot_version}`;
-      $('meta-line').textContent = `${s.entities} entities · ${s.relations} relations · ${s.kinds} kinds · ${s.tickers} tickers`;
+      $("stat-total-e").textContent = s.entities;
+      $("stat-total-r").textContent = s.relations;
+      $("stat-snap").textContent = s.snapshot_version;
+      $("meta-line").textContent =
+        `${s.entities} entities · ${s.relations} relations · ${s.kinds} kinds · ${s.tickers} tickers`;
+      $("live-tag").classList.remove("offline");
+      $("live-tag").textContent = "live";
     } catch (e) {
-      $('meta-line').textContent = `API unreachable @ ${API_BASE}`;
-      $('live-tag').style.background = 'var(--accent-2)';
-      $('live-tag').textContent = 'OFFLINE';
+      $("meta-line").textContent = `api unreachable @ ${API_BASE}`;
+      $("live-tag").classList.add("offline");
+      $("live-tag").textContent = "offline";
       throw e;
     }
   }
 
   async function fetchExport() {
-    const params = new URLSearchParams();
-    const k = $('kind-filter').value;
-    if (k) params.set('kind', k);
-    const limit = $('limit-input').value;
-    if (limit) params.set('limit', limit);
-    const r = await fetch(`${API_BASE}/api/v1/industry_graph/export?${params}`);
+    const p = new URLSearchParams();
+    const k = $("kind-filter").value;
+    if (k) p.set("kind", k);
+    const limit = $("limit-input").value;
+    if (limit) p.set("limit", limit);
+    const r = await fetch(`${API_BASE}/api/v1/industry_graph/export?${p}`);
     if (!r.ok) throw new Error(`export ${r.status}`);
     return r.json();
   }
 
+  function showError(msg) {
+    const main = $("cy-wrap");
+    main.innerHTML = `<div class="err"><strong>error</strong>${escapeHTML(msg)}<br/>api base: ${API_BASE}</div>`;
+  }
+
+  function renderEmpty() {
+    $("cy-wrap").innerHTML = `
+      <div class="empty-cy">
+        <div class="label">store · empty for this filter</div>
+        <h3>nothing to draw</h3>
+        <div>Seed the graph or relax the filter.</div>
+        <code>uv run python scripts/ingest_supply_chain_graph_seed.py &lt;path-to-seed.json&gt;</code>
+      </div>`;
+  }
+
   function renderGraph(payload) {
-    $('stat-nodes').textContent = payload.meta.node_count;
-    $('stat-edges').textContent = payload.meta.edge_count;
-    const wrap = $('cy-wrap');
+    // Determine which nodes have at least one edge in the visible payload.
+    const connected = new Set();
+    payload.edges.forEach((e) => { connected.add(e.source); connected.add(e.target); });
+    const showOrphans = $("orphans-toggle").checked;
+    const visibleNodes = showOrphans
+      ? payload.nodes
+      : payload.nodes.filter((n) => connected.has(n.id));
+
+    $("stat-nodes").textContent = visibleNodes.length;
+    $("stat-edges").textContent = payload.edges.length;
+    const kindCounts = visibleNodes.reduce((m, n) => {
+      m[n.kind] = (m[n.kind] || 0) + 1; return m;
+    }, {});
+    renderLegend(kindCounts);
+
+    const totalE = $("stat-total-e").textContent;
+    const orphanNote = !showOrphans && payload.nodes.length > visibleNodes.length
+      ? ` · ${payload.nodes.length - visibleNodes.length} orphans hidden`
+      : "";
+    $("filter-badge").textContent = `${visibleNodes.length} of ${totalE}${orphanNote}`;
+
+    const wrap = $("cy-wrap");
     wrap.innerHTML = '<div id="cy"></div>';
-    if (payload.nodes.length === 0) {
-      $('cy').outerHTML = `
-        <div class="empty-cy">
-          <div>Store has 0 entities matching the filter.</div>
-          <div>Seed it with:</div>
-          <code>uv run python scripts/ingest_supply_chain_graph_seed.py &lt;path-to-seed.json&gt;</code>
-        </div>`;
+
+    if (visibleNodes.length === 0) {
+      renderEmpty();
       return;
     }
 
+    payload = { ...payload, nodes: visibleNodes };
+
+    const ink = cssVar("--pearl");
+    const inkMute = cssVar("--pearl-mute");
+    const abyss = cssVar("--abyss-1");
+    const teal = cssVar("--teal");
+    const warn = cssVar("--warn");
+
     const cyNodes = payload.nodes.map((n) => ({
       data: {
-        id: n.id,
-        label: n.label,
-        kind: n.kind,
-        layer: n.layer || '',
-        desc: n.desc,
-        color: KIND_COLORS[n.kind] || KIND_COLORS.Entity,
-        raw: n,
+        id: n.id, label: n.label, kind: n.kind, layer: n.layer || "",
+        color: nodeColor(n), raw: n,
       },
     }));
     const cyEdges = payload.edges.map((e) => ({
       data: {
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: e.type,
-        raw: e,
+        id: e.id, source: e.source, target: e.target,
+        type: e.type, raw: e,
       },
     }));
 
     const cy = cytoscape({
-      container: $('cy'),
+      container: $("cy"),
       elements: { nodes: cyNodes, edges: cyEdges },
       style: [
         {
-          selector: 'node',
+          selector: "node",
           style: {
-            'background-color': 'data(color)',
-            label: 'data(label)',
-            'font-size': 9,
-            'font-family': 'ui-sans-serif, sans-serif',
-            color: '#e7ebf0',
-            'text-outline-color': '#0b0d12',
-            'text-outline-width': 2,
-            'text-valign': 'bottom',
-            'text-margin-y': 4,
-            width: 18,
-            height: 18,
-            'border-width': 1,
-            'border-color': 'rgba(255,255,255,0.2)',
+            "background-color": "data(color)",
+            "background-opacity": 0.9,
+            label: "data(label)",
+            "font-family": "Newsreader, Songti SC, Georgia, serif",
+            "font-size": 9.5,
+            "font-weight": 400,
+            color: ink,
+            "text-outline-color": abyss,
+            "text-outline-width": 2.2,
+            "text-valign": "bottom",
+            "text-margin-y": 5,
+            width: 14,
+            height: 14,
+            "border-width": 1,
+            "border-color": "rgba(255,255,255,0.06)",
+            "border-opacity": 1,
           },
         },
         {
-          selector: 'node[kind = "SubTheme"]',
-          style: { width: 28, height: 28, 'font-weight': 'bold' },
-        },
-        {
-          selector: 'node[kind = "Bottleneck"]',
-          style: { shape: 'diamond', width: 22, height: 22 },
-        },
-        {
-          selector: 'edge',
+          selector: "node[kind = 'SubTheme']",
           style: {
-            width: 0.7,
-            'line-color': 'rgba(120,140,170,0.35)',
-            'curve-style': 'bezier',
-            'target-arrow-shape': 'triangle',
-            'target-arrow-color': 'rgba(120,140,170,0.5)',
-            'arrow-scale': 0.7,
+            width: 26, height: 26,
+            "font-family": "Fraunces, Songti SC, Georgia, serif",
+            "font-size": 12, "font-weight": 500,
           },
         },
         {
-          selector: 'edge[type = "competes_with"]',
-          style: { 'line-color': 'rgba(255,107,107,0.45)', 'line-style': 'dashed' },
+          selector: "node[kind = 'Bottleneck']",
+          style: { shape: "diamond", width: 18, height: 18 },
         },
         {
-          selector: 'edge[type = "themed_under"]',
-          style: { 'line-color': 'rgba(255,157,108,0.35)' },
+          selector: "node[kind = 'InvestmentThesis']",
+          style: { shape: "round-rectangle", width: 22, height: 14 },
         },
         {
-          selector: '.selected',
+          selector: "node[kind = 'KeyDataPoint']",
+          style: { shape: "triangle", width: 14, height: 14 },
+        },
+        {
+          selector: "node[kind = 'Source']",
+          style: { "background-opacity": 0.45, width: 9, height: 9 },
+        },
+        {
+          selector: "edge",
           style: {
-            'border-width': 3,
-            'border-color': '#ffd166',
-            width: 26,
-            height: 26,
+            width: 0.65,
+            "line-color": cssVar("--hair-bright"),
+            "curve-style": "bezier",
+            "target-arrow-shape": "triangle",
+            "target-arrow-color": cssVar("--hair-bright"),
+            "arrow-scale": 0.7,
+            opacity: 0.7,
           },
         },
         {
-          selector: 'edge.selected',
+          selector: "edge[type = 'supplies_to']",
+          style: { "line-color": teal, "target-arrow-color": teal, opacity: 0.65 },
+        },
+        {
+          selector: "edge[type = 'competes_with']",
           style: {
-            width: 2.4,
-            'line-color': '#ffd166',
-            'target-arrow-color': '#ffd166',
+            "line-color": warn, "target-arrow-color": warn,
+            "line-style": "dashed", opacity: 0.55,
           },
+        },
+        {
+          selector: "edge[type = 'themed_under']",
+          style: { "line-color": cssVar("--L-theme"), "target-arrow-color": cssVar("--L-theme"), opacity: 0.4 },
+        },
+        {
+          selector: "edge[type = 'produces'], edge[type = 'part_of']",
+          style: { "line-color": cssVar("--L-assembly"), "target-arrow-color": cssVar("--L-assembly") },
+        },
+        {
+          selector: ".selected",
+          style: {
+            "border-width": 2.5,
+            "border-color": teal,
+            "border-opacity": 1,
+            width: 22, height: 22,
+            "z-index": 99,
+          },
+        },
+        {
+          selector: "edge.selected",
+          style: {
+            width: 2.2,
+            "line-color": teal,
+            "target-arrow-color": teal,
+            opacity: 1,
+            "z-index": 99,
+          },
+        },
+        {
+          selector: ".dimmed",
+          style: { opacity: 0.12 },
         },
       ],
-      layout: pickLayout(),
+      layout: {
+        name: "cose",
+        animate: false,
+        idealEdgeLength: 110,
+        nodeRepulsion: 520000,
+        gravity: 0.32,
+        edgeElasticity: 0.42,
+        componentSpacing: 120,
+        numIter: 2200,
+        randomize: true,
+      },
+      minZoom: 0.18,
+      maxZoom: 2.6,
     });
 
-    cy.on('tap', (evt) => {
-      cy.elements().removeClass('selected');
+    // Hide labels below a zoom threshold so the dense view stays calm; zoom
+    // in to reveal them. Selected nodes always show their label.
+    const labelThreshold = 0.65;
+    function syncLabels() {
+      const z = cy.zoom();
+      const showAll = z >= labelThreshold;
+      cy.nodes().forEach((n) => {
+        const big = n.data("kind") === "SubTheme" || n.hasClass("selected");
+        n.style("label", showAll || big ? n.data("label") : "");
+      });
+    }
+    syncLabels();
+    cy.on("zoom", syncLabels);
+
+    cy.on("tap", (evt) => {
+      cy.elements().removeClass("selected dimmed");
       if (evt.target === cy) {
         showEmptyDetail();
+        syncLabels();
         return;
       }
-      evt.target.addClass('selected');
-      const raw = evt.target.data('raw');
-      if (evt.target.isNode()) renderNodeDetail(raw);
-      else renderEdgeDetail(raw);
+      const t = evt.target;
+      t.addClass("selected");
+      if (t.isNode()) {
+        const neigh = t.closedNeighborhood();
+        cy.elements().difference(neigh).addClass("dimmed");
+        // reveal labels in the neighborhood
+        neigh.nodes().forEach((n) => n.style("label", n.data("label")));
+        renderNodeDetail(t.data("raw"));
+      } else {
+        t.connectedNodes().addClass("selected");
+        cy.elements().difference(t.union(t.connectedNodes())).addClass("dimmed");
+        t.connectedNodes().forEach((n) => n.style("label", n.data("label")));
+        renderEdgeDetail(t.data("raw"));
+      }
     });
   }
 
   function showEmptyDetail() {
-    $('detail-pane').innerHTML = `<h2>selection</h2>
-      <div class="detail-card" style="color:var(--muted);">Click a node or edge to inspect.</div>`;
+    $("detail-pane").innerHTML = `
+      <div class="panel-eyebrow">selection</div>
+      <div class="empty-detail">Click a node or edge to inspect.</div>`;
+  }
+
+  function metaRow(k, v) {
+    if (v == null || v === "") return "";
+    return `<div class="s-meta-row"><span class="k">${escapeHTML(k)}</span><span class="v">${escapeHTML(v)}</span></div>`;
   }
 
   function renderNodeDetail(n) {
-    const aliases = (n.aliases || []).join(', ');
-    const facets = Object.entries(n.facets || {})
-      .map(([k, v]) => `<dt>${k}</dt><dd>${escape(JSON.stringify(v))}</dd>`)
-      .join('');
-    const attrs = Object.entries(n.attributes || {})
-      .filter(([k]) => k !== 'role')
-      .slice(0, 12)
-      .map(([k, v]) => `<dt>${k}</dt><dd>${escape(typeof v === 'string' ? v : JSON.stringify(v))}</dd>`)
-      .join('');
-    $('detail-pane').innerHTML = `
-      <h2>node</h2>
-      <div class="detail-card">
-        <span class="kind-tag">${n.kind}</span>
-        <h3>${escape(n.label)}</h3>
-        <div class="desc">${escape(n.desc || '—')}</div>
-        <dl>
-          <dt>id</dt><dd>${escape(n.id)}</dd>
-          ${n.layer ? `<dt>layer</dt><dd>${escape(n.layer)}</dd>` : ''}
-          ${aliases ? `<dt>aliases</dt><dd>${escape(aliases)}</dd>` : ''}
-          ${n.confidence != null ? `<dt>confidence</dt><dd>${n.confidence}</dd>` : ''}
-          ${n.source ? `<dt>source</dt><dd>${escape(n.source)}</dd>` : ''}
-          ${facets}
-          ${attrs}
-        </dl>
+    const aliases = (n.aliases || []).join(", ");
+    const bar = nodeColor(n);
+    const facetRows = Object.entries(n.facets || {})
+      .map(([k, v]) => metaRow(k, Array.isArray(v) ? v.join(", ") : JSON.stringify(v)))
+      .join("");
+    const attrRows = Object.entries(n.attributes || {})
+      .filter(([k]) => !["role", "ticker"].includes(k))
+      .slice(0, 8)
+      .map(([k, v]) => metaRow(k, typeof v === "string" ? v : JSON.stringify(v)))
+      .join("");
+    $("detail-pane").innerHTML = `
+      <div class="panel-eyebrow">node</div>
+      <div class="s-kind">${escapeHTML(n.kind)}${n.layer ? " · " + escapeHTML(n.layer) : ""}</div>
+      <div class="s-name">
+        <span class="bar" style="background:${bar}"></span>
+        <span>${escapeHTML(n.label)}</span>
+      </div>
+      ${aliases ? `<div class="s-aliases">${escapeHTML(aliases)}</div>` : ""}
+      ${n.desc ? `<div class="s-desc">${escapeHTML(n.desc)}</div>` : ""}
+      <div class="s-meta">
+        ${metaRow("id", n.id)}
+        ${metaRow("layer", n.layer)}
+        ${n.confidence != null ? metaRow("confidence", n.confidence) : ""}
+        ${metaRow("source", n.source)}
+        ${facetRows}
+        ${attrRows}
       </div>`;
   }
 
   function renderEdgeDetail(e) {
-    const wbpRows = Object.entries(e.wbp || {})
-      .sort()
-      .map(([period, vals]) => {
-        const [share, delta, conf] = vals;
-        return `<dt>${period}</dt><dd>share=${share}, Δ=${delta}, conf=${conf}</dd>`;
-      })
-      .join('');
-    $('detail-pane').innerHTML = `
-      <h2>edge</h2>
-      <div class="detail-card">
-        <span class="kind-tag">${e.type}</span>
-        <h3>${escape(e.source)} → ${escape(e.target)}</h3>
-        <dl>
-          <dt>id</dt><dd>${escape(e.id)}</dd>
-          ${e.confidence != null ? `<dt>confidence</dt><dd>${e.confidence}</dd>` : ''}
-          ${e.evidence_type ? `<dt>evidence</dt><dd>${escape(e.evidence_type)}</dd>` : ''}
-          ${e.evidence_ref ? `<dt>source</dt><dd>${escape(e.evidence_ref)}</dd>` : ''}
-          ${wbpRows}
-        </dl>
-      </div>`;
+    const wbpEntries = Object.entries(e.wbp || {}).sort();
+    const wcells = wbpEntries.map(([year, vals]) => {
+      const [share, delta, conf] = vals;
+      return `
+        <div class="ew-cell">
+          <div class="y">${escapeHTML(year)}</div>
+          <div class="v">${share != null ? share.toFixed(2) : "—"}</div>
+          <div class="extra">Δ ${delta != null ? delta.toFixed(2) : "—"} · ${conf != null ? "c" + conf.toFixed(2) : ""}</div>
+        </div>`;
+    }).join("");
+
+    $("detail-pane").innerHTML = `
+      <div class="panel-eyebrow">edge</div>
+      <div class="edge-type-tag">${escapeHTML(e.type)}</div>
+      <div class="edge-arrow">
+        <span>${escapeHTML(e.source)}</span>
+        <span class="arrow">→</span>
+        <span>${escapeHTML(e.target)}</span>
+      </div>
+      <div class="s-meta">
+        ${metaRow("id", e.id)}
+        ${e.confidence != null ? metaRow("confidence", e.confidence) : ""}
+        ${metaRow("evidence", e.evidence_type)}
+        ${metaRow("source", e.evidence_ref)}
+      </div>
+      ${wcells ? `<div class="s-section"><h3>weights by period</h3><div class="edge-weights">${wcells}</div></div>` : ""}`;
   }
 
-  function escape(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // ── theme toggle (mirrors PortalShell behaviour) ────────────────────────
+  function syncThemeButton() {
+    const t = document.documentElement.getAttribute("data-theme") || "night";
+    $("theme-btn").textContent = t === "night" ? "day" : "night";
+  }
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute("data-theme") || "night";
+    const next = cur === "night" ? "day" : "night";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("shinkai.theme", next); } catch (e) {}
+    syncThemeButton();
+    refreshPalette();
+    refresh();
   }
 
   async function refresh() {
@@ -495,15 +1005,16 @@
       const data = await fetchExport();
       renderGraph(data);
     } catch (e) {
-      const w = $('cy-wrap');
-      w.innerHTML = `<div class="err">Could not load graph: ${escape(e.message)}<br>API base: ${API_BASE}</div>`;
+      showError(e.message);
     }
   }
 
-  renderLegend();
+  syncThemeButton();
   showEmptyDetail();
-  $('kind-filter').addEventListener('change', refresh);
-  $('limit-input').addEventListener('change', refresh);
+  $("kind-filter").addEventListener("change", refresh);
+  $("limit-input").addEventListener("change", refresh);
+  $("orphans-toggle").addEventListener("change", refresh);
+  $("theme-btn").addEventListener("click", toggleTheme);
   refresh();
 </script>
 </body>
