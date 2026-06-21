@@ -18,6 +18,7 @@ already-ingested seed data that the agent can discover with ``find_*`` /
 from __future__ import annotations
 
 import json
+import re
 import secrets
 from datetime import UTC, datetime
 from typing import Any
@@ -26,6 +27,33 @@ from shinkai_api.llm.deepseek import DeepSeekClient, DeepSeekError
 
 from .e2e_runner import ToolDispatcher
 from .service import IndustryGraphStore
+
+# Captures every entity/relation id-shaped token appearing in tool args or
+# results. Used to populate ``AgentLoop.touched_ids`` so SubjectVersion can
+# record exactly which nodes this analysis pass was about, regardless of
+# whether they ended up mutated.
+_ID_PATTERN = re.compile(
+    r"\b(?:co|bn|kdp|ith|st|cmp|pd|src|sec|reg|tech|sup|r):[A-Za-z0-9_\.\-~/]+",
+)
+
+
+def _harvest_ids(payload: Any) -> set[str]:
+    """Walk an arbitrary nested payload and pull every id-shaped token."""
+    if payload is None:
+        return set()
+    if isinstance(payload, str):
+        return set(_ID_PATTERN.findall(payload))
+    if isinstance(payload, dict):
+        out: set[str] = set()
+        for v in payload.values():
+            out |= _harvest_ids(v)
+        return out
+    if isinstance(payload, (list, tuple, set)):
+        out = set()
+        for item in payload:
+            out |= _harvest_ids(item)
+        return out
+    return set()
 
 AGENT_SYSTEM_PROMPT = """You are an autonomous agent operating shinkai's industry knowledge graph.
 
@@ -159,6 +187,7 @@ class AgentLoop:
         max_turns: int = 20,
         max_tokens_per_turn: int = 1200,
         temperature: float = 0.2,
+        session_id: str | None = None,
     ) -> None:
         self.store = store
         self.dispatcher = ToolDispatcher(store)
@@ -167,9 +196,13 @@ class AgentLoop:
         self.max_turns = max_turns
         self.max_tokens_per_turn = max_tokens_per_turn
         self.temperature = temperature
-        self.session_id = secrets.token_hex(4)
+        self.session_id = session_id or secrets.token_hex(4)
         self.history: list[dict[str, str]] = []
         self.actions: list[dict[str, Any]] = []
+        # Scope frontier: every id-shaped token the agent saw across tool
+        # args + results. Populated automatically and surfaced on the
+        # summary so SubjectVersion can record exact coverage.
+        self.touched_ids: set[str] = set()
         self._done_summary: str | None = None
 
     def _seed_history(self) -> None:
@@ -238,6 +271,10 @@ class AgentLoop:
             # Execute through the dispatcher (auto source_id injection lives there).
             results = await self.dispatcher.run_calls([{"tool": tool_name, "args": args}])
             result = results[0]
+            # Capture scope ids from BOTH args and result data, so a query
+            # that didn't mutate anything still contributes to coverage.
+            self.touched_ids |= _harvest_ids(args)
+            self.touched_ids |= _harvest_ids(result.get("data"))
             self.actions.append(
                 {
                     "turn": turn,
@@ -268,6 +305,7 @@ class AgentLoop:
             "started_at": started_at,
             "finished_at": finished_at,
             "actions": self.actions,
+            "touched_ids": sorted(self.touched_ids),
             "store_stats": self.store.stats(),
         }
 

@@ -331,3 +331,152 @@ def test_run_lock_isolated_per_subject(tmp_path: Path) -> None:
             assert store.is_run_in_flight("subj:aapl") is False
 
     asyncio.run(run())
+
+
+# ── orchestrator ──────────────────────────────────────────────────────────
+def test_orchestrator_writes_completed_version_with_scope(tmp_path: Path) -> None:
+    """run_subject_analysis: pending row → AgentLoop → completed row with
+    scope_node_ids harvested from the agent's tool results."""
+    from shinkai_api.industry_graph import IndustryGraphStore
+    from shinkai_api.industry_graph.subjects import run_subject_analysis
+
+    async def run() -> None:
+        graph = IndustryGraphStore(root=tmp_path)
+        await graph.load()
+        ss = SubjectStore(fs=graph.fs)
+        await ss.load()
+
+        subj = _company_subject("nvda", "co:NVDA")
+        await ss.upsert_subject(subj)
+
+        # Fake agent that simulates 3 tool calls touching three ids.
+        async def fake_agent(**kw) -> dict:
+            return {
+                "session_id": kw["run_id"],
+                "task": kw["task"],
+                "turns_used": 3,
+                "done_summary": "exploration only",
+                "started_at": "2026-06-21T00:00:00+00:00",
+                "finished_at": "2026-06-21T00:01:00+00:00",
+                "actions": [],
+                "touched_ids": ["co:NVDA", "co:AMD", "co:TSMC", "r:supplies_to~co:TSMC~co:NVDA"],
+                "store_stats": {},
+            }
+
+        final = await run_subject_analysis(
+            subject=subj,
+            subject_store=ss,
+            graph_store=graph,
+            client=None,  # type: ignore[arg-type]
+            agent_factory=fake_agent,
+        )
+        assert final.status == "completed"
+        # version 1 since no migration v1
+        assert final.version_no == 1
+        # scope excludes relation ids, includes the three entities.
+        assert "co:NVDA" in final.scope_node_ids
+        assert "co:AMD" in final.scope_node_ids
+        assert not any(s.startswith("r:") for s in final.scope_node_ids)
+        # change_summary is computed but should be a no-op SubjectVersionChangeSummary
+        # (no new snapshots were created).
+        assert final.change_summary is not None
+        assert final.change_summary.entities_added == 0
+        # Persisted row reflects the same.
+        from shinkai_api.industry_graph.store.file_store import IndustryGraphFileStore
+        fresh = SubjectStore(fs=IndustryGraphFileStore(root=tmp_path))
+        await fresh.load()
+        row = await fresh.get_version(final.id)
+        assert row is not None and row.status == "completed"
+
+    asyncio.run(run())
+
+
+def test_orchestrator_failure_persists_failed_status(tmp_path: Path) -> None:
+    from shinkai_api.industry_graph import IndustryGraphStore
+    from shinkai_api.industry_graph.subjects import run_subject_analysis
+
+    async def run() -> None:
+        graph = IndustryGraphStore(root=tmp_path)
+        await graph.load()
+        ss = SubjectStore(fs=graph.fs)
+        await ss.load()
+        subj = _company_subject("aapl", "co:AAPL")
+        await ss.upsert_subject(subj)
+
+        async def angry_agent(**kw) -> dict:
+            raise RuntimeError("LLM is having a bad day")
+
+        try:
+            await run_subject_analysis(
+                subject=subj,
+                subject_store=ss,
+                graph_store=graph,
+                client=None,  # type: ignore[arg-type]
+                agent_factory=angry_agent,
+            )
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("orchestrator should have re-raised")
+
+        rows = await ss.list_versions(subj.id)
+        assert len(rows) == 1 and rows[0].status == "failed"
+        assert rows[0].error and "bad day" in rows[0].error
+
+    asyncio.run(run())
+
+
+def test_orchestrator_serializes_concurrent_runs(tmp_path: Path) -> None:
+    """Two concurrent run_subject_analysis calls: the second must raise
+    SubjectLockBusy without starting."""
+    from shinkai_api.industry_graph import IndustryGraphStore
+    from shinkai_api.industry_graph.subjects import (
+        SubjectLockBusy,
+        run_subject_analysis,
+    )
+
+    async def run() -> None:
+        graph = IndustryGraphStore(root=tmp_path)
+        await graph.load()
+        ss = SubjectStore(fs=graph.fs)
+        await ss.load()
+        subj = _company_subject("nvda", "co:NVDA")
+        await ss.upsert_subject(subj)
+
+        slow_started = asyncio.Event()
+        slow_release = asyncio.Event()
+
+        async def slow_agent(**kw) -> dict:
+            slow_started.set()
+            await slow_release.wait()
+            return {
+                "session_id": kw["run_id"], "task": kw["task"], "turns_used": 1,
+                "done_summary": "slow", "started_at": "", "finished_at": "",
+                "actions": [], "touched_ids": ["co:NVDA"], "store_stats": {},
+            }
+
+        first = asyncio.create_task(run_subject_analysis(
+            subject=subj, subject_store=ss, graph_store=graph,
+            client=None, agent_factory=slow_agent,  # type: ignore[arg-type]
+        ))
+        await slow_started.wait()  # first run is now inside the lock
+
+        # Second concurrent attempt should bail out.
+        async def fast_agent(**kw) -> dict:  # pragma: no cover - never called
+            raise AssertionError("second run must not start")
+
+        try:
+            await run_subject_analysis(
+                subject=subj, subject_store=ss, graph_store=graph,
+                client=None, agent_factory=fast_agent,  # type: ignore[arg-type]
+            )
+        except SubjectLockBusy:
+            pass
+        else:
+            raise AssertionError("expected SubjectLockBusy")
+
+        slow_release.set()
+        result = await first
+        assert result.status == "completed"
+
+    asyncio.run(run())

@@ -25,10 +25,18 @@ from .models import (
     SubjectVersionStatus,
     SubjectVersionTrigger,
 )
-from .store import SubjectStore
+from .orchestrator import (
+    build_task_prompt,
+    compute_change_summary,
+    finish_subject_run,
+    prepare_subject_run,
+    run_subject_analysis,
+)
+from .store import SubjectLockBusy, SubjectStore
 
 __all__ = [
     "Subject",
+    "SubjectLockBusy",
     "SubjectSchedule",
     "SubjectStore",
     "SubjectType",
@@ -36,4 +44,9 @@ __all__ = [
     "SubjectVersionChangeSummary",
     "SubjectVersionStatus",
     "SubjectVersionTrigger",
+    "build_task_prompt",
+    "compute_change_summary",
+    "finish_subject_run",
+    "prepare_subject_run",
+    "run_subject_analysis",
 ]

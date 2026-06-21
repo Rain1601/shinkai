@@ -23,16 +23,30 @@ Relations: id, source/target, type, weights → ``wbp`` keyed by period, plus
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
 
-from shinkai_api.industry_graph import IndustryGraphStore
+from shinkai_api.industry_graph import (
+    IndustryGraphStore,
+    Subject,
+    SubjectStore,
+    SubjectVersion,
+)
 from shinkai_api.industry_graph.layer_map import derive_supply_layer
+from shinkai_api.industry_graph.subjects import (
+    SubjectLockBusy,
+    finish_subject_run,
+    prepare_subject_run,
+)
+from shinkai_api.llm.deepseek import DeepSeekClient
 
 router = APIRouter(prefix="/industry_graph", tags=["industry_graph"])
 
 _store: IndustryGraphStore | None = None
+_subject_store: SubjectStore | None = None
 _load_lock = asyncio.Lock()
 
 
@@ -46,6 +60,36 @@ async def _get_store() -> IndustryGraphStore:
             await store.load()
             _store = store
     return _store
+
+
+async def _get_subject_store() -> SubjectStore:
+    global _subject_store
+    if _subject_store is not None:
+        return _subject_store
+    graph = await _get_store()
+    async with _load_lock:
+        if _subject_store is None:
+            ss = SubjectStore(fs=graph.fs)
+            await ss.load()
+            _subject_store = ss
+    return _subject_store
+
+
+def _build_deepseek_client() -> DeepSeekClient:
+    """Construct a DeepSeek client from env settings. Raises 503 if no key.
+
+    Falls back to the constructor default model (deepseek-chat); the harness
+    side uses settings.llm_model — wire to it once the routes start sharing
+    that config import.
+    """
+    key = os.environ.get("SHINKAI_DEEPSEEK_API_KEY", "")
+    if not key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SHINKAI_DEEPSEEK_API_KEY not configured",
+        )
+    model = os.environ.get("SHINKAI_LLM_MODEL") or "deepseek-chat"
+    return DeepSeekClient(api_key=key, model=model)
 
 
 def _layer_from_facets(facets: dict[str, Any] | None, kind: str) -> str | None:
@@ -282,8 +326,145 @@ async def anchors(limit: int = 80) -> dict[str, Any]:
 
 @router.post("/_reload")
 async def reload_store() -> dict[str, Any]:
-    """Drop the cached singleton — next request rereads disk. Dev helper."""
-    global _store
+    """Drop the cached singletons — next request rereads disk. Dev helper."""
+    global _store, _subject_store
     _store = None
+    _subject_store = None
     s = await _get_store()
     return {"ok": True, "stats": s.index.stats()}
+
+
+# ── Subjects ───────────────────────────────────────────────────────────────
+
+
+class SubjectRunRequest(BaseModel):
+    triggered_by: str = Field(default="manual", pattern="^(manual|schedule|agent)$")
+    task_override: str | None = None
+    max_turns: int = Field(default=20, ge=1, le=100)
+
+
+def _subject_to_dict(s: Subject) -> dict[str, Any]:
+    return s.model_dump(mode="json")
+
+
+def _version_to_dict(v: SubjectVersion) -> dict[str, Any]:
+    return v.model_dump(mode="json")
+
+
+@router.get("/subjects")
+async def list_subjects() -> dict[str, Any]:
+    """All Subjects with their latest version meta — feeds the list page."""
+    ss = await _get_subject_store()
+    rows = await ss.list_subjects()
+    out: list[dict[str, Any]] = []
+    for subj in rows:
+        versions = await ss.list_versions(subj.id)
+        latest = versions[-1] if versions else None
+        out.append(
+            {
+                **_subject_to_dict(subj),
+                "version_count": len(versions),
+                "latest_version": _version_to_dict(latest) if latest else None,
+            }
+        )
+    # Sort by recency of last activity (most recent ended_at first); subjects
+    # without versions go to the bottom.
+    def _key(item: dict[str, Any]) -> tuple[int, str]:
+        lv = item.get("latest_version") or {}
+        return (0 if lv.get("ended_at") else 1, lv.get("ended_at") or item["id"])
+
+    out.sort(key=_key)
+    return {"subjects": out}
+
+
+@router.get("/subjects/{subject_id}")
+async def get_subject(subject_id: str) -> dict[str, Any]:
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+    versions = await ss.list_versions(subject_id)
+    return {
+        **_subject_to_dict(subj),
+        "versions": [_version_to_dict(v) for v in versions],
+    }
+
+
+@router.post("/subjects/{subject_id}/run", status_code=status.HTTP_202_ACCEPTED)
+async def post_subject_run(
+    subject_id: str, body: SubjectRunRequest | None = None
+) -> dict[str, Any]:
+    """Kick off a new analysis pass on this Subject.
+
+    Returns 202 with the freshly-created pending SubjectVersion.
+    Returns 409 if another run is already in flight for this Subject.
+    Returns 404 if the Subject does not exist.
+
+    To eliminate the race window between "is a run in flight?" and the
+    background task actually acquiring the lock, the request handler
+    acquires the lock SYNCHRONOUSLY (raising 409 on contention) and the
+    spawned task is the one that releases it on completion.
+    """
+    body = body or SubjectRunRequest()
+    ss = await _get_subject_store()
+    subj = await ss.get_subject(subject_id)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="subject not found")
+
+    graph = await _get_store()
+    client = _build_deepseek_client()
+
+    # Atomic lock acquire — raises if already held by another in-flight run.
+    lock = ss._lock_for(subject_id)
+    if lock.locked():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="another analysis run is already in flight for this subject",
+        )
+    await lock.acquire()
+
+    # Persist the pending row while we still hold the request context, so
+    # the immediate GET that the client may do after a 202 reflects the
+    # new version_no with status=running.
+    try:
+        pending = await prepare_subject_run(
+            subject=subj,
+            subject_store=ss,
+            graph_store=graph,
+            triggered_by=body.triggered_by,  # type: ignore[arg-type]
+            task_override=body.task_override,
+        )
+    except Exception:
+        lock.release()
+        raise
+
+    async def _execute() -> None:
+        try:
+            await finish_subject_run(
+                pending=pending,
+                subject_store=ss,
+                graph_store=graph,
+                client=client,
+                max_turns=body.max_turns,
+            )
+        except SubjectLockBusy:
+            return
+        except Exception:
+            # finish_subject_run already wrote status=failed before re-raising.
+            return
+        finally:
+            lock.release()
+
+    task = asyncio.create_task(_execute())
+    _pending_tasks.add(task)
+    task.add_done_callback(_pending_tasks.discard)
+
+    return {
+        "subject_id": subject_id,
+        "status": "accepted",
+        "pending": _version_to_dict(pending),
+    }
+
+
+# Module-level set so background tasks survive event-loop GC until done.
+_pending_tasks: set[asyncio.Task] = set()
