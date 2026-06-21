@@ -91,6 +91,56 @@ class DeepSeekClient:
 
         return await asyncio.to_thread(self._post_chat_completions, payload)
 
+    async def chat_messages(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        max_tokens: int = 1800,
+        response_format: dict[str, str] | None = None,
+    ) -> DeepSeekResult:
+        """Multi-turn variant: caller supplies the full message history.
+
+        Each item is ``{"role": "system"|"user"|"assistant", "content": str}``.
+        Used by the agentic loop: the orchestrator carries the history and
+        feeds tool results back as ``user`` messages between LLM turns.
+        """
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if response_format is not None:
+            payload["response_format"] = response_format
+        return await asyncio.to_thread(self._post_chat_completions, payload)
+
+    async def chat_messages_json(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        temperature: float = 0.2,
+        max_tokens: int = 1800,
+    ) -> dict[str, Any]:
+        """Multi-turn JSON-mode helper. Parses the assistant response as JSON."""
+        result = await self.chat_messages(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
+        try:
+            parsed = json.loads(result.content)
+        except json.JSONDecodeError as exc:
+            preview = result.content[:240]
+            raise DeepSeekError(
+                f"DeepSeek returned non-JSON content: {preview}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise DeepSeekError("DeepSeek JSON response must be an object")
+        parsed["_usage"] = result.usage.model_dump()
+        return parsed
+
     def _post_chat_completions(self, payload: dict[str, Any]) -> DeepSeekResult:
         url = f"{self.base_url}/chat/completions"
         body = json.dumps(payload).encode("utf-8")
