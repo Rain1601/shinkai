@@ -679,8 +679,29 @@
   let anchorId = "";
   let currentPayload = null;
   let cy = null;
+  let railEntries = [];
   const H_VIRT = 1100;  // virtual canvas height used by computePositions
   const W_VIRT = 1400;
+  const MORPH_DURATION = 650;
+  const FADE_DURATION = 260;
+
+  // Shared sync function: reads `cy` + `railEntries` at call time, so the
+  // closure stays valid across morph cycles that swap the underlying arrays.
+  function syncRail() {
+    if (!cy) return;
+    const rail = document.getElementById("strata-rail");
+    if (!rail) return;
+    const wrap = document.getElementById("cy-wrap");
+    if (!wrap) return;
+    const wrapBox = wrap.getBoundingClientRect();
+    const pan = cy.pan();
+    const z = cy.zoom();
+    rail.innerHTML = railEntries.map((r) => {
+      const screenY = r.virtualY * z + pan.y;
+      if (screenY < 6 || screenY > wrapBox.height - 6) return "";
+      return `<div class="strata-row ${r.klass}" style="top:${screenY}px;">${r.label}<span class="count">${r.count}</span></div>`;
+    }).join("");
+  }
 
   // ── fetchers ───────────────────────────────────────────────────────────
   async function fetchStats() {
@@ -918,7 +939,46 @@
   }
 
   // ── render ──────────────────────────────────────────────────────────────
-  function renderGraph(payload) {
+  function computeRailEntries(cyNodes, visibleNodes, roles, layoutOut) {
+    const entries = [];
+    entries.push({
+      klass: "buyer", label: "Buyers · Customers",
+      virtualY: H_VIRT * 0.14,
+      count: cyNodes.filter((n) => n.data.role === "buyer").length,
+    });
+    entries.push({ klass: "anchor", label: "Anchor", virtualY: H_VIRT * 0.40, count: 1 });
+    if (cyNodes.some((n) => n.data.role === "competitor")) {
+      entries.push({
+        klass: "competitor", label: "Competitors",
+        virtualY: H_VIRT * 0.32,
+        count: cyNodes.filter((n) => n.data.role === "competitor").length,
+      });
+    }
+    for (const layer of layoutOut.supplierLayers) {
+      const y = layoutOut.layerYByName.get(layer);
+      const cnt = visibleNodes.filter(
+        (n) => roles.get(n.id) === "supplier" && (n.layer || "other") === layer
+      ).length;
+      const lbl = LAYER_LABEL[layer] || layer;
+      entries.push({ klass: "layer", label: lbl, virtualY: y, count: cnt });
+    }
+    return entries;
+  }
+
+  function applyLabelToggle() {
+    if (!cy) return;
+    const show = $("toggle-labels").checked;
+    cy.nodes().forEach((n) => {
+      if (show || n.data("isAnchor")) {
+        n.style("label", n.data("label"));
+      } else {
+        n.style("label", "");
+      }
+    });
+  }
+
+  function renderGraph(payload, opts) {
+    opts = opts || {};
     currentPayload = payload;
     const roles = classifyRoles(payload);
 
@@ -951,6 +1011,7 @@
       </div>`).join("");
 
     if (visibleNodes.length === 0) {
+      if (cy) { cy.destroy(); cy = null; }
       $("cy-wrap").querySelector("#cy").innerHTML = "";
       return;
     }
@@ -964,13 +1025,12 @@
     const cyNodes = visibleNodes.map((n) => {
       const role = roles.get(n.id) || "other";
       const isAnchor = role === "anchor";
-      return {
-        data: {
-          id: n.id, label: n.label, kind: n.kind,
-          role, color: colorForRole(role), raw: n, isAnchor,
-        },
-        position: positions.get(n.id),
+      const data = {
+        id: n.id, label: n.label, kind: n.kind,
+        role, color: colorForRole(role), raw: n,
       };
+      if (isAnchor) data.isAnchor = true;
+      return { data, position: positions.get(n.id) };
     });
     const cyEdges = visibleEdges.map((e) => ({
       data: {
@@ -980,6 +1040,12 @@
         raw: e,
       },
     }));
+
+    // ── Morph path: cy exists and we were asked to animate the transition.
+    if (opts.animate && cy && cy.elements().length > 0) {
+      morphInto({ payload, roles, cyNodes, cyEdges, layoutOut, visibleNodes });
+      return;
+    }
 
     const ink = cssVar("--pearl");
     const abyss = cssVar("--abyss");
@@ -1102,31 +1168,9 @@
       maxZoom: 2.4,
     });
 
-    // ── Strata rail: synthesize HTML labels in canvas coordinates and sync
-    //     their positions to cytoscape's projected Y on every pan/zoom.
-    const railEntries = [];
-    railEntries.push({ klass: "buyer", label: "Buyers · Customers", virtualY: H_VIRT * 0.14, count: cyNodes.filter((n) => n.data.role === "buyer").length });
-    railEntries.push({ klass: "anchor", label: "Anchor", virtualY: H_VIRT * 0.40, count: 1 });
-    if (cyNodes.some((n) => n.data.role === "competitor")) {
-      railEntries.push({ klass: "competitor", label: "Competitors", virtualY: H_VIRT * 0.32, count: cyNodes.filter((n) => n.data.role === "competitor").length });
-    }
-    for (const layer of layoutOut.supplierLayers) {
-      const y = layoutOut.layerYByName.get(layer);
-      const cnt = visibleNodes.filter((n) => roles.get(n.id) === "supplier" && (n.layer || "other") === layer).length;
-      const lbl = LAYER_LABEL[layer] || layer;
-      railEntries.push({ klass: "layer", label: lbl, virtualY: y, count: cnt });
-    }
-    function syncRail() {
-      const rail = $("strata-rail");
-      const wrapBox = $("cy-wrap").getBoundingClientRect();
-      const pan = cy.pan();
-      const z = cy.zoom();
-      rail.innerHTML = railEntries.map((r) => {
-        const screenY = r.virtualY * z + pan.y;
-        if (screenY < 6 || screenY > wrapBox.height - 6) return "";
-        return `<div class="strata-row ${r.klass}" style="top:${screenY}px;">${r.label}<span class="count">${r.count}</span></div>`;
-      }).join("");
-    }
+    // Strata rail entries — updated in place so the cy zoom/pan handler
+    // (which closes over module-scope `railEntries`) projects the right rows.
+    railEntries = computeRailEntries(cyNodes, visibleNodes, roles, layoutOut);
     cy.on("zoom pan", syncRail);
 
     cy.on("tap", (evt) => {
@@ -1157,18 +1201,84 @@
       }
     });
 
-    // Always-show-labels off → hide labels except anchor + selection
-    if (!$("toggle-labels").checked) {
-      cy.nodes().forEach((n) => {
-        if (!n.data("isAnchor")) n.style("label", "");
-      });
-    }
-
+    applyLabelToggle();
     cy.fit(undefined, 60);
     syncRail();
 
     // Render the anchor's detail card on first paint.
     renderAnchorDetail();
+  }
+
+  // ── morph: animate from current cy state to a new payload ───────────────
+  function morphInto({ payload, roles, cyNodes, cyEdges, layoutOut, visibleNodes }) {
+    const newNodeData = new Map(cyNodes.map((d) => [d.data.id, d]));
+    const newEdgeData = new Map(cyEdges.map((d) => [d.data.id, d]));
+
+    // 1. Fade out + remove elements no longer present.
+    const stale = cy.elements().filter((el) => {
+      if (el.isNode()) return !newNodeData.has(el.id());
+      return !newEdgeData.has(el.id());
+    });
+    if (stale.length) {
+      stale.animate(
+        { style: { opacity: 0 } },
+        { duration: FADE_DURATION, easing: "ease-out" },
+      );
+      setTimeout(() => stale.remove(), FADE_DURATION + 20);
+    }
+
+    // 2. Common nodes: update role/color/anchor flag, animate to new position.
+    cy.nodes().forEach((n) => {
+      const nd = newNodeData.get(n.id());
+      if (!nd) return;
+      n.data("role", nd.data.role);
+      n.data("color", nd.data.color);
+      n.data("raw", nd.data.raw);
+      if (nd.data.isAnchor) n.data("isAnchor", true);
+      else n.removeData("isAnchor");
+      n.animate(
+        { position: nd.position, style: { opacity: 1 } },
+        { duration: MORPH_DURATION, easing: "ease-in-out" },
+      );
+    });
+
+    // Common edges: refresh weight-derived width + raw payload reference.
+    cy.edges().forEach((e) => {
+      const ed = newEdgeData.get(e.id());
+      if (!ed) return;
+      e.data("normWidth", ed.data.normWidth);
+      e.data("raw", ed.data.raw);
+    });
+
+    // 3. New nodes/edges: append at opacity 0 then fade in.
+    const existingNodeIds = new Set(cy.nodes().map((n) => n.id()));
+    const existingEdgeIds = new Set(cy.edges().map((e) => e.id()));
+    const toAdd = [
+      ...cyNodes.filter((d) => !existingNodeIds.has(d.data.id)),
+      ...cyEdges.filter((d) => !existingEdgeIds.has(d.data.id)),
+    ];
+    if (toAdd.length) {
+      const added = cy.add(toAdd);
+      added.style("opacity", 0);
+      added.animate(
+        { style: { opacity: 1 } },
+        { duration: MORPH_DURATION, easing: "ease-in" },
+      );
+    }
+
+    // 4. Animate the camera to fit the new graph.
+    cy.animate(
+      { fit: { eles: cy.elements(), padding: 60 } },
+      { duration: MORPH_DURATION, easing: "ease-in-out" },
+    );
+
+    // 5. Update rail + label visibility after the morph settles.
+    railEntries = computeRailEntries(cyNodes, visibleNodes, roles, layoutOut);
+    setTimeout(() => {
+      applyLabelToggle();
+      syncRail();
+      renderAnchorDetail();
+    }, MORPH_DURATION + 30);
   }
 
   // ── detail rendering ────────────────────────────────────────────────────
@@ -1311,12 +1421,13 @@
     if (currentPayload) renderGraph(currentPayload);
   }
 
-  async function refresh() {
+  async function refresh(opts) {
+    opts = opts || {};
     try {
       await fetchStats();
       const data = await fetchNeighborhood();
       if (!data) return;
-      renderGraph(data);
+      renderGraph(data, { animate: !!opts.animate });
     } catch (e) {
       const w = $("cy-wrap");
       w.innerHTML = `<div class="err"><strong>error</strong>${escapeHTML(e.message)}<br/>api base: ${API_BASE}</div>`;
@@ -1333,11 +1444,13 @@
 
     $("anchor-select").addEventListener("change", (e) => {
       anchorId = e.target.value;
-      refresh();
+      refresh({ animate: true });
     });
-    $("depth-input").addEventListener("change", refresh);
-    $("toggle-other").addEventListener("change", () => currentPayload && renderGraph(currentPayload));
-    $("toggle-labels").addEventListener("change", () => currentPayload && renderGraph(currentPayload));
+    $("depth-input").addEventListener("change", () => refresh({ animate: true }));
+    $("toggle-other").addEventListener("change", () =>
+      currentPayload && renderGraph(currentPayload, { animate: true })
+    );
+    $("toggle-labels").addEventListener("change", applyLabelToggle);
     $("theme-btn").addEventListener("click", toggleTheme);
   }
 
