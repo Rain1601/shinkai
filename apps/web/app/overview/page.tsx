@@ -182,7 +182,7 @@ export default function OverviewPage() {
         <section className="agent-kpis">
           <div className={`agent-kpi status-${agentStatus}`}>
             <div className="agent-kpi-eyebrow">
-              {isZh ? "状态 · STATUS" : "Status"}
+              {isZh ? "状态" : "Status"}
             </div>
             <div className="agent-kpi-big">
               <span className={`agent-status-dot ${agentStatus}`} />
@@ -200,46 +200,48 @@ export default function OverviewPage() {
                   ? `${inFlight.length} 个 Subject 跑分析中`
                   : `${inFlight.length} subject(s) analyzing`
                 : isZh
-                  ? "无 SubjectVersion 在跑"
-                  : "no active SubjectVersion"}
+                  ? "Agent 在等任务"
+                  : "Idle — waiting for work"}
             </div>
           </div>
 
-          <div className="agent-kpi">
-            <div className="agent-kpi-eyebrow">
-              {isZh ? "Subjects · 追踪中" : "Subjects · tracked"}
+          <div className="agent-kpi-row">
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "Subjects" : "Subjects"}
+              </div>
+              <div className="agent-kpi-big">{subjects.length}</div>
+              <div className="agent-kpi-foot">
+                {isZh
+                  ? `${totals.company} 公司 · ${totals.theme} 主题`
+                  : `${totals.company} co · ${totals.theme} th`}
+              </div>
             </div>
-            <div className="agent-kpi-big">{subjects.length}</div>
-            <div className="agent-kpi-foot">
-              {isZh
-                ? `${totals.company} 公司 · ${totals.theme} 主题`
-                : `${totals.company} co · ${totals.theme} th`}
-            </div>
-          </div>
 
-          <div className="agent-kpi">
-            <div className="agent-kpi-eyebrow">
-              {isZh ? "SubjectVersions · 累计" : "Versions · lifetime"}
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "Versions" : "Versions"}
+              </div>
+              <div className="agent-kpi-big">{overviewCounts.versions}</div>
+              <div className="agent-kpi-foot">
+                {isZh
+                  ? `${overviewCounts.completed} 完成 · ${overviewCounts.failed} 失败 · ${overviewCounts.today} 24h 内`
+                  : `${overviewCounts.completed} done · ${overviewCounts.failed} failed · ${overviewCounts.today} in 24h`}
+              </div>
             </div>
-            <div className="agent-kpi-big">{overviewCounts.versions}</div>
-            <div className="agent-kpi-foot">
-              {isZh
-                ? `${overviewCounts.completed} 完成 · ${overviewCounts.failed} 失败 · ${overviewCounts.today} 24h 内`
-                : `${overviewCounts.completed} done · ${overviewCounts.failed} failed · ${overviewCounts.today} in 24h`}
-            </div>
-          </div>
 
-          <div className="agent-kpi">
-            <div className="agent-kpi-eyebrow">
-              {isZh ? "图谱 · 覆盖" : "Store · coverage"}
-            </div>
-            <div className="agent-kpi-big">{stats?.entities ?? "—"}</div>
-            <div className="agent-kpi-foot">
-              {stats
-                ? isZh
-                  ? `${stats.relations} 关系 · v${stats.snapshot_version} · ${stats.tickers} ticker`
-                  : `${stats.relations} relations · v${stats.snapshot_version} · ${stats.tickers} tickers`
-                : ""}
+            <div className="agent-kpi">
+              <div className="agent-kpi-eyebrow">
+                {isZh ? "Store" : "Store"}
+              </div>
+              <div className="agent-kpi-big">{stats?.entities ?? "—"}</div>
+              <div className="agent-kpi-foot">
+                {stats
+                  ? isZh
+                    ? `${stats.relations} 关系 · v${stats.snapshot_version} · ${stats.tickers} ticker`
+                    : `${stats.relations} rel · v${stats.snapshot_version} · ${stats.tickers} tickers`
+                  : ""}
+              </div>
             </div>
           </div>
         </section>

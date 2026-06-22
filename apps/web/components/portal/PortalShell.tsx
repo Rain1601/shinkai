@@ -15,7 +15,6 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
-import { AgentIdentityStrip } from "../agent/AgentIdentityStrip";
 import { CheckpointBanner } from "./CheckpointBanner";
 import { ShinkaiMark } from "./ShinkaiMark";
 
@@ -232,9 +231,6 @@ export function PortalShell({
       </aside>
       <main className="portal-main">
         <CheckpointBanner locale={locale} />
-        {active === "overview" || active === "agent" || active === "history" ? (
-          <AgentIdentityStrip locale={locale} />
-        ) : null}
         <header className="portal-header">
           <div>
             <h1>{title}</h1>

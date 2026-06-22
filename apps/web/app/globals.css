@@ -5930,23 +5930,52 @@ select {
 
 .agent-page {
   display: grid;
-  gap: 28px;
+  gap: 32px;
   padding: 22px 0 40px;
 }
 
+/* KPI strip — Status is the primary question (what is the agent doing
+   right now?), so it gets its own larger card on the left. The three
+   numeric stats sit on the right as a tight horizontal row separated
+   by vertical hairlines — no per-card border boxes, no nested-container
+   weight. */
 .agent-kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
-  border: 1px solid var(--hair);
-  padding: 22px 24px;
-  background: var(--abyss-1);
+  grid-template-columns: minmax(280px, 1.4fr) minmax(0, 2fr);
+  gap: 0;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
 }
 
 .agent-kpi {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 28px;
+  position: relative;
+}
+
+/* First card (Status) gets visual weight: it's the only card with a
+   hairline separator carrying through to the stat strip. */
+.agent-kpi:first-child {
+  border-right: 1px solid var(--hair);
+}
+
+/* The three numeric stats live inside a single sub-grid so we can use
+   vertical hairlines as separators instead of duplicating top/bottom
+   borders three times. */
+.agent-kpis > .agent-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.agent-kpis > .agent-kpi-row > .agent-kpi {
+  padding: 22px 24px;
+}
+
+.agent-kpis > .agent-kpi-row > .agent-kpi + .agent-kpi {
+  border-left: 1px solid var(--hair);
 }
 
 .agent-kpi-eyebrow {
@@ -5967,7 +5996,24 @@ select {
   font-variant-numeric: tabular-nums;
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 12px;
+}
+
+/* Status card lifts its number even larger — it's the headline of the
+   page, not a number among numbers. */
+.agent-kpi:first-child .agent-kpi-big {
+  font-size: 48px;
+  font-style: italic;
+}
+
+/* Numeric stats use the mono face so the digits feel like a terminal
+   readout rather than a generic dashboard tile. */
+.agent-kpi-row .agent-kpi-big {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  font-style: normal;
 }
 
 .agent-kpi-foot {
@@ -5984,6 +6030,7 @@ select {
   height: 12px;
   border-radius: 50%;
   background: var(--pearl-mute);
+  flex-shrink: 0;
 }
 
 .agent-status-dot.idle {
@@ -6001,8 +6048,26 @@ select {
   50% { opacity: 0.6; transform: scale(0.92); }
 }
 
+.agent-kpi.status-running {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--teal-soft) 40%, transparent),
+    transparent 70%
+  );
+}
+
 .agent-kpi.status-running .agent-kpi-big {
   color: var(--teal);
+}
+
+@media (max-width: 880px) {
+  .agent-kpis {
+    grid-template-columns: 1fr;
+  }
+  .agent-kpi:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--hair);
+  }
 }
 
 .agent-section {
