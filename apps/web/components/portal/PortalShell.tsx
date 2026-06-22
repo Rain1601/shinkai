@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Activity,
   Gauge,
+  Milestone,
   Moon,
   Network,
   PanelLeftClose,
@@ -37,6 +38,7 @@ type PortalShellProps = {
     | "history"
     | "results"
     | "themes"
+    | "timeline"
     | "a2a";
   actions?: ReactNode;
   children: ReactNode;
@@ -60,6 +62,7 @@ const navItems: NavItem[] = [
   { id: "overview", href: "/overview", label: "Overview", icon: Gauge },
   { id: "agent", href: "/agent", label: "Workspace", icon: Network },
   { id: "history", href: "/runs", label: "Run log", icon: Activity },
+  { id: "timeline", href: "/timeline", label: "Timeline", icon: Milestone },
   { id: "a2a", href: "/a2a", label: "A2A", icon: Radio },
 ];
 
@@ -69,6 +72,7 @@ const zhNavLabels: Record<PortalShellProps["active"], string> = {
   history: "运行日志",
   results: "产出",
   themes: "主题",
+  timeline: "演化",
   a2a: "A2A",
 };
 

@@ -6637,3 +6637,311 @@ select {
   color: var(--pearl-mute);
   font-style: italic;
 }
+
+/* ===================================================================
+ * /timeline — shinkai evolution feed
+ * Manganese palette tokens; vertical rail with month tags and
+ * type-coded section chips. Filter chips on top, entries scroll.
+ * =================================================================== */
+
+.timeline-loading,
+.timeline-error {
+  padding: 32px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--pearl-mute);
+  letter-spacing: 0.06em;
+}
+.timeline-error {
+  color: var(--danger);
+}
+
+.timeline-summary {
+  display: flex;
+  gap: 32px;
+  padding: 18px 24px;
+  border: 1px solid var(--hair-strong);
+  background: var(--abyss-1);
+  margin-bottom: 24px;
+}
+.timeline-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.timeline-summary-num {
+  font-family: var(--display);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+}
+.timeline-summary-lab {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+
+.timeline-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 28px;
+}
+.timeline-filter-chip {
+  background: transparent;
+  border: 1px solid var(--hair-strong);
+  color: var(--pearl-mute);
+  padding: 5px 11px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 150ms var(--ease-snap),
+    border-color 150ms var(--ease-snap),
+    background 150ms var(--ease-snap);
+}
+.timeline-filter-chip:hover {
+  color: var(--pearl);
+  border-color: var(--hair-bright);
+}
+.timeline-filter-chip.active {
+  color: var(--abyss);
+  background: var(--teal);
+  border-color: var(--teal);
+}
+.timeline-filter-chip.type-milestone:not(.active) {
+  color: var(--teal);
+  border-color: var(--teal-line);
+}
+.timeline-filter-chip.type-decision:not(.active) {
+  color: var(--warn);
+  border-color: rgba(197, 134, 88, 0.34);
+}
+
+.timeline-feed {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.timeline-entry {
+  position: relative;
+  padding: 22px 0 22px 36px;
+  border-top: 1px solid var(--hair);
+}
+.timeline-entry:first-of-type {
+  border-top: none;
+}
+.timeline-entry-rail {
+  position: absolute;
+  left: 10px;
+  top: 22px;
+  bottom: 22px;
+  width: 1px;
+  background: var(--hair-strong);
+}
+.timeline-entry::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 32px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--abyss);
+  border: 1.5px solid var(--pearl-dim);
+  z-index: 1;
+}
+.timeline-entry:has(.timeline-section.type-milestone)::before {
+  background: var(--teal);
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px var(--teal-soft);
+}
+.timeline-entry:has(.timeline-section.type-decision):not(:has(.timeline-section.type-milestone))::before {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.timeline-month-tag {
+  position: absolute;
+  left: -68px;
+  top: 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--pearl-faint);
+  text-align: right;
+  width: 60px;
+}
+
+.timeline-entry-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.timeline-entry-date {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+}
+.timeline-entry-title {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  color: var(--pearl);
+  margin: 0;
+}
+
+.timeline-entry-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.timeline-section {
+  padding: 14px 18px;
+  border: 1px solid var(--hair);
+  background: var(--abyss-1);
+  transition: border-color 150ms var(--ease-snap);
+}
+.timeline-section:hover {
+  border-color: var(--hair-strong);
+}
+.timeline-section.type-milestone {
+  border-left: 2px solid var(--teal);
+}
+.timeline-section.type-decision {
+  border-left: 2px solid var(--warn);
+}
+.timeline-section.type-integration {
+  border-left: 2px solid var(--support);
+}
+
+.timeline-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.timeline-section-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid var(--hair-strong);
+  color: var(--pearl-mute);
+  white-space: nowrap;
+}
+.timeline-section-tag.type-milestone {
+  color: var(--teal);
+  border-color: var(--teal-line);
+  background: var(--teal-soft);
+}
+.timeline-section-tag.type-decision {
+  color: var(--warn);
+  border-color: rgba(197, 134, 88, 0.34);
+}
+.timeline-section-tag.type-integration {
+  color: var(--support);
+  border-color: rgba(122, 170, 165, 0.34);
+}
+
+.timeline-section-heading {
+  margin: 0;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 15.5px;
+  line-height: 1.3;
+  letter-spacing: -0.008em;
+  color: var(--pearl);
+}
+
+.timeline-section-body {
+  margin: 10px 0 0;
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--pearl-soft);
+  white-space: pre-wrap;
+}
+
+.timeline-commits {
+  margin-top: 12px;
+}
+.timeline-commits > summary {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--pearl-mute);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  list-style: none;
+}
+.timeline-commits > summary::-webkit-details-marker {
+  display: none;
+}
+.timeline-commits > summary::before {
+  content: "▸ ";
+  color: var(--pearl-faint);
+  transition: transform 150ms var(--ease-snap);
+  display: inline-block;
+}
+.timeline-commits[open] > summary::before {
+  content: "▾ ";
+}
+.timeline-commits > summary:hover {
+  color: var(--pearl-soft);
+}
+.timeline-commits > ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.timeline-commits > ul li {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.timeline-commit-hash {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--teal);
+  background: transparent;
+  padding: 0;
+}
+.timeline-commit-msg {
+  color: var(--pearl-soft);
+  font-family: var(--body);
+}
+
+/* Tighter month tag positioning on narrow screens. */
+@media (max-width: 900px) {
+  .timeline-month-tag {
+    position: static;
+    width: auto;
+    text-align: left;
+    margin-bottom: 8px;
+  }
+}

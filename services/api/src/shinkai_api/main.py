@@ -6,6 +6,7 @@ from shinkai_api.api import (
     actions,
     agent,
     auth,
+    changelog,
     checkpoints,
     evals,
     graph,
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(agent.router, prefix="/api/v1")
     app.include_router(actions.router, prefix="/api/v1")
     app.include_router(industry_graph.router, prefix="/api/v1")
+    app.include_router(changelog.router, prefix="/api/v1")
 
     @app.on_event("startup")
     async def recover_active_runs() -> None:
