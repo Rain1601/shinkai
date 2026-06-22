@@ -13,6 +13,8 @@ Outputs are dual-faced: human-readable dossiers/reports *and* a machine-readable
 
 The authoritative implementation spec is `docs/alignment-v2.md`. Other top-level specs in `docs/` (engineering-framework-v0, agent-loop-and-middle-layer-v0, research-graph-schema-v0, checklists/) are referenced from there. `docs/alignment-v1.md` is historical Q&A and **not authoritative**.
 
+`CHANGELOG.md` at the repo root carries a narrative trace of every milestone, integration, and meaningful update since day 0 (2026-05-31). When you ship something direction-shifting or load-bearing, add an entry at the top — preferred types are `milestone`, `integration`, `feature`, `ui`, `design`, `fix`, `docs`, `decision`.
+
 ## Layout
 
 Monorepo: pnpm workspaces (Node 22 / pnpm 9) + a separate uv-managed Python service.
